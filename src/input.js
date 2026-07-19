@@ -96,10 +96,15 @@ export function attachInput(canvas, game, drag) {
     const state = game.state;
     const { x, y } = pt(e);
 
+    if (state.title) {
+      if (inRect(x, y, UI.start)) { state.title = false; sfx('hero'); }
+      return;
+    }
     if (state.over) {
       if (inRect(x, y, UI.restart)) game.restart();
       return;
     }
+    if (state.phase === 'break' && inRect(x, y, UI.callWave)) { state.phaseT = 0; return; }
     if (inRect(x, y, UI.speed)) { state.speed = state.speed === 1 ? 2 : 1; return; }
     if (inRect(x, y, UI.shovel)) {
       drag.mode = drag.mode === 'shovel' ? null : (state.shovels > 0 ? 'shovel' : null);

@@ -26,7 +26,7 @@ fit();
 
 const game = {
   state: createGame(),
-  restart() { this.state = createGame(); },
+  restart() { this.state = createGame(); this.state.title = false; },
 };
 const drag = { item: null, x: 0, y: 0, mode: null };
 attachInput(canvas, game, drag);
@@ -41,6 +41,7 @@ function step(forcedDt) {
   const dt = forcedDt ?? Math.min((now - last) / 1000, 0.05) * s.speed;
   last = now;
 
+  if (s.title) { s.time += dt; return; } // 标题页不推进战局(time 供高亮脉冲用)
   if (!s.over) {
     s.time += dt;
     updateWaves(s, dt);

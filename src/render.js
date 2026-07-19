@@ -1,6 +1,7 @@
 // 渲染:纸底 / 棋盘 / 字牌 / 敌人 / 特效 / UI —— 全程序化,无图片素材
 import { CONFIG } from './config.js';
 import { enemyXY } from './enemies.js';
+import { canMerge } from './logic.js';
 
 const B = CONFIG.board;
 export const cellXY = (r, c) => ({
@@ -15,6 +16,8 @@ export const UI = {
   speed:   { x: 326, y: 640, w: 72,  h: 58 },
   bench:   { x: 78,  y: 556, w: 48, h: 48, gap: 8 }, // 第 i 格 x = x + i*(w+gap)
   restart: { x: 130, y: 520, w: 160, h: 56 },
+  start:   { x: 110, y: 560, w: 200, h: 64 },  // 标题页:开始游戏
+  callWave:{ x: 60,  y: 60,  w: 300, h: 32 },  // 波间横幅:点击提前开战
 };
 export const benchRect = (i) => ({
   x: UI.bench.x + i * (UI.bench.w + UI.bench.gap), y: UI.bench.y,
@@ -85,7 +88,7 @@ function drawCard(ctx, x, y, size, { char, level, style, shake = 0 }) {
 }
 
 // ---------- 棋盘 ----------
-function drawBoard(ctx, state) {
+function drawBoard(ctx, state, drag) {
   for (let r = 0; r < B.rows; r++) {
     for (let c = 0; c < B.cols; c++) {
       const cell = state.grid[r][c];
@@ -124,6 +127,34 @@ function drawBoard(ctx, state) {
   // 棋盘外框
   ctx.strokeStyle = '#3a3128'; ctx.lineWidth = 2.5;
   ctx.strokeRect(B.ox - 2, B.oy - 2, B.cols * B.cell + 4, B.rows * B.cell + 4);
+
+  // 拖拽/铲子模式高亮
+  if (drag?.item || drag?.mode === 'shovel') {
+    const d = drag;
+    const pulse = 0.5 + 0.5 * Math.sin(state.time * 6);
+    for (let r = 0; r < B.rows; r++) {
+      for (let c = 0; c < B.cols; c++) {
+        const cell = state.grid[r][c];
+        const x = B.ox + c * B.cell, y = B.oy + r * B.cell;
+        if (d.mode === 'shovel') {
+          if (cell.type === 'locked') {
+            ctx.strokeStyle = `rgba(58,107,53,${0.4 + pulse * 0.5})`;
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(x + 3, y + 3, B.cell - 6, B.cell - 6);
+          }
+        } else if (d.item) {
+          if (cell.type === 'open' && !cell.unit) {           // 可落格:绿
+            ctx.fillStyle = `rgba(90,150,90,${0.15 + pulse * 0.15})`;
+            ctx.fillRect(x + 2, y + 2, B.cell - 4, B.cell - 4);
+          } else if (cell.unit && canMerge(cell.unit, d.item)) { // 可合成:金框
+            ctx.strokeStyle = `rgba(200,149,26,${0.6 + pulse * 0.4})`;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x + 2, y + 2, B.cell - 4, B.cell - 4);
+          }
+        }
+      }
+    }
+  }
 
   // 格上单位
   for (let r = 0; r < B.rows; r++) {
@@ -321,26 +352,68 @@ function drawOverlay(ctx, state) {
   drawButton(ctx, UI.restart, '再来一局', null, { seal: true });
 }
 
+// 标题页
+function drawTitle(ctx, state) {
+  paper(ctx);
+  ctx.fillStyle = '#2b241c';
+  ctx.font = font(58);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('赵云与阿斗', 210, 240);
+  ctx.font = font(20, false);
+  ctx.fillStyle = '#6b5d48';
+  ctx.fillText('汉字塔防 · 巨鹿之战', 210, 300);
+  // 印章点缀
+  ctx.save();
+  ctx.translate(320, 350); ctx.rotate(0.12);
+  ctx.fillStyle = '#b23a2e';
+  ctx.fillRect(-26, -26, 52, 52);
+  ctx.fillStyle = '#fff6e8'; ctx.font = font(20);
+  ctx.fillText('复刻', 0, 0);
+  ctx.restore();
+  const best = Number(localStorage.getItem('zyad_best') || 0);
+  ctx.fillStyle = '#6b5d48'; ctx.font = font(15, false);
+  ctx.textAlign = 'center';
+  ctx.fillText(best > 0 ? `最佳纪录:第 ${best} 波` : '守护阿斗,撑过 20 波', 210, 480);
+  drawButton(ctx, UI.start, '开始游戏', null, { seal: true });
+  ctx.fillStyle = 'rgba(90,75,55,0.6)'; ctx.font = font(12, false);
+  ctx.fillText('征兵抽卡 · 同字合成 · 拼出五虎上将', 210, 680);
+}
+
 export function render(ctx, state, drag) {
+  if (state.title) { drawTitle(ctx, state); return; }
   paper(ctx);
   drawTopBar(ctx, state);
-  drawBoard(ctx, state);
+  drawBoard(ctx, state, drag);
   drawEnemies(ctx, state);
   drawEffects(ctx, state);
   drawBench(ctx, state, drag);
 
   const cost = CONFIG.recruitCost(state.recruitCount);
   const benchFree = state.bench.some((b) => b === null);
-  drawButton(ctx, UI.recruit, '征兵', `馒头 ${cost}`, { active: state.mantou >= cost && benchFree, seal: true });
+  const sub = !benchFree ? '营已满' : `馒头 ${cost}`;
+  drawButton(ctx, UI.recruit, '征兵', sub, { active: state.mantou >= cost && benchFree, seal: true });
   drawButton(ctx, UI.shovel, `铲×${state.shovels}`, null, { active: state.shovels > 0, seal: drag?.mode === 'shovel' });
   drawButton(ctx, UI.speed, `×${state.speed}`, null, {});
 
-  // 波间提示
+  // 波间提示(可点击提前开战)
   if (state.phase === 'break' && !state.over) {
     ctx.fillStyle = 'rgba(43,36,28,0.85)';
     ctx.font = font(22);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`第 ${state.wave + 1} 波来袭… ${Math.ceil(state.phaseT)}`, 210, 76);
+    ctx.fillText(`第 ${state.wave + 1} 波来袭… ${Math.ceil(state.phaseT)}`, 210, 72);
+    ctx.font = font(13, false);
+    ctx.fillStyle = '#8a6d3b';
+    ctx.fillText('▶ 点此提前开战', 210, 90);
+  }
+
+  // 危:敌人逼近阿斗警示
+  const endNear = state.enemies.some((e) => e.p > state.path.length * 0.78);
+  if (endNear) {
+    const a = Math.abs(Math.sin(state.time * 5));
+    ctx.fillStyle = `rgba(160,32,32,${0.5 + a * 0.5})`;
+    ctx.font = font(30);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('危', B.ox + 7.5 * B.cell, B.oy + 9.5 * B.cell);
   }
   // 铲子模式提示
   if (drag?.mode === 'shovel') {

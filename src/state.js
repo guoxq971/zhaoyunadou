@@ -5,6 +5,7 @@ import { buildMap } from './map.js';
 export function createGame() {
   const { grid, path } = buildMap();
   return {
+    title: true,   // 标题页(restart 时由 main 置 false 直接开局)
     time: 0,
     speed: 1,
     mantou: CONFIG.startMantou,
@@ -20,7 +21,7 @@ export function createGame() {
     buff: null,      // {mult,until} 刘备光环
     wave: 0,
     phase: 'break',  // break | wave
-    phaseT: 1.5,     // 当前阶段剩余时间(break)/已进行时间(wave)
+    phaseT: 6,       // 首波准备时间(可点击提前开战)
     spawnLeft: 0,
     spawnT: 0,
     over: false, win: false,
