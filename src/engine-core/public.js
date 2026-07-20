@@ -21,6 +21,7 @@ export {
   hashCommandState,
 } from './game-command.js';
 export { gameCommandFromInput, subscribeGameCommands } from './input-intent.js';
+export { setSimulationPaused, setSimulationSpeed } from '../game-clock.js';
 export { createRandomStreams, createSeededRandom } from './random.js';
 export {
   PRESENTATION_CUE_API_VERSION,

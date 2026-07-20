@@ -115,9 +115,19 @@ export function createCommandLog({ limit = 256, header = {} } = {}) {
   });
 }
 
-export function createCommandDispatcher({ handlers, getStateSummary, commandLog, onRejected, onError } = {}) {
+export function createCommandDispatcher({
+  handlers,
+  getStateSummary,
+  commandLog,
+  authorize,
+  onRejected,
+  onError,
+} = {}) {
   if (!handlers || typeof handlers !== 'object') throw new TypeError('[game-command] handlers are required');
   if (typeof getStateSummary !== 'function') throw new TypeError('[game-command] getStateSummary is required');
+  if (authorize !== undefined && typeof authorize !== 'function') {
+    throw new TypeError('[game-command] authorize must be a function');
+  }
   const lastSequence = new Map();
 
   function reject(command, reason) {
@@ -126,21 +136,40 @@ export function createCommandDispatcher({ handlers, getStateSummary, commandLog,
     return result;
   }
 
+  function authorizationReason(command) {
+    if (!authorize) return null;
+    try {
+      const decision = authorize(command);
+      if (decision === true || decision?.ok === true) return null;
+      return typeof decision?.reason === 'string' && decision.reason.length > 0
+        ? decision.reason
+        : 'command-not-authorized';
+    } catch (error) {
+      try { onError?.(error, command); } catch { /* 诊断失败不反向中断规则 */ }
+      return 'authorization-error';
+    }
+  }
+
   function dispatch(command) {
     assertGameCommand(command);
+    // 授权必须早于 sequence 读写；失败命令不得吞掉合法 Controller 的序号。
+    const unauthorizedReason = authorizationReason(command);
     const beforeHash = hashCommandState(getStateSummary());
-    const previous = lastSequence.get(command.actorId) ?? -1;
     let result;
-    if (command.sequence <= previous) result = reject(command, 'stale-sequence');
+    if (unauthorizedReason) result = reject(command, unauthorizedReason);
     else {
-      lastSequence.set(command.actorId, command.sequence);
-      const handler = handlers[command.type];
-      if (typeof handler !== 'function') result = reject(command, 'unknown-command');
+      const previous = lastSequence.get(command.actorId) ?? -1;
+      if (command.sequence <= previous) result = reject(command, 'stale-sequence');
       else {
-        try { result = handler(command) ?? { ok: true, reason: 'none' }; }
-        catch (error) {
-          try { onError?.(error, command); } catch { /* 诊断失败不反向中断规则 */ }
-          result = reject(command, 'handler-error');
+        lastSequence.set(command.actorId, command.sequence);
+        const handler = handlers[command.type];
+        if (typeof handler !== 'function') result = reject(command, 'unknown-command');
+        else {
+          try { result = handler(command) ?? { ok: true, reason: 'none' }; }
+          catch (error) {
+            try { onError?.(error, command); } catch { /* 诊断失败不反向中断规则 */ }
+            result = reject(command, 'handler-error');
+          }
         }
       }
     }

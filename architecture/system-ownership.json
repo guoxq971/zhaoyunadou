@@ -387,7 +387,7 @@
       "commands": [],
       "publishesDomainEvents": ["command.rejected"],
       "consumesDomainEvents": [],
-      "requiredTests": ["test/game-command-test.mjs", "test/foundation-contracts-v2-test.mjs", "test/domain-event-dispatcher-test.mjs", "test/determinism-test.mjs"],
+      "requiredTests": ["test/game-command-test.mjs", "test/match-authorization-contract-test.mjs", "test/foundation-contracts-v2-test.mjs", "test/domain-event-dispatcher-test.mjs", "test/determinism-test.mjs"],
       "responsibilities": ["稳定 ID、GameCommand、确定性随机与状态哈希", "Registry、快照和 API 版本"],
       "nonResponsibilities": ["题材内容与数值公式", "渲染、平台判断与存储实现"]
     },

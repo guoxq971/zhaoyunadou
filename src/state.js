@@ -7,7 +7,7 @@ import { buildBoard, cellAt } from './systems/board/index.js';
 import { ensurePieceIdentity } from './systems/piece/index.js';
 
 export const STATE_SLICE_KEYS = Object.freeze({
-  foundation: Object.freeze(['time', 'speed']),
+  foundation: Object.freeze(['time', 'speed', 'resumeSpeed']),
   match: Object.freeze(['title', 'resetConfirmUntil', 'resetResult', 'stageIndex', 'stage', 'over', 'win']),
   progress: Object.freeze(['clearedStars', 'saved', 'saveWarning']),
   board: Object.freeze(['grid', 'path', 'paths']),
@@ -45,6 +45,7 @@ export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_
     resetConfirmUntil: 0,
     resetResult: 'idle',
     speed: 1,
+    resumeSpeed: 1,
     mantou: config.startMantou,
     lives: config.startLives,
     shovels: config.startShovels,
