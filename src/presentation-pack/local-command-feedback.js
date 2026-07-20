@@ -1,4 +1,4 @@
-import { copyText } from '../engine-core/copy.js';
+import { copyText } from '../engine-core/public.js';
 import { addRing, addText } from '../effects.js';
 import { B, UI, benchRect, cellXY } from '../ui-layout.js';
 import { presentationTokens, themeColors } from '../render-theme.js';
@@ -26,7 +26,7 @@ function targetPoint(target) {
   return { x: 210, y: UI.recruit.y - 14 };
 }
 
-export function createLocalCommandFeedback({ game, drag, gamePack, audioEngine }) {
+export function createLocalCommandFeedback({ game, gamePack, audioEngine }) {
   const copy = (id, values, fallback) => copyText(gamePack, id, values, fallback);
   const colors = themeColors(gamePack);
   const feedback = gamePack.manifests.theme.feedback;
@@ -35,22 +35,7 @@ export function createLocalCommandFeedback({ game, drag, gamePack, audioEngine }
 
   return function presentCommand(command, result) {
     const state = game.state;
-    drag.lastCommand = {
-      type: command.type,
-      ok: Boolean(result.ok),
-      reason: result.reason ?? 'none',
-      action: result.action ?? '',
-      sequence: command.sequence,
-      until: state.time + 2.2,
-    };
-
     if (command.type === 'battle.batch_recruit') {
-      drag.lastRecruitBatch = {
-        filledCount: result.filledCount ?? 0,
-        totalCost: result.totalCost ?? 0,
-        stopReason: result.stopReason ?? result.reason,
-        until: state.time + 2.8,
-      };
       if (result.ok) {
         for (const [index, recruit] of (result.results ?? []).entries()) {
           const rect = benchRect(recruit.slot);

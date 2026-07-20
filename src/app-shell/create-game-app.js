@@ -1,26 +1,27 @@
-import { createSafeAudioAdapter } from '../audio.js';
 import { createGameClock } from '../game-clock.js';
 import { createGameController } from '../game-controller.js';
 import { advanceBattle } from '../game-loop.js';
 import { createLocalGameControl } from '../input.js';
 import { assertHostContract, createLocalEventCollector } from '../platform-services/public.js';
-import { releasePresentationResources } from '../render-theme.js';
-import { render } from '../render.js';
 import { createGameRuntime } from '../runtime.js';
 import { createSafeStorage, createScopedStorage } from '../storage.js';
-import { cellXY } from '../ui-layout.js';
 import { createRandomStreams } from '../engine-core/random.js';
 import { createProgressSave } from '../systems/progress-save/index.js';
+import {
+  createSafeAudioAdapter,
+  releasePresentationResources,
+  renderGame,
+} from '../systems/skin-presentation/index.js';
+import {
+  createInteractionState,
+  createSemanticLayout,
+  resetInteractionState,
+} from '../systems/ui-interaction/index.js';
+import { createMergeDefenseViewModel } from '../rulesets/merge-defense/view-model.js';
 import { createGameStatusSynchronizer } from './game-status.js';
 
 function resetDragState(drag) {
-  Object.assign(drag, {
-    item: null, x: 0, y: 0, mode: null,
-    source: null, expectedSource: null,
-    from: null, index: null, r: null, c: null, hover: null,
-    lastCommand: null,
-    lastRecruitBatch: null,
-  });
+  resetInteractionState(drag);
 }
 
 function cloneState(state) {
@@ -36,11 +37,12 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     try { services.onAdapterError?.(error, source); } catch { /* 诊断回调不能反向中断应用 */ }
   };
   const config = gamePack.config;
+  const layout = createSemanticLayout(config);
   const eventCollector = services.eventCollector ?? createLocalEventCollector();
   const eventSink = services.eventSink ?? eventCollector;
   const random = services.random ?? createRandomStreams(services.randomSeed ?? host.scheduler.now());
   const safeAudio = createSafeAudioAdapter(host.audio, reportAdapterError);
-  const drag = { item: null, x: 0, y: 0, mode: null };
+  const drag = createInteractionState();
   const teardown = [];
   const endedStages = new WeakSet();
   let game = null;
@@ -110,7 +112,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
       syncStatus(state);
       return;
     }
-    if (!state.over) advanceBattle(state, dt, cellXY, gamePack);
+    if (!state.over) advanceBattle(state, dt, layout.cellXY, gamePack);
     if (state.over && !state.saved) {
       const reached = state.win ? state.wave : Math.max(state.wave - 1, 0);
       const settled = progressSave.settleMatchResult({
@@ -133,7 +135,10 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
 
   function draw() {
     if (!started || destroyed || !game) return;
-    try { render(host.surface.getContext(), game.state, drag, gamePack); }
+    try {
+      const viewModel = createMergeDefenseViewModel(game.state, drag, gamePack);
+      renderGame(host.surface.getContext(), viewModel, viewModel.interaction, gamePack, host);
+    }
     catch (error) { reportAdapterError(error, 'render'); }
   }
 

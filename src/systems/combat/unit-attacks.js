@@ -83,10 +83,16 @@ function projectileTarget(state, projectile) {
 export function updateProjectiles(state, dt, cellXY, { tick = 0, publish = null } = {}) {
   if (!Number.isFinite(dt) || dt < 0) throw new RangeError('[combat] dt must be non-negative');
   let resolved = 0;
+  const missed = [];
   for (let index = state.projectiles.length - 1; index >= 0; index--) {
     const projectile = state.projectiles[index];
     const target = projectileTarget(state, projectile);
     if (!target) {
+      missed.push({
+        projectileId: projectile.projectileId ?? null,
+        x: projectile.x,
+        y: projectile.y,
+      });
       state.projectiles.splice(index, 1);
       continue;
     }
@@ -108,5 +114,5 @@ export function updateProjectiles(state, dt, cellXY, { tick = 0, publish = null 
     projectile.x += Math.cos(projectile.ang) * travel;
     projectile.y += Math.sin(projectile.ang) * travel;
   }
-  return { resolved };
+  return { resolved, missed };
 }

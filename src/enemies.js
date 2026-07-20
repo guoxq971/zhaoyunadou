@@ -1,7 +1,5 @@
 // 兼容门面：Encounter 拥有波次，Combat 拥有移动/伤害；本文件仅保留旧 API 和表现适配。
 import { CONFIG } from './config.js';
-import { addInk, addText } from './effects.js';
-import { copyText } from './engine-core/copy.js';
 import { gamePackFor, getStateSlice, randomFor, runtimeFor } from './engine-core/public.js';
 import { routeForEntity } from './systems/board/index.js';
 import {
@@ -15,13 +13,27 @@ import {
   updateStageEncounter,
 } from './systems/stage-encounter/index.js';
 import {
+  drainSystemPresentationCues,
   publishSystemDomainEvent,
+  publishSystemPresentationCue,
   pumpSystemDomainEvents,
 } from './rulesets/merge-defense/domain-event-runtime.js';
+import {
+  consumePresentationCues,
+  PRESENTATION_CUE_TYPES,
+} from './systems/skin-presentation/index.js';
 
 const configFor = (state) => gamePackFor(state)?.config ?? CONFIG;
 const packFor = (state) => gamePackFor(state) ?? { config: CONFIG };
 const tickFor = (state) => runtimeFor(state)?.currentTick?.() ?? 0;
+
+function flushPresentation(state, gamePack) {
+  return consumePresentationCues(
+    state,
+    drainSystemPresentationCues(state, gamePack),
+    gamePack,
+  );
+}
 
 export function ensureEnemyIdentity(state, enemy) {
   if (enemy.enemyId) return enemy.enemyId;
@@ -68,10 +80,14 @@ export function updateWaves(state, dt) {
   }, tickFor(state));
   pumpSystemDomainEvents(state, gamePack);
   if (['wave-completed', 'encounter-completed'].includes(result.action)) {
-    addText(state, 210, 400, copyText(gamePack, 'battle.wave.cleared', {
-      wave: state.wave, reward: result.reward,
-    }, `第${state.wave}波克复 +${result.reward}馒头`), '#8a6d3b', 1.6);
+    publishSystemPresentationCue(state, {
+      type: PRESENTATION_CUE_TYPES.waveCompleted,
+      source: 'integration-quality',
+      tick: tickFor(state),
+      payload: { wave: state.wave, reward: result.reward },
+    }, gamePack);
   }
+  flushPresentation(state, gamePack);
   return result;
 }
 
@@ -97,10 +113,15 @@ export function updateEnemies(state, dt, cellXY) {
     const route = enemy ? routeForEntity(state, enemy) : [];
     const end = route.at(-1);
     const point = end ? cellXY(end.r, end.c) : { x: 0, y: 0 };
-    addInk(state, point.x, point.y, '#a02020');
-    addText(state, point.x, point.y - 20, copyText(gamePack, 'battle.enemy.leak', {}, '-1❤'), '#c03030', 1.2);
+    publishSystemPresentationCue(state, {
+      type: PRESENTATION_CUE_TYPES.enemyLeaked,
+      source: 'integration-quality',
+      tick: event.tick,
+      payload: { ...event.payload, ...point },
+    }, gamePack);
   }
   pumpSystemDomainEvents(state, gamePack);
+  flushPresentation(state, gamePack);
   return result;
 }
 
@@ -115,23 +136,29 @@ export function damageEnemy(state, enemy, damage, cellXY, metadata = {}) {
   ensureEnemyIdentity(state, enemy);
   const gamePack = packFor(state);
   const position = enemyXY(state, enemy, cellXY);
+  const publish = (definition) => {
+    const event = publishSystemDomainEvent(state, definition, gamePack);
+    const type = event.type === 'combat.attack_resolved'
+      ? PRESENTATION_CUE_TYPES.combatAttack
+      : event.type === 'combat.enemy_defeated'
+        ? PRESENTATION_CUE_TYPES.enemyDefeated
+        : null;
+    if (type) publishSystemPresentationCue(state, {
+      type,
+      source: 'integration-quality',
+      tick: event.tick,
+      payload: { ...event.payload, ...position },
+    }, gamePack);
+    return event;
+  };
   const result = resolveDamage(state, enemy, damage, {
     tick: tickFor(state),
     attackerId: metadata.attackerId ?? metadata.source ?? null,
     attackKind: metadata.attackKind ?? 'direct',
-    publish: (definition) => publishSystemDomainEvent(state, definition, gamePack),
+    publish,
   });
   if (!result.ok) return result;
-  enemy.hitFlash = 0.12;
-  addText(state, position.x + (randomFor(state, 'presentation')() * 16 - 8), position.y - 18,
-    String(Math.round(damage)), '#222', 0.7);
-  addInk(state, position.x, position.y, '#1a1a1a');
-  if (result.defeated) {
-    const color = gamePack?.manifests?.theme?.colors?.cinnabarPrimary ?? '#a02020';
-    addText(state, position.x, position.y - 28,
-      copyText(gamePack, 'battle.enemy.defeated', {}, '破'), color, 1.35,
-      { life: 0.82, feedbackId: 'enemy-defeated' });
-  }
   pumpSystemDomainEvents(state, gamePack);
+  flushPresentation(state, gamePack);
   return result;
 }

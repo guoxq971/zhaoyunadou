@@ -1,4 +1,4 @@
-import { createRegistry } from '../engine-core/registry.js';
+import { createRegistry } from '../engine-core/public.js';
 
 const heroRegistryCache = new WeakMap();
 

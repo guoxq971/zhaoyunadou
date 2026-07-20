@@ -9,12 +9,11 @@ import { drawBattleControls } from './render-battle-controls.js';
 import { drawEnemies } from './render-enemies.js';
 import { drawTitle } from './render-title.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { gamePackFor, hostFor, registryFor } from './engine-core/runtime-context.js';
+import { copyText, gamePackFor, hostFor, registryFor } from './engine-core/public.js';
 import {
   createEffectRendererRegistry,
   createHeroPresentationRegistry,
 } from './presentation-pack/presentation-registry.js';
-import { copyText } from './engine-core/copy.js';
 import { drawRouteOverlay } from './presentation-pack/route-overlay.js';
 import { drawBoardInteractionOverlay } from './presentation-pack/board-interaction-overlay.js';
 
@@ -439,9 +438,14 @@ function drawOverlay(ctx, state, gamePack) {
   ctx.restore();
 }
 
-export function render(ctx, state, drag, gamePack = gamePackFor(state, DEFAULT_GAME_PACK)) {
+export function render(
+  ctx,
+  state,
+  drag,
+  gamePack = gamePackFor(state, DEFAULT_GAME_PACK),
+  host = hostFor(state),
+) {
   const config = gamePack.config;
-  const host = hostFor(state);
   const copy = (id, values, fallback) => copyText(gamePack, id, values, fallback);
   if (state.title) { drawTitle(ctx, state, gamePack, host); return; }
   drawBattleBackdrop(ctx, gamePack, host);

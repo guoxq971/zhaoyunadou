@@ -5,8 +5,7 @@ import {
   assetsFor, drawPaper, drawStars, font, presentationTokens, roundRect, themeColors,
 } from './render-theme.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { gamePackFor } from './engine-core/runtime-context.js';
-import { copyText } from './engine-core/copy.js';
+import { copyText, gamePackFor } from './engine-core/public.js';
 
 function inkLine(ctx, x1, y1, x2, y2, width = 2, color = '#473629') {
   ctx.save();

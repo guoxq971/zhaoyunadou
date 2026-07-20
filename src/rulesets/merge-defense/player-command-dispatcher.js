@@ -1,5 +1,6 @@
 import { composeCommandHandlerMaps, eventsFor } from '../../engine-core/public.js';
 import {
+  canMerge,
   createEconomyCommandHandlers,
   itemAtLocation,
   itemSignature,
@@ -26,6 +27,51 @@ export const PLAYER_COMMAND_TYPES = Object.freeze([
   'battle.retry',
   'session.quit',
 ]);
+
+// 集成层把玩法只读 query 注入 UI；UI 本身不导入 Economy 或 ruleset 内部。
+export function createMergeDefenseInputQueries({ getState, gamePack } = {}) {
+  if (typeof getState !== 'function') throw new TypeError('[merge-defense] getState is required');
+  return Object.freeze({
+    findBrushTarget() {
+      const state = getState();
+      for (let row = 0; row < state.grid.length; row++) {
+        for (let column = 0; column < state.grid[row].length; column++) {
+          if (['troop', 'frag'].includes(state.grid[row][column].unit?.kind)) {
+            return { zone: 'grid', r: row, c: column };
+          }
+        }
+      }
+      return null;
+    },
+    findDropTarget(_viewModel, interaction) {
+      const state = getState();
+      const item = interaction.item;
+      if (!item) return null;
+      if (item.kind === 'shovel') {
+        for (let row = 0; row < state.grid.length; row++) {
+          for (let column = 0; column < state.grid[row].length; column++) {
+            if (state.grid[row][column].type === 'locked') {
+              return { zone: 'grid', r: row, c: column };
+            }
+          }
+        }
+        return null;
+      }
+      let empty = null;
+      for (let row = 0; row < state.grid.length; row++) {
+        for (let column = 0; column < state.grid[row].length; column++) {
+          const cell = state.grid[row][column];
+          if (cell.type !== 'open') continue;
+          if (cell.unit && canMerge(cell.unit, item, gamePack)) {
+            return { zone: 'grid', r: row, c: column };
+          }
+          if (!cell.unit && !empty) empty = { zone: 'grid', r: row, c: column };
+        }
+      }
+      return empty;
+    },
+  });
+}
 
 export function resetInteractionState(drag) {
   Object.assign(drag, {

@@ -1,9 +1,8 @@
 // 参考图式底部操作区：营栏与主按钮保持可操作，黑框军械栏只表达系统状态。
 import { UI, benchRect, toolRect } from './ui-layout.js';
 import { drawToolAtlasIcon, font, presentationTokens, roundRect, themeColors } from './render-theme.js';
-import { copyText } from './engine-core/copy.js';
+import { copyText } from './engine-core/public.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { classifyUnitTransfer } from './rulesets/merge-defense/unit-placement.js';
 
 function strokePath(ctx, points, { close = false, width = 3, color = '#211b16' } = {}) {
   ctx.beginPath();
@@ -89,13 +88,9 @@ function drawCamp(ctx, state, drag, drawCard, gamePack, host) {
       ctx.strokeRect(rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6);
       ctx.setLineDash([]);
     } else if (drag?.item?.kind === 'troop' || drag?.item?.kind === 'frag') {
-      const preview = classifyUnitTransfer(state, {
-        source: drag.source,
-        target: { zone: 'bench', index: i },
-        expectedSource: drag.expectedSource,
-      }, gamePack);
+      const preview = state.interactionTargets?.bench?.[i];
       const hovered = drag.hover?.zone === 'bench' && drag.hover.index === i;
-      const color = preview.ok
+      const color = preview?.ok
         ? preview.action === 'swap' ? (colors.swapTarget ?? '#287eaa') : (colors.validTarget ?? '#3b8b55')
         : hovered ? (colors.invalidTarget ?? '#bd2d26') : null;
       if (color) {
@@ -164,27 +159,12 @@ function drawBrush(ctx, rect, state, drag, gamePack, host) {
   ctx.fillText(`×${state.brushes ?? 0}`, cx + 15, cy + 18);
 }
 
-function batchPreview(state, config) {
-  const free = state.bench.filter((item) => item === null).length;
-  let remaining = state.mantou;
-  let count = 0;
-  let cost = 0;
-  while (count < free) {
-    const next = config.recruitCost(state.recruitCount + count);
-    if (remaining < next) break;
-    remaining -= next;
-    cost += next;
-    count++;
-  }
-  return { free, count, cost };
-}
-
 function drawRecruit(ctx, state, drag, gamePack, host) {
   const config = gamePack.config;
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
   const rect = UI.recruit;
-  const preview = batchPreview(state, config);
+  const preview = state.recruitPreview ?? { free: 0, count: 0, cost: 0 };
   const enabled = preview.count > 0;
   ctx.save();
   ctx.shadowColor = enabled ? 'rgba(45,26,16,0.34)' : 'rgba(45,26,16,0.08)';

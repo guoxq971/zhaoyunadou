@@ -1,6 +1,9 @@
 // 水墨粒子 / 飘字 / 弹道 / 技能演出(数据 + 更新;绘制在 render.js)
-import { EFFECT_IDS, EFFECT_LIFECYCLE_REGISTRY } from './rulesets/merge-defense/effect-registry.js';
-import { randomFor } from './engine-core/runtime-context.js';
+import {
+  EFFECT_IDS,
+  EFFECT_LIFECYCLE_REGISTRY,
+} from './systems/skin-presentation/effect-lifecycle.js';
+import { randomFor } from './engine-core/public.js';
 
 const effect = (kind, values) => ({ kind, effectId: `effect.${kind}`, ...values });
 

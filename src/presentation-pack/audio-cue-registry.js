@@ -1,4 +1,4 @@
-import { createRegistry } from '../engine-core/registry.js';
+import { createRegistry } from '../engine-core/public.js';
 
 export function createAudioCueRegistry(audioManifest) {
   const entries = {};

@@ -1,5 +1,4 @@
 import { B } from '../ui-layout.js';
-import { classifyUnitTransfer } from '../rulesets/merge-defense/unit-placement.js';
 import { presentationTokens, themeColors } from '../render-theme.js';
 
 function hovered(drag, r, c) {
@@ -13,11 +12,11 @@ export function drawBoardInteractionOverlay(ctx, state, drag, gamePack) {
   const pulse = 0.5 + 0.5 * Math.sin(state.time * Math.PI * 2 * motion.targetPulseHz);
   for (let r = 0; r < B.rows; r++) {
     for (let c = 0; c < B.cols; c++) {
-      const cell = state.grid[r][c];
+      const preview = state.interactionTargets?.grid?.[r]?.[c] ?? null;
       const x = B.ox + c * B.cellW;
       const y = B.oy + r * B.cellH;
       if (drag.mode === 'brush') {
-        const color = ['troop', 'frag'].includes(cell.unit?.kind)
+        const color = preview?.ok
           ? colors.qingPlayable
           : hovered(drag, r, c) ? (colors.invalidTarget ?? '#bd2d26') : null;
         if (color) {
@@ -28,23 +27,18 @@ export function drawBoardInteractionOverlay(ctx, state, drag, gamePack) {
         continue;
       }
       if (drag.mode === 'shovel' || drag.item?.kind === 'shovel') {
-        const color = cell.type === 'locked'
+        const color = preview?.ok
           ? colors.qingPlayable
           : hovered(drag, r, c) ? (colors.invalidTarget ?? '#bd2d26') : null;
         if (color) {
           ctx.strokeStyle = color;
-          ctx.lineWidth = cell.type === 'locked' && !drag.item ? 2.5 : 3;
+          ctx.lineWidth = preview?.ok && !drag.item ? 2.5 : 3;
           ctx.strokeRect(x + 3, y + 3, B.cellW - 6, B.cellH - 6);
         }
         continue;
       }
       if (!drag.item) continue;
-      const preview = classifyUnitTransfer(state, {
-        source: drag.source,
-        target: { zone: 'grid', r, c },
-        expectedSource: drag.expectedSource,
-      }, gamePack);
-      if (preview.ok) {
+      if (preview?.ok) {
         ctx.save();
         ctx.globalAlpha = preview.action === 'merge' ? 0.12 + pulse * 0.1 : 0.13 + pulse * 0.13;
         ctx.fillStyle = preview.action === 'merge' ? colors.mergeTarget : colors.qingPlayable;

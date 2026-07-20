@@ -1,9 +1,7 @@
 // 敌军主体按实机采用「贼」字，兵种差异只交给小挂件、尺寸、血条和颜色表达。
-import { enemyXY } from './enemies.js';
 import { font } from './render-theme.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { gamePackFor } from './engine-core/runtime-context.js';
-import { copyText } from './engine-core/copy.js';
+import { copyText, gamePackFor } from './engine-core/public.js';
 
 function drawSpeedAccent(ctx, size) {
   ctx.strokeStyle = '#647648';
@@ -100,13 +98,10 @@ function drawEnemyHealth(ctx, enemy, type, x, y) {
 
 export function drawEnemies(ctx, state, gamePack = gamePackFor(state, DEFAULT_GAME_PACK)) {
   const config = gamePack.config;
-  const cellXY = (r, c) => ({
-    x: config.board.ox + (c + 0.5) * config.board.cellW,
-    y: config.board.oy + (r + 0.5) * config.board.cellH,
-  });
-  for (const enemy of state.enemies) {
+  for (const enemy of state.enemyViews ?? []) {
     const type = config.enemy.types[enemy.type];
-    const { x, y } = enemyXY(state, enemy, cellXY);
+    const x = enemy.position.x;
+    const y = enemy.position.y + Math.sin(enemy.bob ?? 0) * 2;
     const boss = enemy.type === 'boss';
     const radius = (boss ? 27 : 16) * type.size;
 

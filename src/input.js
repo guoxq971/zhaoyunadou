@@ -1,14 +1,24 @@
-// 输入装配：Host 标准输入 → LocalPlayerController → 语义 GameCommand → ruleset。
+// 兼容装配：Host 标准输入 → UI intent binding → LocalPlayerController → GameCommand。
 import { createLocalPlayerController } from './controllers/local-player-controller.js';
-import { createCommandDispatcher, createCommandLog } from './engine-core/game-command.js';
-import { publishDomainEventFor } from './engine-core/runtime-context.js';
+import {
+  createCommandDispatcher,
+  createCommandLog,
+  publishDomainEventFor,
+} from './engine-core/public.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
 import { createLocalCommandFeedback } from './presentation-pack/local-command-feedback.js';
 import { snapshotMergeDefenseCommandState } from './rulesets/merge-defense/command-state.js';
 import {
   createMergeDefenseCommandHandlers,
-  resetInteractionState,
+  createMergeDefenseInputQueries,
 } from './rulesets/merge-defense/player-command-dispatcher.js';
+import {
+  createGameViewModel,
+  createLocalInputBinding,
+  createSemanticLayout,
+  recordCommandResult,
+  resetInteractionState,
+} from './systems/ui-interaction/index.js';
 
 const NOOP_AUDIO = Object.freeze({ init: () => false, play: () => false });
 
@@ -28,9 +38,12 @@ export function createLocalGameControl({
       contentVersion: gamePack.versions.contentVersion,
     },
   }),
+  inputQueries,
+  presentCommand,
   onCommandError,
 } = {}) {
   resetInteractionState(drag);
+  const layout = createSemanticLayout(gamePack.config);
   const handlers = createMergeDefenseCommandHandlers({ game, drag, gamePack });
   const dispatcher = createCommandDispatcher({
     handlers,
@@ -46,24 +59,60 @@ export function createLocalGameControl({
     },
     onError: onCommandError,
   });
-  const present = createLocalCommandFeedback({ game, drag, gamePack, audioEngine });
+  // 交互结果由 UI 记录；Skin presenter 只消费结果生成像素和声音。
+  const present = presentCommand ?? createLocalCommandFeedback({
+    game,
+    gamePack,
+    audioEngine,
+  });
   const controller = createLocalPlayerController({
+    dispatch: dispatcher.dispatch,
+    getTick,
+    getTime: () => game.state.time,
+    onSubmitted(command, result) {
+      recordCommandResult(drag, command, result, game.state.time);
+      present(command, result);
+    },
+  });
+  const binding = createLocalInputBinding({
     inputSource,
     surface,
-    game,
-    drag,
-    gamePack,
-    dispatch: dispatcher.dispatch,
-    present,
-    getTick,
+    layout,
+    interaction: drag,
+    getViewModel: () => createGameViewModel(game.state, drag, {
+      stageCount: gamePack.config.campaign.stages.length,
+      benchSize: gamePack.config.benchSize,
+    }),
+    submit: controller.submit,
+    queries: inputQueries ?? createMergeDefenseInputQueries({ getState: () => game.state, gamePack }),
     onGesture: () => { void audioEngine.init?.(); },
   });
+  let started = false;
+  let destroyed = false;
+
+  function start() {
+    if (started || destroyed) return false;
+    if (!controller.start()) return false;
+    if (!binding.start()) return false;
+    started = true;
+    return true;
+  }
+
+  function destroy() {
+    if (destroyed) return false;
+    binding.destroy();
+    controller.destroy();
+    started = false;
+    destroyed = true;
+    return true;
+  }
+
   return Object.freeze({
     controller,
     commandLog,
     dispatch: dispatcher.dispatch,
-    start: controller.start,
-    destroy: controller.destroy,
+    start,
+    destroy,
   });
 }
 

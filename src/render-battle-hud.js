@@ -1,7 +1,7 @@
 // 战斗态势层：参考图式悬浮资源、波次、装备、Boss、暂停与临近失守提示。
 import { B, UI, boardHeight, boardWidth } from './ui-layout.js';
 import { drawToolAtlasIcon, font, presentationTokens, roundRect, themeColors } from './render-theme.js';
-import { copyText } from './engine-core/copy.js';
+import { copyText } from './engine-core/public.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
 
 function drawHeart(ctx, x, y, size, filled = true) {

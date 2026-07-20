@@ -10,12 +10,6 @@
   "temporaryImportExceptions": [
     {
       "source": "src/app-shell/create-game-app.js",
-      "target": "src/audio.js",
-      "reason": "兼容迁移期间 integration-quality 尚未改经 skin-presentation 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/app-shell/create-game-app.js",
       "target": "src/game-clock.js",
       "reason": "兼容迁移期间 integration-quality 尚未改经 foundation-runtime 公共入口",
       "removeByPhase": "G"
@@ -34,26 +28,8 @@
     },
     {
       "source": "src/app-shell/create-game-app.js",
-      "target": "src/render-theme.js",
-      "reason": "兼容迁移期间 integration-quality 尚未改经 skin-presentation 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/app-shell/create-game-app.js",
-      "target": "src/render.js",
-      "reason": "兼容迁移期间 integration-quality 尚未改经 skin-presentation 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/app-shell/create-game-app.js",
       "target": "src/storage.js",
       "reason": "兼容迁移期间 integration-quality 尚未改经 platform-services 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/app-shell/create-game-app.js",
-      "target": "src/ui-layout.js",
-      "reason": "兼容迁移期间 integration-quality 尚未改经 ui-interaction 公共入口",
       "removeByPhase": "G"
     },
     {
@@ -84,54 +60,6 @@
       "source": "src/canvas-fit.js",
       "target": "src/config.js",
       "reason": "兼容迁移期间 platform-services 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/controllers/local-player-controller.js",
-      "target": "src/engine-core/controller.js",
-      "reason": "兼容迁移期间 match-controller 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/controllers/local-player-controller.js",
-      "target": "src/engine-core/game-command.js",
-      "reason": "兼容迁移期间 match-controller 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/controllers/local-player-controller.js",
-      "target": "src/engine-core/game-command-source.js",
-      "reason": "兼容迁移期间 match-controller 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/controllers/local-player-controller.js",
-      "target": "src/logic.js",
-      "reason": "兼容迁移期间 match-controller 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/controllers/local-player-controller.js",
-      "target": "src/ui-layout.js",
-      "reason": "兼容迁移期间 match-controller 尚未改经 ui-interaction 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/effects.js",
-      "target": "src/engine-core/runtime-context.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/enemies.js",
-      "target": "src/effects.js",
-      "reason": "兼容迁移期间 integration-quality 尚未改经 skin-presentation 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/enemies.js",
-      "target": "src/engine-core/copy.js",
-      "reason": "兼容迁移期间 integration-quality 尚未改经 foundation-runtime 公共入口",
       "removeByPhase": "G"
     },
     {
@@ -168,18 +96,6 @@
       "source": "src/input.js",
       "target": "src/controllers/local-player-controller.js",
       "reason": "兼容迁移期间 ui-interaction 尚未改经 match-controller 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/input.js",
-      "target": "src/engine-core/game-command.js",
-      "reason": "兼容迁移期间 ui-interaction 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/input.js",
-      "target": "src/engine-core/runtime-context.js",
-      "reason": "兼容迁移期间 ui-interaction 尚未改经 foundation-runtime 公共入口",
       "removeByPhase": "G"
     },
     {
@@ -225,39 +141,15 @@
       "removeByPhase": "G"
     },
     {
-      "source": "src/presentation-pack/audio-cue-registry.js",
-      "target": "src/engine-core/registry.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
       "source": "src/presentation-pack/board-interaction-overlay.js",
       "target": "src/ui-layout.js",
       "reason": "兼容迁移期间 skin-presentation 尚未改经 ui-interaction 公共入口",
       "removeByPhase": "G"
     },
     {
-      "source": "src/presentation-pack/board-interaction-overlay.js",
-      "target": "src/rulesets/merge-defense/unit-placement.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/presentation-pack/local-command-feedback.js",
-      "target": "src/engine-core/copy.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
       "source": "src/presentation-pack/local-command-feedback.js",
       "target": "src/ui-layout.js",
       "reason": "兼容迁移期间 skin-presentation 尚未改经 ui-interaction 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/presentation-pack/presentation-registry.js",
-      "target": "src/engine-core/registry.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
       "removeByPhase": "G"
     },
     {
@@ -274,19 +166,7 @@
     },
     {
       "source": "src/render-battle-controls.js",
-      "target": "src/engine-core/copy.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render-battle-controls.js",
       "target": "src/game-pack.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render-battle-controls.js",
-      "target": "src/rulesets/merge-defense/unit-placement.js",
       "reason": "兼容迁移期间 skin-presentation 尚未改经 integration-quality 公共入口",
       "removeByPhase": "G"
     },
@@ -298,19 +178,7 @@
     },
     {
       "source": "src/render-battle-hud.js",
-      "target": "src/engine-core/copy.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render-battle-hud.js",
       "target": "src/game-pack.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render-enemies.js",
-      "target": "src/enemies.js",
       "reason": "兼容迁移期间 skin-presentation 尚未改经 integration-quality 公共入口",
       "removeByPhase": "G"
     },
@@ -318,18 +186,6 @@
       "source": "src/render-enemies.js",
       "target": "src/game-pack.js",
       "reason": "兼容迁移期间 skin-presentation 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render-enemies.js",
-      "target": "src/engine-core/runtime-context.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render-enemies.js",
-      "target": "src/engine-core/copy.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
       "removeByPhase": "G"
     },
     {
@@ -363,18 +219,6 @@
       "removeByPhase": "G"
     },
     {
-      "source": "src/render-title.js",
-      "target": "src/engine-core/runtime-context.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render-title.js",
-      "target": "src/engine-core/copy.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
       "source": "src/render.js",
       "target": "src/ui-layout.js",
       "reason": "兼容迁移期间 skin-presentation 尚未改经 ui-interaction 公共入口",
@@ -384,24 +228,6 @@
       "source": "src/render.js",
       "target": "src/game-pack.js",
       "reason": "兼容迁移期间 skin-presentation 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render.js",
-      "target": "src/engine-core/runtime-context.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/render.js",
-      "target": "src/engine-core/copy.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/rulesets/merge-defense/effect-registry.js",
-      "target": "src/engine-core/registry.js",
-      "reason": "兼容迁移期间 skin-presentation 尚未改经 foundation-runtime 公共入口",
       "removeByPhase": "G"
     },
     {
@@ -426,12 +252,6 @@
       "source": "src/ui-layout.js",
       "target": "src/config.js",
       "reason": "兼容迁移期间 ui-interaction 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/units.js",
-      "target": "src/effects.js",
-      "reason": "兼容迁移期间 integration-quality 尚未改经 skin-presentation 公共入口",
       "removeByPhase": "G"
     }
   ],
@@ -749,7 +569,7 @@
     },
     {
       "systemId": "ui-interaction",
-      "migrationStatus": "planned",
+      "migrationStatus": "active",
       "ownedPaths": ["src/systems/ui-interaction/**", "src/input.js", "src/ui-layout.js"],
       "ownerRole": "UI 与交互维护者",
       "ownedStateSlice": "interaction",
@@ -765,7 +585,7 @@
     },
     {
       "systemId": "skin-presentation",
-      "migrationStatus": "planned",
+      "migrationStatus": "active",
       "ownedPaths": [
         "src/systems/skin-presentation/**", "src/presentation-pack/**",
         "src/audio.js", "src/effects.js", "src/render.js", "src/render-theme.js",
@@ -779,7 +599,13 @@
       "commands": [],
       "publishesDomainEvents": [],
       "consumesDomainEvents": ["combat.attack_resolved", "combat.enemy_defeated", "combat.enemy_leaked", "skill.cast", "encounter.wave_started", "encounter.wave_completed", "command.rejected"],
-      "consumesPresentationCues": ["skill.cast_feedback", "skill.impact_feedback", "interaction.feedback"],
+      "consumesPresentationCues": [
+        "skill.cast_feedback", "skill.impact_feedback", "interaction.feedback",
+        "combat.attack_feedback", "combat.enemy_defeated_feedback",
+        "combat.enemy_leaked_feedback", "combat.projectile_missed_feedback",
+        "encounter.wave_completed_feedback", "economy.producer_income_feedback",
+        "equipment.item_generated_feedback"
+      ],
       "requiredTests": ["test/skin-presentation-system-test.mjs", "test/route-presentation-test.mjs"],
       "responsibilities": ["主题 token、Renderer、动画、音频和 PresentationCue", "稳定素材 ID 与只读 ViewModel 表现"],
       "nonResponsibilities": ["输入热区和棋盘逻辑", "攻击范围、伤害及胜负"]
@@ -812,6 +638,7 @@
         "src/rulesets/merge-defense/domain-event-router.js",
         "src/rulesets/merge-defense/domain-event-runtime.js",
         "src/rulesets/merge-defense/player-command-dispatcher.js",
+        "src/rulesets/merge-defense/view-model.js",
         "src/rulesets/merge-defense/unit-placement.js",
         "src/rulesets/merge-defense/skill-registry.js",
         "src/rulesets/merge-defense/item-registry.js",
@@ -826,6 +653,12 @@
       "commands": [],
       "publishesDomainEvents": ["session.started", "session.ended"],
       "consumesDomainEvents": ["match.started", "match.ended"],
+      "publishesPresentationCues": [
+        "combat.attack_feedback", "combat.enemy_defeated_feedback",
+        "combat.enemy_leaked_feedback", "combat.projectile_missed_feedback",
+        "encounter.wave_completed_feedback", "economy.producer_income_feedback",
+        "equipment.item_generated_feedback"
+      ],
       "consumesPresentationCues": ["skill.cast_feedback", "skill.impact_feedback", "interaction.feedback"],
       "requiredTests": ["test/system-boundaries-v2-test.mjs", "test/create-game-app-test.mjs", "test/screenshots-test.mjs"],
       "responsibilities": ["composition root、系统顺序、生成索引和测试编排", "CI、发布指纹和跨系统接线"],
