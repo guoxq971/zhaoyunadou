@@ -1,0 +1,1024 @@
+{
+  "schemaVersion": "2.0.0",
+  "contractVersion": "1.0.0",
+  "baselineCommit": "9796962a76cdc222b94d2e1fce6d165ba1843509",
+  "governedPaths": ["src/**", "games/zhaoyun-adou/**"],
+  "systemUpdateOrder": [
+    "foundation-runtime", "equipment-items", "stage-encounter", "combat",
+    "economy-formation", "skill-status", "skin-presentation"
+  ],
+  "temporaryImportExceptions": [
+    {
+      "source": "src/actions.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 economy-formation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/campaign.js",
+      "reason": "候选基座 integration-quality 尚未改经 progress-save 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/audio.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/game-clock.js",
+      "reason": "候选基座 integration-quality 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/game-controller.js",
+      "reason": "候选基座 integration-quality 尚未改经 match-controller 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/input.js",
+      "reason": "候选基座 integration-quality 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/platform-services/local-event-collector.js",
+      "reason": "候选基座 integration-quality 尚未改经 platform-services 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/render-theme.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/render.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/storage.js",
+      "reason": "候选基座 integration-quality 尚未改经 platform-services 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 integration-quality 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/create-game-app.js",
+      "target": "src/engine-core/random.js",
+      "reason": "候选基座 integration-quality 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/game-status.js",
+      "target": "src/campaign.js",
+      "reason": "候选基座 integration-quality 尚未改经 progress-save 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/game-status.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 integration-quality 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/app-shell/game-status.js",
+      "target": "src/render-theme.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/campaign.js",
+      "target": "src/config.js",
+      "reason": "候选基座 progress-save 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/campaign.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 progress-save 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/canvas-fit.js",
+      "target": "src/config.js",
+      "reason": "候选基座 platform-services 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/controllers/local-player-controller.js",
+      "target": "src/engine-core/controller.js",
+      "reason": "候选基座 match-controller 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/controllers/local-player-controller.js",
+      "target": "src/engine-core/game-command.js",
+      "reason": "候选基座 match-controller 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/controllers/local-player-controller.js",
+      "target": "src/engine-core/game-command-source.js",
+      "reason": "候选基座 match-controller 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/controllers/local-player-controller.js",
+      "target": "src/logic.js",
+      "reason": "候选基座 match-controller 尚未改经 economy-formation 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/controllers/local-player-controller.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 match-controller 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/effects.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/enemies.js",
+      "target": "src/config.js",
+      "reason": "候选基座 stage-encounter 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/enemies.js",
+      "target": "src/effects.js",
+      "reason": "候选基座 stage-encounter 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/enemies.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 stage-encounter 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/enemies.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 stage-encounter 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/field-tools.js",
+      "target": "src/effects.js",
+      "reason": "候选基座 equipment-items 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/field-tools.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 equipment-items 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/field-tools.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 equipment-items 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/game-controller.js",
+      "target": "src/campaign.js",
+      "reason": "候选基座 match-controller 尚未改经 progress-save 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/game-controller.js",
+      "target": "src/state.js",
+      "reason": "候选基座 match-controller 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/game-controller.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 match-controller 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "F"
+    },
+    {
+      "source": "src/game-loop.js",
+      "target": "src/enemies.js",
+      "reason": "候选基座 integration-quality 尚未改经 stage-encounter 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/game-loop.js",
+      "target": "src/units.js",
+      "reason": "候选基座 integration-quality 尚未改经 combat 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/game-loop.js",
+      "target": "src/heroes.js",
+      "reason": "候选基座 integration-quality 尚未改经 skill-status 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/game-loop.js",
+      "target": "src/effects.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/game-loop.js",
+      "target": "src/rulesets/merge-defense/item-registry.js",
+      "reason": "候选基座 integration-quality 尚未改经 equipment-items 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/game-pack.js",
+      "target": "src/engine-core/game-pack.js",
+      "reason": "候选基座 integration-quality 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/heroes.js",
+      "target": "src/config.js",
+      "reason": "候选基座 skill-status 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/heroes.js",
+      "target": "src/units.js",
+      "reason": "候选基座 skill-status 尚未改经 combat 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/heroes.js",
+      "target": "src/enemies.js",
+      "reason": "候选基座 skill-status 尚未改经 stage-encounter 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/heroes.js",
+      "target": "src/effects.js",
+      "reason": "候选基座 skill-status 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/heroes.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 skill-status 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/heroes.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 skill-status 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/heroes.js",
+      "target": "src/presentation-pack/feedback-effect.js",
+      "reason": "候选基座 skill-status 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/input.js",
+      "target": "src/controllers/local-player-controller.js",
+      "reason": "候选基座 ui-interaction 尚未改经 match-controller 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/input.js",
+      "target": "src/engine-core/game-command.js",
+      "reason": "候选基座 ui-interaction 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/input.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 ui-interaction 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/input.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 ui-interaction 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/input.js",
+      "target": "src/presentation-pack/local-command-feedback.js",
+      "reason": "候选基座 ui-interaction 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/input.js",
+      "target": "src/rulesets/merge-defense/command-state.js",
+      "reason": "候选基座 ui-interaction 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/input.js",
+      "target": "src/rulesets/merge-defense/player-command-dispatcher.js",
+      "reason": "候选基座 ui-interaction 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/logic.js",
+      "target": "src/config.js",
+      "reason": "候选基座 economy-formation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/logic.js",
+      "target": "src/state.js",
+      "reason": "候选基座 economy-formation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/logic.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 economy-formation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/main.js",
+      "target": "src/platform-services/local-event-collector.js",
+      "reason": "候选基座 integration-quality 尚未改经 platform-services 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/main.js",
+      "target": "src/platforms/web/web-host.js",
+      "reason": "候选基座 integration-quality 尚未改经 platform-services 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/map.js",
+      "target": "src/config.js",
+      "reason": "候选基座 board-route 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "C"
+    },
+    {
+      "source": "src/platform-services/local-event-collector.js",
+      "target": "src/engine-core/events.js",
+      "reason": "候选基座 platform-services 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/platforms/web/web-audio.js",
+      "target": "src/presentation-pack/audio-cue-registry.js",
+      "reason": "候选基座 platform-services 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/presentation-pack/audio-cue-registry.js",
+      "target": "src/engine-core/registry.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/presentation-pack/board-interaction-overlay.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 skin-presentation 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/presentation-pack/board-interaction-overlay.js",
+      "target": "src/rulesets/merge-defense/unit-placement.js",
+      "reason": "候选基座 skin-presentation 尚未改经 board-route 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/presentation-pack/local-command-feedback.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/presentation-pack/local-command-feedback.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 skin-presentation 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/presentation-pack/presentation-registry.js",
+      "target": "src/engine-core/registry.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/presentation-pack/route-overlay.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 skin-presentation 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-battle-controls.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 skin-presentation 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-battle-controls.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-battle-controls.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-battle-controls.js",
+      "target": "src/rulesets/merge-defense/unit-placement.js",
+      "reason": "候选基座 skin-presentation 尚未改经 board-route 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-battle-hud.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 skin-presentation 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-battle-hud.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-battle-hud.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-enemies.js",
+      "target": "src/enemies.js",
+      "reason": "候选基座 skin-presentation 尚未改经 stage-encounter 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-enemies.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-enemies.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-enemies.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-theme.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-theme.js",
+      "target": "src/engine-core/assets.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-title.js",
+      "target": "src/campaign.js",
+      "reason": "候选基座 skin-presentation 尚未改经 progress-save 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-title.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 skin-presentation 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-title.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-title.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render-title.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render.js",
+      "target": "src/ui-layout.js",
+      "reason": "候选基座 skin-presentation 尚未改经 ui-interaction 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render.js",
+      "target": "src/game-pack.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 skin-presentation 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/render.js",
+      "target": "src/engine-core/copy.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/rulesets/merge-defense/effect-registry.js",
+      "target": "src/engine-core/registry.js",
+      "reason": "候选基座 skin-presentation 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/rulesets/merge-defense/item-registry.js",
+      "target": "src/engine-core/registry.js",
+      "reason": "候选基座 equipment-items 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/rulesets/merge-defense/item-registry.js",
+      "target": "src/logic.js",
+      "reason": "候选基座 equipment-items 尚未改经 economy-formation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/rulesets/merge-defense/player-command-dispatcher.js",
+      "target": "src/actions.js",
+      "reason": "候选基座 integration-quality 尚未改经 economy-formation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/rulesets/merge-defense/player-command-dispatcher.js",
+      "target": "src/logic.js",
+      "reason": "候选基座 integration-quality 尚未改经 economy-formation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/rulesets/merge-defense/player-command-dispatcher.js",
+      "target": "src/rulesets/merge-defense/item-registry.js",
+      "reason": "候选基座 integration-quality 尚未改经 equipment-items 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/rulesets/merge-defense/player-command-dispatcher.js",
+      "target": "src/rulesets/merge-defense/unit-placement.js",
+      "reason": "候选基座 integration-quality 尚未改经 board-route 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/rulesets/merge-defense/skill-registry.js",
+      "target": "src/engine-core/registry.js",
+      "reason": "候选基座 skill-status 尚未改经 foundation-runtime 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/rulesets/merge-defense/skill-registry.js",
+      "target": "src/enemies.js",
+      "reason": "候选基座 skill-status 尚未改经 stage-encounter 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/rulesets/merge-defense/skill-registry.js",
+      "target": "src/effects.js",
+      "reason": "候选基座 skill-status 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/rulesets/merge-defense/skill-registry.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 skill-status 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/rulesets/merge-defense/unit-placement.js",
+      "target": "src/logic.js",
+      "reason": "候选基座 board-route 尚未改经 economy-formation 公共入口",
+      "removeByPhase": "C"
+    },
+    {
+      "source": "src/runtime.js",
+      "target": "src/rulesets/merge-defense/skill-registry.js",
+      "reason": "候选基座 integration-quality 尚未改经 skill-status 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/runtime.js",
+      "target": "src/rulesets/merge-defense/item-registry.js",
+      "reason": "候选基座 integration-quality 尚未改经 equipment-items 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/runtime.js",
+      "target": "src/rulesets/merge-defense/effect-registry.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/runtime.js",
+      "target": "src/presentation-pack/presentation-registry.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/runtime.js",
+      "target": "src/presentation-pack/audio-cue-registry.js",
+      "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/state.js",
+      "target": "src/campaign.js",
+      "reason": "候选基座 integration-quality 尚未改经 progress-save 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/state.js",
+      "target": "src/map.js",
+      "reason": "候选基座 integration-quality 尚未改经 board-route 公共入口",
+      "removeByPhase": "G"
+    },
+    {
+      "source": "src/ui-layout.js",
+      "target": "src/config.js",
+      "reason": "候选基座 ui-interaction 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "E"
+    },
+    {
+      "source": "src/units.js",
+      "target": "src/config.js",
+      "reason": "候选基座 combat 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/units.js",
+      "target": "src/logic.js",
+      "reason": "候选基座 combat 尚未改经 economy-formation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/units.js",
+      "target": "src/enemies.js",
+      "reason": "候选基座 combat 尚未改经 stage-encounter 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/units.js",
+      "target": "src/effects.js",
+      "reason": "候选基座 combat 尚未改经 skin-presentation 公共入口",
+      "removeByPhase": "D"
+    },
+    {
+      "source": "src/units.js",
+      "target": "src/engine-core/runtime-context.js",
+      "reason": "候选基座 combat 尚未改经 integration-quality 公共入口",
+      "removeByPhase": "D"
+    }
+  ],
+  "compatibilityFacades": [
+    {
+      "path": "src/config.js",
+      "realCallers": ["legacy root gameplay modules", "legacy tests"],
+      "delegatesTo": "content-pack compiled compatibility view",
+      "removalCondition": "production imports of CONFIG reach zero",
+      "removeByPhase": "G"
+    },
+    {
+      "path": "src/state.js",
+      "realCallers": ["game-controller", "playthrough and campaign tests"],
+      "delegatesTo": "system slice composer",
+      "removalCondition": "fixed-route MatchMode is the only production state factory",
+      "removeByPhase": "G"
+    },
+    {
+      "path": "src/engine-core/events.js",
+      "realCallers": ["legacy event tests"],
+      "delegatesTo": "platform-services Telemetry reporter",
+      "removalCondition": "all production code uses DomainEvent and Telemetry bridge",
+      "removeByPhase": "G"
+    },
+    {
+      "path": "src/game-loop.js",
+      "realCallers": ["app-shell", "playthrough and stability tests"],
+      "delegatesTo": "fixed-route MatchMode update schedule",
+      "removalCondition": "all production and tests call MatchMode.advance",
+      "removeByPhase": "G"
+    }
+  ],
+  "integrationOnlyPaths": [
+    "src/main.js",
+    "src/runtime.js",
+    "src/state.js",
+    "src/game-loop.js",
+    "src/app-shell/**",
+    "src/rulesets/merge-defense/player-command-dispatcher.js",
+    "package.json",
+    "games/zhaoyun-adou/generated-manifests.js"
+  ],
+  "systems": [
+    {
+      "systemId": "foundation-runtime",
+      "migrationStatus": "active",
+      "ownedPaths": [
+        "src/engine-core/assets.js", "src/engine-core/controller.js",
+        "src/engine-core/copy.js", "src/engine-core/game-command-source.js",
+        "src/engine-core/game-command.js", "src/engine-core/game-pack.js",
+        "src/engine-core/public.js", "src/engine-core/random.js",
+        "src/engine-core/registry.js", "src/game-clock.js"
+      ],
+      "ownerRole": "基座契约维护者",
+      "ownedStateSlice": "foundation",
+      "publicEntry": "src/engine-core/public.js",
+      "allowedDependencies": [],
+      "commands": [],
+      "publishesDomainEvents": ["command.rejected"],
+      "consumesDomainEvents": [],
+      "requiredTests": ["test/game-command-test.mjs", "test/determinism-test.mjs"],
+      "responsibilities": ["稳定 ID、GameCommand、确定性随机与状态哈希", "Registry、快照和 API 版本"],
+      "nonResponsibilities": ["题材内容与数值公式", "渲染、平台判断与存储实现"]
+    },
+    {
+      "systemId": "content-pack",
+      "migrationStatus": "migrating",
+      "ownedPaths": [
+        "games/zhaoyun-adou/game.json", "games/zhaoyun-adou/assets.json",
+        "games/zhaoyun-adou/audio.json", "games/zhaoyun-adou/balance.json",
+        "games/zhaoyun-adou/copy.zh-CN.json", "games/zhaoyun-adou/events.json",
+        "games/zhaoyun-adou/levels.json", "games/zhaoyun-adou/theme.json",
+        "games/zhaoyun-adou/schemas/**", "games/zhaoyun-adou/sources/**",
+        "src/systems/content-pack/**"
+      ],
+      "ownerRole": "内容与 Schema 维护者",
+      "ownedStateSlice": null,
+      "publicEntry": "src/systems/content-pack/index.js",
+      "allowedDependencies": ["foundation-runtime"],
+      "commands": [],
+      "publishesDomainEvents": [],
+      "consumesDomainEvents": [],
+      "requiredTests": ["test/game-pack-test.mjs"],
+      "responsibilities": ["Game Pack 纯数据、Schema、稳定引用与版本", "分系统内容源及兼容视图编译"],
+      "nonResponsibilities": ["运行时状态写入", "玩法执行和平台资源加载"]
+    },
+    {
+      "systemId": "match-controller",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/match-mode/**", "src/controllers/**", "src/game-controller.js"],
+      "ownerRole": "对局模式与控制器维护者",
+      "ownedStateSlice": "match",
+      "publicEntry": "src/systems/match-mode/index.js",
+      "allowedDependencies": ["foundation-runtime", "progress-save"],
+      "commands": [
+        "campaign.select_stage", "campaign.start_stage", "battle.set_paused",
+        "battle.set_speed", "battle.retry", "result.resolve", "session.quit"
+      ],
+      "publishesDomainEvents": ["match.started", "match.ended", "match.retry_requested", "match.quit_requested"],
+      "consumesDomainEvents": ["encounter.completed"],
+      "requiredTests": ["test/match-mode-test.mjs", "test/local-player-controller-test.mjs"],
+      "responsibilities": ["MatchMode 生命周期、Actor/side 和命令授权", "固定路线模式与 LocalPlayerController 契约"],
+      "nonResponsibilities": ["棋盘、战斗和网络传输", "UI 绘制及平台输入实现"]
+    },
+    {
+      "systemId": "board-route",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/board/**", "src/map.js", "src/rulesets/merge-defense/unit-placement.js"],
+      "ownerRole": "棋盘与路线维护者",
+      "ownedStateSlice": "board",
+      "publicEntry": "src/systems/board/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "piece-model"],
+      "commands": [],
+      "publishesDomainEvents": ["board.piece_moved", "board.pieces_swapped", "board.cell_opened"],
+      "consumesDomainEvents": [],
+      "requiredTests": ["test/board-system-test.mjs", "test/unit-placement-test.mjs"],
+      "responsibilities": ["格子拓扑、占用、路径、出生点和终点", "原子移动、交换及完整回滚"],
+      "nonResponsibilities": ["伤害、波次和经济", "动画及 UI 热区"]
+    },
+    {
+      "systemId": "piece-model",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/piece/**"],
+      "ownerRole": "弈子模型维护者",
+      "ownedStateSlice": "pieces",
+      "publicEntry": "src/systems/piece/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack"],
+      "commands": [],
+      "publishesDomainEvents": ["piece.created", "piece.upgraded", "piece.removed"],
+      "consumesDomainEvents": [],
+      "requiredTests": ["test/piece-system-test.mjs"],
+      "responsibilities": ["弈子身份、类型、等级、位置和生命周期", "属性、技能、装备和表现的稳定引用"],
+      "nonResponsibilities": ["征兵概率与资源扣除", "伤害结算及具体画法"]
+    },
+    {
+      "systemId": "economy-formation",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/economy/**", "src/actions.js", "src/logic.js"],
+      "ownerRole": "经济与编队维护者",
+      "ownedStateSlice": "economy",
+      "publicEntry": "src/systems/economy/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model"],
+      "commands": ["battle.batch_recruit", "unit.drop"],
+      "publishesDomainEvents": ["economy.recruit_attempted", "economy.recruit_completed", "formation.merged", "formation.hero_unlocked"],
+      "consumesDomainEvents": ["combat.enemy_defeated", "encounter.wave_completed"],
+      "requiredTests": ["test/economy-system-test.mjs", "test/batch-recruit-test.mjs"],
+      "responsibilities": ["战内资源、征兵、抽取、营栏、合成与英雄拼字", "编队规则及稳定失败 reason"],
+      "nonResponsibilities": ["永久进度与属性计算", "战斗和渲染"]
+    },
+    {
+      "systemId": "attribute",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/attribute/**"],
+      "ownerRole": "属性维护者",
+      "ownedStateSlice": "attributes",
+      "publicEntry": "src/systems/attribute/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack"],
+      "commands": [],
+      "publishesDomainEvents": ["attribute.modifier_added", "attribute.modifier_removed"],
+      "consumesDomainEvents": ["status.applied", "status.expired", "equipment.changed"],
+      "requiredTests": ["test/attribute-system-test.mjs"],
+      "responsibilities": ["StatBlock、等级成长和 Modifier 确定性叠加", "最终属性值查询"],
+      "nonResponsibilities": ["索敌与攻击流程", "技能触发及装备持有"]
+    },
+    {
+      "systemId": "combat",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/combat/**", "src/units.js"],
+      "ownerRole": "战斗维护者",
+      "ownedStateSlice": "combat",
+      "publicEntry": "src/systems/combat/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "attribute"],
+      "commands": [],
+      "publishesDomainEvents": ["combat.attack_resolved", "combat.enemy_defeated", "combat.enemy_leaked"],
+      "consumesDomainEvents": ["encounter.enemy_spawned", "status.applied"],
+      "requiredTests": ["test/combat-system-test.mjs", "test/combat-types-test.mjs"],
+      "responsibilities": ["索敌、攻击节奏、射程、命中和 Damage API", "投射物与死亡"],
+      "nonResponsibilities": ["技能触发与装备槽", "视觉特效"]
+    },
+    {
+      "systemId": "skill-status",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/skill-status/**", "src/heroes.js", "src/rulesets/merge-defense/skill-registry.js"],
+      "ownerRole": "技能与状态维护者",
+      "ownedStateSlice": "skillStatus",
+      "publicEntry": "src/systems/skill-status/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "attribute", "combat"],
+      "commands": [],
+      "publishesDomainEvents": ["skill.cast", "status.applied", "status.expired"],
+      "consumesDomainEvents": ["combat.attack_resolved"],
+      "publishesPresentationCues": ["skill.cast_feedback", "skill.impact_feedback"],
+      "requiredTests": ["test/skill-status-system-test.mjs", "test/heroes-test.mjs"],
+      "responsibilities": ["主动/被动触发、冷却及 Buff/Debuff", "持续时间、玩法效果和领域事件"],
+      "nonResponsibilities": ["装备槽与素材", "动画、音效和 PresentationCue 绘制"]
+    },
+    {
+      "systemId": "equipment-items",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/equipment-items/**", "src/field-tools.js", "src/rulesets/merge-defense/item-registry.js"],
+      "ownerRole": "装备与道具维护者",
+      "ownedStateSlice": "equipmentItems",
+      "publicEntry": "src/systems/equipment-items/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "attribute", "skill-status", "economy-formation"],
+      "commands": ["item.relocate", "item.use"],
+      "publishesDomainEvents": ["item.used", "item.generated", "equipment.changed"],
+      "consumesDomainEvents": [],
+      "requiredTests": ["test/equipment-items-system-test.mjs", "test/actions-test.mjs"],
+      "responsibilities": ["当前消耗品、产铲道具和未来装备槽契约", "通过 Modifier/技能授予扩展，不复制算法"],
+      "nonResponsibilities": ["第二套属性或伤害公式", "动画与素材加载"]
+    },
+    {
+      "systemId": "stage-encounter",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/stage-encounter/**", "src/enemies.js"],
+      "ownerRole": "关卡与遭遇维护者",
+      "ownedStateSlice": "encounter",
+      "publicEntry": "src/systems/stage-encounter/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "combat"],
+      "commands": ["battle.start_wave"],
+      "publishesDomainEvents": ["encounter.wave_started", "encounter.wave_completed", "encounter.completed", "encounter.enemy_spawned"],
+      "consumesDomainEvents": ["combat.enemy_defeated", "combat.enemy_leaked"],
+      "requiredTests": ["test/stage-encounter-system-test.mjs", "test/playthrough-test.mjs"],
+      "responsibilities": ["地图组合、敌人编队和波次状态机", "Boss、局内胜负与 MatchResult"],
+      "nonResponsibilities": ["永久解锁和 Storage I/O", "皮肤"]
+    },
+    {
+      "systemId": "progress-save",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/progress-save/**", "src/campaign.js"],
+      "ownerRole": "进度与存档维护者",
+      "ownedStateSlice": "progress",
+      "publicEntry": "src/systems/progress-save/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack"],
+      "commands": ["campaign.reset_progress"],
+      "publishesDomainEvents": ["progress.loaded", "progress.saved", "progress.degraded"],
+      "consumesDomainEvents": ["match.ended"],
+      "requiredTests": ["test/progress-save-system-test.mjs", "test/campaign-test.mjs"],
+      "responsibilities": ["ProfileProgress、SaveEnvelope、迁移链和旧存档兼容", "MatchSnapshot/Replay 协议及损坏存档降级"],
+      "nonResponsibilities": ["Web/wx/原生 Storage API", "关卡运行"]
+    },
+    {
+      "systemId": "ui-interaction",
+      "migrationStatus": "planned",
+      "ownedPaths": ["src/systems/ui-interaction/**", "src/input.js", "src/ui-layout.js"],
+      "ownerRole": "UI 与交互维护者",
+      "ownedStateSlice": "interaction",
+      "publicEntry": "src/systems/ui-interaction/index.js",
+      "allowedDependencies": ["foundation-runtime", "match-controller"],
+      "commands": ["interaction.drag_begin", "interaction.drag_cancel", "item.select_mode"],
+      "publishesDomainEvents": ["interaction.intent_mapped"],
+      "consumesDomainEvents": ["command.rejected"],
+      "publishesPresentationCues": ["interaction.feedback"],
+      "requiredTests": ["test/ui-interaction-system-test.mjs", "test/input-pointer-ownership-test.mjs"],
+      "responsibilities": ["只读 GameViewModel、语义布局与命中测试", "标准输入意图到 GameCommand 的映射"],
+      "nonResponsibilities": ["玩法合法性和状态直写", "皮肤颜色"]
+    },
+    {
+      "systemId": "skin-presentation",
+      "migrationStatus": "planned",
+      "ownedPaths": [
+        "src/systems/skin-presentation/**", "src/presentation-pack/**",
+        "src/audio.js", "src/effects.js", "src/render.js", "src/render-theme.js",
+        "src/render-title.js", "src/render-enemies.js", "src/render-battle-controls.js",
+        "src/render-battle-hud.js", "src/rulesets/merge-defense/effect-registry.js"
+      ],
+      "ownerRole": "皮肤与表现维护者",
+      "ownedStateSlice": "presentation",
+      "publicEntry": "src/systems/skin-presentation/index.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "ui-interaction"],
+      "commands": [],
+      "publishesDomainEvents": [],
+      "consumesDomainEvents": ["combat.attack_resolved", "combat.enemy_defeated", "combat.enemy_leaked", "skill.cast", "encounter.wave_started", "encounter.wave_completed", "command.rejected"],
+      "consumesPresentationCues": ["skill.cast_feedback", "skill.impact_feedback", "interaction.feedback"],
+      "requiredTests": ["test/skin-presentation-system-test.mjs", "test/route-presentation-test.mjs"],
+      "responsibilities": ["主题 token、Renderer、动画、音频和 PresentationCue", "稳定素材 ID 与只读 ViewModel 表现"],
+      "nonResponsibilities": ["输入热区和棋盘逻辑", "攻击范围、伤害及胜负"]
+    },
+    {
+      "systemId": "platform-services",
+      "migrationStatus": "migrating",
+      "ownedPaths": ["src/platform-contracts/**", "src/platform-services/**", "src/platforms/**", "src/canvas-fit.js", "src/storage.js"],
+      "ownerRole": "平台 Host 与服务适配维护者",
+      "ownedStateSlice": null,
+      "publicEntry": "src/platform-contracts/host.js",
+      "allowedDependencies": ["foundation-runtime"],
+      "commands": [],
+      "publishesDomainEvents": [],
+      "consumesDomainEvents": [],
+      "requiredTests": ["test/host-contract-test.mjs", "test/platform-boundary-test.mjs"],
+      "responsibilities": ["输入、Surface、存储、音频、素材和生命周期适配", "设备能力与失败降级"],
+      "nonResponsibilities": ["玩法、题材和 Bot", "平台分支规则"]
+    },
+    {
+      "systemId": "integration-quality",
+      "migrationStatus": "migrating",
+      "ownedPaths": [
+        "src/main.js", "src/runtime.js", "src/state.js", "src/game-loop.js",
+        "src/game-pack.js", "src/config.js", "src/app-shell/**",
+        "src/engine-core/events.js", "src/engine-core/runtime-context.js",
+        "src/rulesets/merge-defense/compile-config.js",
+        "src/rulesets/merge-defense/command-state.js",
+        "src/rulesets/merge-defense/event-snapshot.js",
+        "src/rulesets/merge-defense/player-command-dispatcher.js",
+        "package.json", "games/zhaoyun-adou/generated-manifests.js"
+      ],
+      "ownerRole": "集成负责人",
+      "ownedStateSlice": null,
+      "publicEntry": "src/runtime.js",
+      "allowedDependencies": ["foundation-runtime", "content-pack", "match-controller", "board-route", "piece-model", "economy-formation", "attribute", "combat", "skill-status", "equipment-items", "stage-encounter", "progress-save", "ui-interaction", "skin-presentation", "platform-services"],
+      "commands": [],
+      "publishesDomainEvents": ["session.started", "session.ended"],
+      "consumesDomainEvents": ["match.started", "match.ended"],
+      "consumesPresentationCues": ["skill.cast_feedback", "skill.impact_feedback", "interaction.feedback"],
+      "requiredTests": ["test/system-boundaries-v2-test.mjs", "test/create-game-app-test.mjs", "test/screenshots-test.mjs"],
+      "responsibilities": ["composition root、系统顺序、生成索引和测试编排", "CI、发布指纹和跨系统接线"],
+      "nonResponsibilities": ["新增玩法功能", "拥有其他系统内部状态或算法"]
+    }
+  ]
+}

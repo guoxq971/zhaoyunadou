@@ -1,0 +1,28 @@
+name: game-foundation-quality
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - "codex/integration-game-systems-*"
+      - "codex/refactor-modular-foundation"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate Game Pack
+        run: npm run game-pack:validate
+      - name: Verify system boundaries
+        run: npm run test:boundaries
+      - name: Run complete test suite
+        run: npm test
