@@ -6,7 +6,13 @@ export const recruitCost = (i) => CONFIG.recruitCost(i);
 
 // 抽卡。ownedChars:场上+营栏已有的英雄单字,用于配对加权(已有搭档的字概率×2)
 export function rollGacha(rand, ownedChars = []) {
-  const pool = CONFIG.gachaWeights;
+  const hasUnmatchedHeroChar = Object.values(CONFIG.heroes).some(({ chars: [a, b] }) =>
+    (ownedChars.includes(a) && !ownedChars.includes(b)) ||
+    (ownedChars.includes(b) && !ownedChars.includes(a)));
+  const pool = CONFIG.gachaWeights.map((entry) =>
+    entry.kind === 'frag' && hasUnmatchedHeroChar
+      ? { ...entry, w: entry.w * CONFIG.gachaPairing.categoryBoost }
+      : entry);
   const total = pool.reduce((s, e) => s + e.w, 0);
   let x = rand() * total;
   let picked = pool[pool.length - 1];
@@ -18,20 +24,29 @@ export function rollGacha(rand, ownedChars = []) {
   for (const h of Object.values(CONFIG.heroes)) {
     for (let i = 0; i < 2; i++) {
       const c = h.chars[i], partner = h.chars[1 - i];
-      chars.push({ c, w: ownedChars.includes(partner) && !ownedChars.includes(c) ? 2 : 1 });
+      chars.push({
+        c,
+        w: ownedChars.includes(partner) && !ownedChars.includes(c)
+          ? CONFIG.gachaPairing.partnerBoost
+          : 1,
+      });
     }
   }
   const tw = chars.reduce((s, e) => s + e.w, 0);
   let y = rand() * tw;
-  for (const e of chars) { if ((y -= e.w) < 0) return { kind: 'frag', char: e.c }; }
-  return { kind: 'frag', char: chars[0].c };
+  for (const e of chars) { if ((y -= e.w) < 0) return { kind: 'frag', char: e.c, level: 1 }; }
+  return { kind: 'frag', char: chars[0].c, level: 1 };
 }
 
 export function canMerge(a, b) {
-  if (!a || !b || a.kind !== 'troop' || b.kind !== 'troop') return false;
-  if (a.type !== b.type || a.level !== b.level) return false;
+  if (!a || !b || a.kind !== b.kind) return false;
+  const aLevel = a.level ?? 1;
+  const bLevel = b.level ?? 1;
+  if (aLevel !== bLevel) return false;
+  if (a.kind === 'frag') return a.char === b.char && aLevel < CONFIG.maxLevel;
+  if (a.kind !== 'troop' || a.type !== b.type) return false;
   const cap = a.type === 'nong' ? 3 : CONFIG.maxLevel; // 农最高 3 级
-  return a.level < cap;
+  return aLevel < cap;
 }
 
 export const troopDmg = (type, level) =>
@@ -46,21 +61,27 @@ export function detectHero(grid, r, c) {
     const [a, b] = h.chars;
     if (me.char === a) {
       const right = cellAt(grid, r, c + 1)?.unit;
-      if (right && right.kind === 'frag' && right.char === b) return { key, r, c };
+      if (right && right.kind === 'frag' && right.char === b && (right.level ?? 1) === (me.level ?? 1)) {
+        return { key, r, c, level: me.level ?? 1 };
+      }
     }
     if (me.char === b) {
       const left = cellAt(grid, r, c - 1)?.unit;
-      if (left && left.kind === 'frag' && left.char === a) return { key, r, c: c - 1 };
+      if (left && left.kind === 'frag' && left.char === a && (left.level ?? 1) === (me.level ?? 1)) {
+        return { key, r, c: c - 1, level: me.level ?? 1 };
+      }
     }
   }
   return null;
 }
 
-export function unlockHero(state, { key, r, c }) {
-  state.grid[r][c].unit = { kind: 'hero', key, part: 0 };
-  state.grid[r][c + 1].unit = { kind: 'hero', key, part: 1 };
+export function unlockHero(state, { key, r, c, level = 1 }) {
+  state.grid[r][c].unit = { kind: 'hero', key, part: 0, level };
+  state.grid[r][c + 1].unit = { kind: 'hero', key, part: 1, level };
   const h = CONFIG.heroes[key];
-  state.heroes.push({ key, r, c, cd: 0, ultCd: h.ultCd * 0.5 });
+  state.heroes.push({ key, r, c, level, cd: 0, ultCd: h.ultCd * 0.5 });
+  state.lastHeroUnlocked = key;
+  if (state.stats) state.stats.heroUnlocks = (state.stats.heroUnlocks ?? 0) + 1;
 }
 
 export function useShovel(state, r, c) {
@@ -68,7 +89,29 @@ export function useShovel(state, r, c) {
   if (!cell || cell.type !== 'locked' || state.shovels <= 0) return false;
   cell.type = 'open';
   state.shovels--;
+  if (state.stats) state.stats.shovelsUsed = (state.stats.shovelsUsed ?? 0) + 1;
   return true;
+}
+
+// 逆天改命笔：把一个已部署普通单位改成本关代表英雄当前缺少的字。
+export function useBrush(state, r, c) {
+  const cell = cellAt(state.grid, r, c);
+  if (!cell?.unit || !['troop', 'frag'].includes(cell.unit.kind) || state.brushes <= 0) return false;
+  const featured = CONFIG.heroes[state.stage.featuredHero];
+  if (!featured) return false;
+  const [first, second] = featured.chars;
+  const owned = ownedFragChars(state).filter((char, index, chars) => {
+    // 若目标本来就是碎字，只从候选集合中移除它这一次，避免自身影响“缺字”判断。
+    if (cell.unit.kind !== 'frag' || char !== cell.unit.char) return true;
+    return index !== chars.indexOf(char);
+  });
+  const char = owned.includes(first) && !owned.includes(second)
+    ? second
+    : owned.includes(second) && !owned.includes(first) ? first : first;
+  cell.unit = { kind: 'frag', char, level: 1 };
+  state.brushes--;
+  if (state.stats) state.stats.brushUses = (state.stats.brushUses ?? 0) + 1;
+  return { char, hero: detectHero(state.grid, r, c) };
 }
 
 // 场上 + 营栏所有英雄单字(供抽卡加权)

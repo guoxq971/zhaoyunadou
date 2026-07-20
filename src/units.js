@@ -65,14 +65,16 @@ export function updateProjectiles(state, dt, cellXY) {
     const alive = state.enemies.includes(p.target);
     const tp = alive ? enemyXY(state, p.target, cellXY) : { x: p.x, y: p.y - 40 };
     const d = Math.hypot(tp.x - p.x, tp.y - p.y);
-    if (!alive || d < 8) {
+    // 本帧行程覆盖剩余距离时直接命中，避免大 dt 下箭矢越过目标后往返振荡。
+    const travel = p.speed * dt;
+    if (!alive || d <= travel + 8) {
       if (alive) damageEnemy(state, p.target, p.dmg, cellXY);
       else addInk(state, p.x, p.y);
       state.projectiles.splice(i, 1);
       continue;
     }
     p.ang = Math.atan2(tp.y - p.y, tp.x - p.x);
-    p.x += Math.cos(p.ang) * p.speed * dt;
-    p.y += Math.sin(p.ang) * p.speed * dt;
+    p.x += Math.cos(p.ang) * travel;
+    p.y += Math.sin(p.ang) * travel;
   }
 }

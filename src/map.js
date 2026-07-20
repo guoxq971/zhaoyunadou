@@ -1,36 +1,56 @@
-// 巨鹿地图:格子类型 + 敌人路径
-// 类型:path=行军路 open=可放置 locked=待铲 rock=障碍 dou=阿斗
+// 巨鹿地图：上下两条互不相交、彼此旋转对称的 S 型行军线。
+// 类型：path=行军路 open=可放置 locked=待铲 dou=阿斗。
 import { CONFIG } from './config.js';
+
+const LANE_0 = [
+  { r: 0, c: 7 },
+  { r: 1, c: 7 }, { r: 1, c: 6 }, { r: 1, c: 5 }, { r: 1, c: 4 },
+  { r: 2, c: 4 }, { r: 2, c: 5 }, { r: 2, c: 6 }, { r: 2, c: 7 },
+  { r: 3, c: 7 }, { r: 3, c: 6 }, { r: 3, c: 5 }, { r: 3, c: 4 },
+  { r: 3, c: 3 }, { r: 3, c: 2 }, { r: 3, c: 1 }, { r: 3, c: 0 },
+  { r: 2, c: 0 }, { r: 2, c: 1 }, { r: 2, c: 2 },
+  { r: 1, c: 2 }, { r: 1, c: 1 }, { r: 1, c: 0 },
+  { r: 0, c: 0 },
+];
+
+const rotate180 = ({ r, c }, rows, cols) => ({ r: rows - 1 - r, c: cols - 1 - c });
 
 export function buildMap() {
   const { cols, rows } = CONFIG.board;
-  const grid = [];
-  for (let r = 0; r < rows; r++) {
-    grid.push(Array.from({ length: cols }, () => ({ type: 'locked', unit: null })));
+  const grid = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => ({ type: 'locked', unit: null })),
+  );
+
+  // 第二路严格由第一路旋转 180° 得到，因此两路等长且转折节奏完全一致。
+  const paths = [
+    LANE_0.map(({ r, c }) => ({ r, c })),
+    LANE_0.map((cell) => rotate180(cell, rows, cols)),
+  ];
+  paths.forEach((path, lane) => {
+    path.forEach(({ r, c }) => {
+      grid[r][c].type = 'path';
+      grid[r][c].lane = lane;
+    });
+  });
+
+  // 敌军从墨色荆棘进入；两位阿斗分别守在对角终点。
+  for (const [lane, path] of paths.entries()) {
+    const start = path[0];
+    const end = path[path.length - 1];
+    grid[start.r][start.c].decoration = 'bramble';
+    grid[end.r][end.c].type = 'dou';
+    grid[end.r][end.c].lane = lane;
   }
 
-  // 蛇形路径:上入口 → 蛇形三折 → 右下阿斗
-  const path = [];
-  const mark = (r, c) => { grid[r][c].type = 'path'; path.push({ r, c }); };
-  for (let c = 0; c <= 8; c++) mark(0, c);        // 行0 左→右
-  for (let r = 1; r <= 2; r++) mark(r, 8);        // 列8 下行
-  for (let c = 8; c >= 0; c--) mark(3, c);        // 行3 右→左
-  for (let r = 4; r <= 5; r++) mark(r, 0);        // 列0 下行
-  for (let c = 0; c <= 8; c++) mark(6, c);        // 行6 左→右
-  for (let r = 7; r <= 8; r++) mark(r, 8);        // 列8 下行
-  grid[9][8].type = 'dou';
-  path.push({ r: 9, c: 8 });                      // 终点:阿斗
-
-  // 初始开放格(其余可放置区默认 locked,铲子解锁)
+  // 初始开放区集中在两路之间，保留多组横向双格以便合成英雄。
   const OPEN = [
-    [1, 1], [1, 2], [2, 1], [2, 2], [1, 5], [2, 5],
-    [4, 4], [4, 5], [5, 4], [5, 5],
-    [7, 3], [7, 4], [8, 3], [8, 4],
+    [0, 2], [0, 3], [0, 4],
+    [4, 2], [4, 3], [4, 4], [4, 5],
+    [5, 2], [5, 3], [5, 4], [5, 5],
+    [9, 3], [9, 4], [9, 5],
   ];
   for (const [r, c] of OPEN) grid[r][c].type = 'open';
 
-  // 岩石(永不可用,纯地形)
-  for (const [r, c] of [[1, 0], [9, 0], [4, 8]]) grid[r][c].type = 'rock';
-
-  return { grid, path };
+  // path 保留为第一路别名，兼容仍按单路读取的旧调用点。
+  return { grid, paths, path: paths[0] };
 }

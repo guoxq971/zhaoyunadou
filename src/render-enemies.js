@@ -1,0 +1,134 @@
+// 敌军主体按实机采用「贼」字，兵种差异只交给小挂件、尺寸、血条和颜色表达。
+import { CONFIG } from './config.js';
+import { enemyXY } from './enemies.js';
+import { cellXY } from './ui-layout.js';
+import { font } from './render-theme.js';
+
+function drawSpeedAccent(ctx, size) {
+  ctx.strokeStyle = '#647648';
+  ctx.lineWidth = 2;
+  for (let index = 0; index < 3; index++) {
+    ctx.beginPath();
+    ctx.moveTo(-size - 9 - index * 4, -8 + index * 7);
+    ctx.lineTo(-size + 1, -8 + index * 7);
+    ctx.stroke();
+  }
+}
+
+function drawTankAccent(ctx, size) {
+  ctx.fillStyle = '#69645b';
+  ctx.strokeStyle = '#27241f';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(-size - 8, -13);
+  ctx.quadraticCurveTo(-size + 2, -18, -size + 7, -10);
+  ctx.lineTo(-size + 5, 13);
+  ctx.quadraticCurveTo(-size - 2, 18, -size - 9, 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawEliteAccent(ctx, size, boss) {
+  ctx.strokeStyle = boss ? '#d1a02a' : '#8f2922';
+  ctx.lineWidth = boss ? 3.2 : 2.4;
+  ctx.beginPath();
+  ctx.moveTo(size - 1, 13);
+  ctx.lineTo(size + 9, -17);
+  ctx.stroke();
+  ctx.fillStyle = boss ? '#d1a02a' : '#a83028';
+  ctx.beginPath();
+  ctx.moveTo(size + 9, -17);
+  ctx.lineTo(size + 3, -11);
+  ctx.lineTo(size + 12, -9);
+  ctx.closePath();
+  ctx.fill();
+  if (boss) {
+    ctx.strokeStyle = '#d1a02a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-10, -22);
+    ctx.lineTo(-5, -29);
+    ctx.lineTo(0, -22);
+    ctx.lineTo(6, -30);
+    ctx.lineTo(11, -21);
+    ctx.stroke();
+  }
+}
+
+function drawEnemyGlyph(ctx, enemy, type) {
+  const boss = enemy.type === 'boss';
+  const size = (boss ? 22 : 17) * type.size;
+  if (enemy.type === 'fast') drawSpeedAccent(ctx, size);
+  if (enemy.type === 'tank') drawTankAccent(ctx, size);
+  if (enemy.type === 'elite' || boss) drawEliteAccent(ctx, size, boss);
+
+  ctx.save();
+  ctx.rotate(-0.08);
+  ctx.lineJoin = 'round';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = font(boss ? 42 : Math.round(31 * type.size));
+  ctx.lineWidth = boss ? 5 : 3;
+  ctx.strokeStyle = boss ? '#6f1714' : 'rgba(246,236,215,0.92)';
+  ctx.strokeText(type.char, 0, 2);
+  ctx.fillStyle = enemy.type === 'elite' || boss ? '#7d211c' : '#171512';
+  ctx.fillText(type.char, 0, 2);
+  ctx.restore();
+}
+
+function drawEnemyHealth(ctx, enemy, type, x, y) {
+  const boss = enemy.type === 'boss';
+  const ratio = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
+  const width = (boss ? 50 : 31) * type.size;
+  const top = y - (boss ? 34 : 25) * type.size;
+  ctx.fillStyle = 'rgba(24,20,17,0.9)';
+  ctx.fillRect(x - width / 2, top, width, boss ? 6 : 4);
+  ctx.fillStyle = boss ? '#c63b2e' : '#d52f3f';
+  ctx.fillRect(x - width / 2 + 1, top + 1, (width - 2) * ratio, boss ? 4 : 2);
+
+  ctx.font = font(boss ? 11 : 9, false);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = 'rgba(247,239,218,0.96)';
+  ctx.strokeText(String(Math.max(0, Math.ceil(enemy.hp))), x, top - 1);
+  ctx.fillStyle = '#211e1a';
+  ctx.fillText(String(Math.max(0, Math.ceil(enemy.hp))), x, top - 1);
+}
+
+export function drawEnemies(ctx, state) {
+  for (const enemy of state.enemies) {
+    const type = CONFIG.enemy.types[enemy.type];
+    const { x, y } = enemyXY(state, enemy, cellXY);
+    const boss = enemy.type === 'boss';
+    const radius = (boss ? 27 : 16) * type.size;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(enemy.bob) * (boss ? 0.015 : 0.035));
+    if (boss) {
+      const pulse = 0.5 + 0.5 * Math.sin(state.time * 4);
+      ctx.shadowColor = `rgba(128,31,23,${0.35 + pulse * 0.3})`;
+      ctx.shadowBlur = 9 + pulse * 8;
+    }
+    drawEnemyGlyph(ctx, enemy, type);
+    ctx.shadowColor = 'transparent';
+    if (enemy.hitFlash > 0) {
+      ctx.globalAlpha = Math.min(0.68, enemy.hitFlash / 0.12 * 0.68);
+      ctx.fillStyle = '#fff8df';
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    drawEnemyHealth(ctx, enemy, type, x, y);
+    if (enemy.stun > 0) {
+      ctx.fillStyle = '#b8860b';
+      ctx.font = font(13, false);
+      ctx.textAlign = 'center';
+      ctx.fillText('晕', x + 17, y - 22);
+    }
+  }
+}

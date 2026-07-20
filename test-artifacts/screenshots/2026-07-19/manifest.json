@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 2,
+  "runId": "2026-07-19-reference-1to1-final",
+  "generatedAt": "2026-07-19T16:18:42Z",
+  "baseUrl": "http://127.0.0.1:8460/",
+  "browser": "Chrome",
+  "userAgent": "Chrome extension session (exact version unavailable through the supported read-only surface)",
+  "gitHead": "a18411071e6c29f20ac13f0fba21b006aef3ced6",
+  "workingTree": "dirty",
+  "sourceFingerprint": "6b1aa8297af151858529a8ca9e497445c211d1f96fdf240306c5ec2a672cf710",
+  "consoleErrors": 0,
+  "consoleWarnings": 0,
+  "currentRunFiles": [
+    "41-stage5-liubei-aura.png",
+    "42-stage5-text-boss.png",
+    "43-stage5-five-star-result.png",
+    "46-title-jiekou-mascot-final.png",
+    "47-same-character-merge.png",
+    "48-final-pause.png",
+    "49-final-luoyang-shovel-open.png"
+  ],
+  "screenshots": [
+    {
+      "file": "01-title-progress.png",
+      "testPoint": "五星进度、素材就绪与持久化标题页",
+      "viewport": "1916x808",
+      "imageSize": "404x808",
+      "state": { "screen": "title", "stage": 5, "stars": 5, "assetsReady": true, "assetFailures": 0, "storageMode": "persistent" },
+      "result": "pass"
+    },
+    {
+      "file": "02-battle-deployed.png",
+      "testPoint": "Enter 启动、三兵拖放、P 暂停恢复与 R 征兵",
+      "viewport": "1916x808",
+      "imageSize": "404x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 0, "speedAfterResume": 1, "recruits": 1, "mantou": 24, "board": "4.4:qiang1|4.5:gong1|5.4:dao1" },
+      "result": "pass"
+    },
+    {
+      "file": "03-battle-action.png",
+      "testPoint": "手动迎敌、二倍速、敌人印章与水墨战斗层",
+      "viewport": "1916x808",
+      "imageSize": "404x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 1, "speed": 2, "lives": 6, "kills": 0 },
+      "result": "pass"
+    },
+    {
+      "file": "04-battle-mobile-390x844.png",
+      "testPoint": "390×844 响应式战斗布局与安全区",
+      "viewport": "390x844",
+      "imageSize": "390x844",
+      "canvasRect": "390x780@0,32",
+      "state": { "screen": "battle", "stage": 5, "wave": 2, "lives": 6, "kills": 12, "over": false },
+      "result": "pass"
+    },
+    {
+      "file": "05-stage-five-boss.png",
+      "testPoint": "第五关第 5 波 Boss「魁」、重甲「巨」与三兵实战",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 5, "speed": 2, "lives": 6, "kills": 39, "over": false, "board": "4.4:qiang1|4.5:gong1|5.4:dao1" },
+      "result": "pass"
+    },
+    {
+      "file": "06-five-star-victory.png",
+      "testPoint": "第五关五星胜利、卷轴结算与凯旋归营",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "result", "stage": 5, "wave": 5, "lives": 3, "kills": 42, "over": true, "win": true, "resultAction": "complete" },
+      "result": "pass"
+    },
+    {
+      "file": "07-five-star-title.png",
+      "testPoint": "凯旋归营后的完整五星标题",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "title", "stage": 5, "stars": 5, "over": false },
+      "result": "pass"
+    },
+    {
+      "file": "08-five-star-replay.png",
+      "testPoint": "五星标题重新开始仍进入第五关",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 0, "stars": 5, "lives": 6, "board": "", "bench": "qiang1,gong1,dao1,_,_" },
+      "result": "pass"
+    },
+    {
+      "file": "09-defeat.png",
+      "testPoint": "无布阵真实败北与重整再战动作",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "result", "stage": 5, "wave": 1, "lives": 0, "kills": 0, "over": true, "win": false, "resultAction": "replay" },
+      "result": "pass"
+    },
+    {
+      "file": "10-retry-same-stage.png",
+      "testPoint": "败北后重试同一关且五星进度不下降",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 0, "stars": 5, "lives": 6, "board": "", "bench": "qiang1,gong1,dao1,_,_", "over": false },
+      "result": "pass"
+    },
+    {
+      "file": "11-mobile-combat-feedback.png",
+      "runId": "2026-07-19-up-visual-operations-2",
+      "testPoint": "390×844 新版战斗反馈、水墨安全区与三兵实战",
+      "viewport": "390x844",
+      "imageSize": "390x844",
+      "canvasRect": "390x780@0,32",
+      "state": { "screen": "battle", "stage": 5, "wave": 1, "speed": 2, "lives": 6, "kills": 0, "board": "4.4:qiang1|4.5:gong1|5.4:dao1" },
+      "result": "pass"
+    },
+    {
+      "file": "12-shovel-opened.png",
+      "runId": "2026-07-19-up-visual-operations-2",
+      "testPoint": "X 键进入铲地模式并成功开垦一块苔地",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 0, "openCells": 15, "shovels": 0, "inputMode": "" },
+      "result": "pass"
+    },
+    {
+      "file": "13-merge-level2.png",
+      "runId": "2026-07-19-up-visual-operations-2",
+      "testPoint": "真实随机征得第二张弓并拖放合成为二级弓",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 0, "recruits": 2, "merges": 1, "mantou": 4, "board": "4.4:gong2", "bench": "qiang1,_,dao1,qi1,_" },
+      "result": "pass"
+    },
+    {
+      "file": "14-paused-state.png",
+      "runId": "2026-07-19-up-visual-operations-2",
+      "testPoint": "P 键暂停后棋盘中央显示明确暂停提示",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 0, "paused": true, "speed": 0, "openCells": 15 },
+      "result": "pass"
+    },
+    {
+      "file": "15-stage-five-boss-full-hp.png",
+      "runId": "2026-07-19-up-visual-operations-2",
+      "testPoint": "第五关魁首满血入场、面具素材与常驻 Boss 血条",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 5, "speed": 2, "lives": 6, "kills": 38, "bossActive": true, "bossHp": 1345, "bossMaxHp": 1345 },
+      "result": "pass"
+    },
+    {
+      "file": "41-stage5-liubei-aura.png",
+      "runId": "2026-07-19-reference-1to1-final",
+      "testPoint": "第五关刘备双字英雄牌与范围光环技能",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "heroes": "liubei", "heroCasts": 1, "lastHeroCast": "liubei", "assetsReady": true, "assetFailures": 0 },
+      "result": "pass"
+    },
+    {
+      "file": "42-stage5-text-boss.png",
+      "runId": "2026-07-19-reference-1to1-final",
+      "testPoint": "第五关文字 Boss「贼」与常驻首领血条",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 5, "wave": 5, "bossActive": true, "bossHp": 1345, "bossMaxHp": 1345 },
+      "result": "pass"
+    },
+    {
+      "file": "43-stage5-five-star-result.png",
+      "runId": "2026-07-19-reference-1to1-final",
+      "testPoint": "第五关真实通关、五星结算与凯旋归营",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "result", "stage": 5, "wave": 5, "lives": 5, "kills": 44, "over": true, "win": true, "stars": 5, "heroCasts": 9, "resultAction": "complete" },
+      "result": "pass"
+    },
+    {
+      "file": "46-title-jiekou-mascot-final.png",
+      "runId": "2026-07-19-reference-1to1-final",
+      "testPoint": "Jiekou 透明水墨小兵、斗字棋盘与五星标题页",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "title", "stage": 5, "stars": 5, "assetsReady": true, "assetFailures": 0 },
+      "result": "pass"
+    },
+    {
+      "file": "47-same-character-merge.png",
+      "runId": "2026-07-19-reference-1to1-final",
+      "testPoint": "毛笔改字、征兵后两个同级「关」字合并为二级",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 2, "recruits": 1, "merges": 1, "brushUses": 1, "luoyangGenerated": 1, "openCells": 14, "paused": false },
+      "result": "pass"
+    },
+    {
+      "file": "48-final-pause.png",
+      "runId": "2026-07-19-reference-1to1-final",
+      "testPoint": "P 键暂停当前双线战场",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 2, "paused": true, "speed": 0, "merges": 1, "brushUses": 1 },
+      "result": "pass"
+    },
+    {
+      "file": "49-final-luoyang-shovel-open.png",
+      "runId": "2026-07-19-reference-1to1-final",
+      "testPoint": "洛阳铲产出普通铲并通过铲地操作开垦封地",
+      "viewport": "1916x808",
+      "imageSize": "1916x808",
+      "state": { "screen": "battle", "stage": 2, "openCells": 15, "shovelsUsed": 1, "shovels": 2, "luoyangGenerated": 2, "paused": false },
+      "result": "pass"
+    }
+  ]
+}

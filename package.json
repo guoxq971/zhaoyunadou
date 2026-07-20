@@ -1,0 +1,10 @@
+{
+  "name": "zhaoyun-and-adou",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python3 scripts/dev-server.py",
+    "test": "node test/logic-test.mjs && node test/gacha-balance-test.mjs && node test/combat-types-test.mjs && node test/heroes-test.mjs && node test/dual-lane-test.mjs && node test/stability-test.mjs && node test/actions-test.mjs && node test/controller-test.mjs && node test/layout-test.mjs && node test/runtime-test.mjs && node test/audio-test.mjs && node test/clock-test.mjs && node test/playthrough-test.mjs && node test/campaign-test.mjs && node test/screenshots-test.mjs",
+    "test:artifacts": "node test/screenshots-test.mjs"
+  }
+}

@@ -21,9 +21,9 @@ export function addRing(state, x, y, color, maxR = 60) {
   state.effects.push({ kind: 'ring', x, y, color, maxR, life: 0.5, t: 0 });
 }
 
-// 火龙:沿路径推进的演出体(伤害在 heroes.js 结算)
-export function addDragon(state) {
-  state.effects.push({ kind: 'dragon', p: 0, speed: 14, life: 5, t: 0, hit: new Set() });
+// 火龙：每个演出体只沿指定 lane 推进，伤害仍在 heroes.js 结算。
+export function addDragon(state, lane = 0) {
+  state.effects.push({ kind: 'dragon', lane, p: 0, speed: 14, life: 5, t: 0, hit: new Set() });
 }
 
 export function addRain(state) {
@@ -36,7 +36,12 @@ export function updateEffects(state, dt) {
     f.t += dt;
     if (f.kind === 'ink') { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 40 * dt; }
     if (f.kind === 'text') { f.y -= 26 * dt; }
-    if (f.kind === 'dragon') { f.p += f.speed * dt; if (f.p > state.path.length + 2) f.t = f.life; }
+    if (f.kind === 'dragon') {
+      const paths = Array.isArray(state.paths) && state.paths.length > 0 ? state.paths : [state.path];
+      const path = paths[f.lane ?? 0] ?? paths[0] ?? [];
+      f.p += f.speed * dt;
+      if (f.p > path.length + 2) f.t = f.life;
+    }
     if (f.t >= f.life) state.effects.splice(i, 1);
   }
 }

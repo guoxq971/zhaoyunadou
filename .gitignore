@@ -1,0 +1,30 @@
+# Operating-system and editor files
+.DS_Store
+**/.DS_Store
+.vscode/
+.idea/
+
+# Local dependencies, caches and logs
+node_modules/
+tmp/
+*.log
+npm-debug.log*
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Unnamed third-party reference image kept only in the local workspace
+/.jpg
+
+# Browser screenshots from the material-generation website may contain account data.
+# Keep processed, account-free source images instead.
+test-artifacts/material-generation/**/[0-9][0-9]-jiekou-*.png
+
+# Superseded material-generation intermediates; the two final transparent
+# source images remain versioned so the asset preparation scripts stay reproducible.
+test-artifacts/material-generation/**/icons-v1-labeled.png
+test-artifacts/material-generation/**/icons-v2-transparent-but-labeled.png
+test-artifacts/material-generation/**/icons-v3-labels-persist.png
+test-artifacts/material-generation/**/title-mascot-v1-output.png

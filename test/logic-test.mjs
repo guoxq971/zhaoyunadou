@@ -1,11 +1,15 @@
 // node test/logic-test.mjs —— 纯逻辑断言(无 DOM)
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
-import { recruitCost, rollGacha, canMerge, troopDmg, detectHero, unlockHero, useShovel } from '../src/logic.js';
+import { recruitCost, rollGacha, canMerge, troopDmg, detectHero, unlockHero, useBrush, useShovel } from '../src/logic.js';
 import { buildMap } from '../src/map.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); console.log(`✓ ${++n} ${name}`); };
+const seededRandom = (seed = 123456789) => () => {
+  seed = (1664525 * seed + 1013904223) >>> 0;
+  return seed / 0x100000000;
+};
 
 ok('征兵费用曲线 16/20/26/34/44', () => {
   assert.deepEqual([0, 1, 2, 3, 4].map(recruitCost), [16, 20, 26, 34, 44]);
@@ -19,6 +23,8 @@ ok('合成判定:同类同级可合,异类/异级/满级不可', () => {
   assert.equal(canMerge(t('dao', CONFIG.maxLevel), t('dao', CONFIG.maxLevel)), false);
   assert.equal(canMerge(t('nong', 3), t('nong', 3)), false); // 农上限3
   assert.equal(canMerge(t('dao', 1), { kind: 'frag', char: '赵' }), false);
+  assert.equal(canMerge({ kind: 'frag', char: '赵' }, { kind: 'frag', char: '赵', level: 1 }), true);
+  assert.equal(canMerge({ kind: 'frag', char: '赵' }, { kind: 'frag', char: '云' }), false);
 });
 
 ok('攻击力等级缩放', () => {
@@ -29,8 +35,9 @@ ok('攻击力等级缩放', () => {
 
 ok('抽卡:500 次全部落在合法结果内且各类都出过', () => {
   const kinds = new Set();
+  const rand = seededRandom(7);
   for (let i = 0; i < 500; i++) {
-    const g = rollGacha(Math.random, []);
+    const g = rollGacha(rand, []);
     assert.ok(['troop', 'frag', 'shovel'].includes(g.kind));
     if (g.kind === 'troop') assert.ok(CONFIG.troops[g.type]);
     if (g.kind === 'frag') assert.ok(Object.values(CONFIG.heroes).some((h) => h.chars.includes(g.char)));
@@ -41,8 +48,9 @@ ok('抽卡:500 次全部落在合法结果内且各类都出过', () => {
 
 ok('抽卡配对加权:已有「赵」时「云」概率明显高于「备」', () => {
   let yun = 0, bei = 0;
+  const rand = seededRandom(99);
   for (let i = 0; i < 6000; i++) {
-    const g = rollGacha(Math.random, ['赵']);
+    const g = rollGacha(rand, ['赵']);
     if (g.kind === 'frag' && g.char === '云') yun++;
     if (g.kind === 'frag' && g.char === '备') bei++;
   }
@@ -80,6 +88,24 @@ ok('铲子:locked→open,消耗一把;open/path/rock 不可铲', () => {
   assert.equal(useShovel(state, 1, 1), false); // 已是 open
   assert.equal(useShovel(state, 0, 0), false); // path
   assert.equal(state.shovels, 1);
+});
+
+ok('毛笔:普通单位改写成本关缺少的英雄字并消耗一次', () => {
+  const state = {
+    grid: buildMap().grid,
+    bench: [],
+    stage: CONFIG.campaign.stages[0],
+    brushes: 1,
+    stats: {},
+  };
+  state.grid[4][2].unit = { kind: 'troop', type: 'dao', level: 1 };
+  state.grid[4][3].unit = { kind: 'frag', char: '云' };
+  const result = useBrush(state, 4, 2);
+  assert.equal(result.char, '赵');
+  assert.equal(result.hero.key, 'zhaoyun');
+  assert.equal(state.brushes, 0);
+  assert.equal(state.stats.brushUses, 1);
+  assert.equal(useBrush(state, 4, 3), false, '次数耗尽后不可重复改字');
 });
 
 ok('地图:路径连通(相邻格曼哈顿距离=1)且终点是阿斗', () => {

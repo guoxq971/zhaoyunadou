@@ -35,11 +35,15 @@ export function updateHeroes(state, dt, cellXY) {
 
 function castUlt(state, h, cfg, cx, cy, cellXY) {
   const U = CONFIG.ults[cfg.ult];
+  state.lastHeroCast = h.key;
+  if (state.stats) state.stats.heroCasts = (state.stats.heroCasts ?? 0) + 1;
   addText(state, cx, cy - 30, `【${cfg.name}】`, '#8a1f1f', 1.4);
   switch (cfg.ult) {
-    case 'dragon': // 赵云:火龙贯路(伤害在 updateDragon 沿途结算)
-      addDragon(state);
+    case 'dragon': { // 赵云：两条火龙分别贯穿上下两路。
+      const paths = Array.isArray(state.paths) && state.paths.length > 0 ? state.paths : [state.path];
+      paths.forEach((_, lane) => addDragon(state, lane));
       break;
+    }
     case 'rain': { // 黄忠:全屏箭雨
       addRain(state);
       for (const e of [...state.enemies]) damageEnemy(state, e, U.dmg, cellXY);
@@ -78,6 +82,8 @@ export function updateDragonDamage(state, cellXY) {
   for (const f of state.effects) {
     if (f.kind !== 'dragon') continue;
     for (const e of [...state.enemies]) {
+      // 每条火龙只结算自己所在路线，避免双路线敌人受到重复伤害。
+      if ((e.lane ?? 0) !== (f.lane ?? 0)) continue;
       if (f.hit.has(e)) continue;
       if (Math.abs(e.p - f.p) < 1.2) {
         f.hit.add(e);

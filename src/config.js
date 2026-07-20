@@ -1,11 +1,28 @@
 // 全部数值配置 —— 平衡调整只改这里
 export const CONFIG = {
-  canvas: { w: 420, h: 840 },
-  board: { cols: 9, rows: 10, cell: 44, ox: 12, oy: 95 },
+  canvas: { w: 420, h: 760 },
+  // 参考图的纸牌格略高于宽；cell 继续作为战斗射程单位，避免视觉重排改变数值平衡。
+  board: { cols: 8, rows: 10, cell: 40, cellW: 43, cellH: 43, ox: 38, oy: 96 },
   benchSize: 5,
+  starterUnits: ['qiang', 'gong', 'dao'],
   startMantou: 40,
   startLives: 6,
   startShovels: 1,
+  startBrushes: 1,
+  // 参考实机中「洛阳铲」是被动道具：每 60 秒产出一把可拖拽的普通铲子。
+  luoyangShovel: { interval: 60 },
+
+  campaign: {
+    rank: '军士一',
+    storageKey: 'zyad_cleared_stars',
+    stages: [
+      { id: 'star-1', name: '烽燧初战', star: 1, featuredHero: 'zhaoyun', waveCount: 5, enemyHpMul: 0.85, finalEnemy: 'elite', enemyPlan: { fastFromWave: 4, tankFromWave: 7 } },
+      { id: 'star-2', name: '疾骑突阵', star: 2, featuredHero: 'guanyu', waveCount: 5, enemyHpMul: 0.95, finalEnemy: 'elite', enemyPlan: { fastFromWave: 3, tankFromWave: 5 } },
+      { id: 'star-3', name: '巨甲压境', star: 3, featuredHero: 'zhangfei', waveCount: 5, enemyHpMul: 1.00, finalEnemy: 'elite', enemyPlan: { fastFromWave: 3, tankFromWave: 4 } },
+      { id: 'star-4', name: '悍将破围', star: 4, featuredHero: 'huangzhong', waveCount: 5, enemyHpMul: 1.10, finalEnemy: 'elite', enemyPlan: { fastFromWave: 2, tankFromWave: 3 } },
+      { id: 'star-5', name: '魁首决战', star: 5, featuredHero: 'liubei', waveCount: 5, enemyHpMul: 1.15, finalEnemy: 'boss', enemyPlan: { fastFromWave: 2, tankFromWave: 3 } },
+    ],
+  },
 
   // 第 i 次征兵费用(i 从 0 起):16,20,26,34,44…
   recruitCost: (i) => 16 + i * i + 3 * i,
@@ -19,6 +36,8 @@ export const CONFIG = {
     { kind: 'troop', type: 'nong',  w: 4 },
     { kind: 'shovel', w: 2 },
   ],
+  // 已有落单英雄字时，提高残字类别与对应搭档字权重，减少英雄系统长期不可见。
+  gachaPairing: { categoryBoost: 3, partnerBoost: 6 },
 
   troops: {
     dao:   { char: '刀', dmg: 6,  cd: 0.55, range: 1.35 },
@@ -49,14 +68,13 @@ export const CONFIG = {
     baseHp: 24, hpGrowth: 1.22, baseSpeed: 1.05, // 速度单位:格/秒
     types: {
       normal: { char: '贼', hpMul: 1,   spdMul: 1,   size: 1 },
-      fast:   { char: '飞', hpMul: 0.6, spdMul: 1.8, size: 0.9, tint: '#7a4' },
-      tank:   { char: '巨', hpMul: 3.2, spdMul: 0.55, size: 1.25, tint: '#666' },
-      elite:  { char: '悍', hpMul: 6,   spdMul: 0.8, size: 1.3, tint: '#a33' },
-      boss:   { char: '魁', hpMul: 22,  spdMul: 0.45, size: 1.6, tint: '#711' },
+      fast:   { char: '贼', hpMul: 0.6, spdMul: 1.8, size: 0.9, tint: '#6a7846' },
+      tank:   { char: '贼', hpMul: 3.2, spdMul: 0.55, size: 1.25, tint: '#56514a' },
+      elite:  { char: '贼', hpMul: 6,   spdMul: 0.8, size: 1.3, tint: '#8d2720' },
+      boss:   { char: '贼', hpMul: 22,  spdMul: 0.45, size: 1.6, tint: '#711' },
     },
   },
   waves: {
-    count: 20,
     size: (w) => 6 + w,
     spawnInterval: 0.85,
     breakTime: 3.5,
