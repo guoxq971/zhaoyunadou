@@ -17,6 +17,23 @@ const runtime = createGameRuntime(DEFAULT_GAME_PACK, {
 });
 const game = createGameController(0, () => {}, () => true, DEFAULT_GAME_PACK, runtime);
 
+const rejected = runtime.publishDomainEvent({
+  type: 'command.rejected',
+  source: 'foundation-runtime',
+  tick: 0,
+  payload: { commandType: 'unit.drop', reason: 'target-not-open' },
+}, game.state);
+assert.equal(rejected.sequence, 1);
+assert.deepEqual(runtime.domainEvents.peek().map(({ type }) => type), ['command.rejected']);
+assert.deepEqual(collector.getEvents().at(-1), {
+  ...collector.getEvents().at(-1),
+  eventId: 'invalid_action',
+  result: 'failure',
+  reason: 'target-not-open',
+  actionId: 'unit.drop',
+  domainTick: 0,
+});
+
 game.startCurrentStage();
 const state = game.state;
 assert.equal(collector.getEvents().at(-1).eventId, 'stage_start');

@@ -1,4 +1,4 @@
-import { immutableSnapshot } from '../engine-core/events.js';
+import { immutableSnapshot } from './telemetry.js';
 
 // 本地采集器只存内存，不读写持久层，也不发送网络请求。
 export function createLocalEventCollector({ limit = 5_000 } = {}) {

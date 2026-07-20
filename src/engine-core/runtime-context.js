@@ -19,6 +19,23 @@ export function eventsFor(state) {
   return runtimeFor(state)?.events;
 }
 
+export function telemetryFor(state) {
+  return runtimeFor(state)?.telemetry ?? runtimeFor(state)?.events;
+}
+
+export function domainEventsFor(state) {
+  return runtimeFor(state)?.domainEvents;
+}
+
+export function presentationCuesFor(state) {
+  return runtimeFor(state)?.presentationCues;
+}
+
+export function publishDomainEventFor(state, definition) {
+  return runtimeFor(state)?.publishDomainEvent?.(definition, state)
+    ?? runtimeFor(state)?.domainEvents?.publish?.(definition);
+}
+
 export function registryFor(state, name, fallback) {
   return runtimeFor(state)?.registries?.[name] ?? fallback;
 }

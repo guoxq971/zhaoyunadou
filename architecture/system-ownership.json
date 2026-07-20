@@ -46,12 +46,6 @@
     },
     {
       "source": "src/app-shell/create-game-app.js",
-      "target": "src/platform-services/local-event-collector.js",
-      "reason": "候选基座 integration-quality 尚未改经 platform-services 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/app-shell/create-game-app.js",
       "target": "src/render-theme.js",
       "reason": "候选基座 integration-quality 尚未改经 skin-presentation 公共入口",
       "removeByPhase": "G"
@@ -367,12 +361,6 @@
       "target": "src/config.js",
       "reason": "候选基座 board-route 尚未改经 integration-quality 公共入口",
       "removeByPhase": "C"
-    },
-    {
-      "source": "src/platform-services/local-event-collector.js",
-      "target": "src/engine-core/events.js",
-      "reason": "候选基座 platform-services 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "E"
     },
     {
       "source": "src/platforms/web/web-audio.js",
@@ -728,6 +716,13 @@
       "removeByPhase": "G"
     },
     {
+      "path": "src/engine-core/game-command-source.js",
+      "realCallers": ["LocalPlayerController", "legacy input tests"],
+      "delegatesTo": "engine-core InputIntent protocol",
+      "removalCondition": "all callers import InputIntent through engine-core/public.js",
+      "removeByPhase": "F"
+    },
+    {
       "path": "src/game-loop.js",
       "realCallers": ["app-shell", "playthrough and stability tests"],
       "delegatesTo": "fixed-route MatchMode update schedule",
@@ -750,11 +745,15 @@
       "systemId": "foundation-runtime",
       "migrationStatus": "active",
       "ownedPaths": [
-        "src/engine-core/assets.js", "src/engine-core/controller.js",
+        "src/engine-core/assets.js", "src/engine-core/command-handlers.js",
+        "src/engine-core/controller.js", "src/engine-core/domain-event.js",
         "src/engine-core/copy.js", "src/engine-core/game-command-source.js",
         "src/engine-core/game-command.js", "src/engine-core/game-pack.js",
+        "src/engine-core/input-intent.js",
         "src/engine-core/public.js", "src/engine-core/random.js",
-        "src/engine-core/registry.js", "src/game-clock.js"
+        "src/engine-core/registry.js", "src/engine-core/presentation-cue.js",
+        "src/engine-core/serializable-data.js",
+        "src/engine-core/state-slices.js", "src/game-clock.js"
       ],
       "ownerRole": "基座契约维护者",
       "ownedStateSlice": "foundation",
@@ -763,7 +762,7 @@
       "commands": [],
       "publishesDomainEvents": ["command.rejected"],
       "consumesDomainEvents": [],
-      "requiredTests": ["test/game-command-test.mjs", "test/determinism-test.mjs"],
+      "requiredTests": ["test/game-command-test.mjs", "test/foundation-contracts-v2-test.mjs", "test/determinism-test.mjs"],
       "responsibilities": ["稳定 ID、GameCommand、确定性随机与状态哈希", "Registry、快照和 API 版本"],
       "nonResponsibilities": ["题材内容与数值公式", "渲染、平台判断与存储实现"]
     },
@@ -791,7 +790,7 @@
     },
     {
       "systemId": "match-controller",
-      "migrationStatus": "planned",
+      "migrationStatus": "migrating",
       "ownedPaths": ["src/systems/match-mode/**", "src/controllers/**", "src/game-controller.js"],
       "ownerRole": "对局模式与控制器维护者",
       "ownedStateSlice": "match",
@@ -986,7 +985,7 @@
       "ownedPaths": ["src/platform-contracts/**", "src/platform-services/**", "src/platforms/**", "src/canvas-fit.js", "src/storage.js"],
       "ownerRole": "平台 Host 与服务适配维护者",
       "ownedStateSlice": null,
-      "publicEntry": "src/platform-contracts/host.js",
+      "publicEntry": "src/platform-services/public.js",
       "allowedDependencies": ["foundation-runtime"],
       "commands": [],
       "publishesDomainEvents": [],

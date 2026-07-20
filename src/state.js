@@ -3,14 +3,43 @@ import { CONFIG } from './config.js';
 import { normalizeClearedStars, normalizeStageIndex } from './campaign.js';
 import { buildMap } from './map.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
+import { createSlicedState } from './engine-core/public.js';
 import { attachRuntime } from './engine-core/runtime-context.js';
+
+export const STATE_SLICE_KEYS = Object.freeze({
+  foundation: Object.freeze(['time', 'speed']),
+  match: Object.freeze(['title', 'resetConfirmUntil', 'resetResult', 'stageIndex', 'stage', 'over', 'win']),
+  progress: Object.freeze(['clearedStars']),
+  board: Object.freeze(['grid', 'path', 'paths']),
+  economy: Object.freeze(['mantou', 'recruitCount', 'recruitQueue', 'bench']),
+  equipmentItems: Object.freeze(['shovels', 'brushes', 'luoyang']),
+  skillStatus: Object.freeze(['heroes', 'buff', 'lastHeroUnlocked', 'lastHeroCast']),
+  combat: Object.freeze(['enemies', 'projectiles']),
+  presentation: Object.freeze(['effects']),
+  encounter: Object.freeze(['lives', 'waveTarget', 'wave', 'phase', 'phaseT', 'spawnLeft', 'spawnT']),
+});
+
+export const STATE_FACADE_OWNERS = Object.freeze({
+  stats: Object.freeze({
+    kills: 'combat',
+    merges: 'economy',
+    recruits: 'economy',
+    shovelsUsed: 'equipmentItems',
+    brushUses: 'equipmentItems',
+    luoyangGenerated: 'equipmentItems',
+    heroUnlocks: 'skillStatus',
+    heroCasts: 'skillStatus',
+    moves: 'board',
+    swaps: 'board',
+  }),
+});
 
 export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_GAME_PACK, runtime) {
   const config = gamePack?.config ?? CONFIG;
   const safeStageIndex = normalizeStageIndex(stageIndex, gamePack);
   const stage = config.campaign.stages[safeStageIndex];
   const { grid, path, paths } = buildMap(gamePack, stage.mapId);
-  const state = {
+  const initialState = {
     title: true,   // 标题页(restart 时由 main 置 false 直接开局)
     time: 0,
     resetConfirmUntil: 0,
@@ -68,6 +97,7 @@ export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_
       swaps: 0,
     },
   };
+  const state = createSlicedState(initialState, STATE_SLICE_KEYS, { facades: STATE_FACADE_OWNERS });
   const context = runtime?.gamePack ? runtime : { ...(runtime ?? {}), gamePack };
   return attachRuntime(state, context);
 }

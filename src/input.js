@@ -1,7 +1,7 @@
 // 输入装配：Host 标准输入 → LocalPlayerController → 语义 GameCommand → ruleset。
 import { createLocalPlayerController } from './controllers/local-player-controller.js';
 import { createCommandDispatcher, createCommandLog } from './engine-core/game-command.js';
-import { eventsFor } from './engine-core/runtime-context.js';
+import { publishDomainEventFor } from './engine-core/runtime-context.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
 import { createLocalCommandFeedback } from './presentation-pack/local-command-feedback.js';
 import { snapshotMergeDefenseCommandState } from './rulesets/merge-defense/command-state.js';
@@ -37,8 +37,11 @@ export function createLocalGameControl({
     commandLog,
     getStateSummary: () => snapshotMergeDefenseCommandState(game.state),
     onRejected(command, result) {
-      eventsFor(game.state)?.emit('invalid_action', game.state, {
-        result: 'failure', reason: result.reason, actionId: command.type,
+      publishDomainEventFor(game.state, {
+        type: 'command.rejected',
+        source: 'foundation-runtime',
+        tick: command.tick,
+        payload: { commandType: command.type, reason: result.reason },
       });
     },
     onError: onCommandError,

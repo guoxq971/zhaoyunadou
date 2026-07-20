@@ -4,8 +4,7 @@ import { createGameClock } from '../game-clock.js';
 import { createGameController } from '../game-controller.js';
 import { advanceBattle } from '../game-loop.js';
 import { createLocalGameControl } from '../input.js';
-import { assertHostContract } from '../platform-contracts/host.js';
-import { createLocalEventCollector } from '../platform-services/local-event-collector.js';
+import { assertHostContract, createLocalEventCollector } from '../platform-services/public.js';
 import { releasePresentationResources } from '../render-theme.js';
 import { render } from '../render.js';
 import { createGameRuntime } from '../runtime.js';
@@ -121,6 +120,8 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
       });
       endedStages.add(state);
     }
+    // 当前阶段只有 Telemetry bridge 消费领域事实；后续系统消费者在此确定性边界接入。
+    runtime.drainDomainEvents();
     syncStatus(state);
   }
 

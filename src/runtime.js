@@ -1,6 +1,7 @@
 // Game Pack、ruleset 注册表与平台适配器只在 composition root 连接。
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { createEventReporter } from './engine-core/events.js';
+import { createDomainEventQueue, createPresentationCueQueue } from './engine-core/public.js';
+import { createDomainTelemetryBridge, createTelemetryReporter } from './platform-services/public.js';
 import { SKILL_REGISTRY } from './rulesets/merge-defense/skill-registry.js';
 import { ITEM_REGISTRY } from './rulesets/merge-defense/item-registry.js';
 import { EFFECT_LIFECYCLE_REGISTRY } from './rulesets/merge-defense/effect-registry.js';
@@ -76,7 +77,7 @@ export function createGameRuntime(
   { eventSink = null, events = null, now, sessionId, onEventSinkError, host = null, random = null } = {},
 ) {
   assertRuntimeBindings(gamePack);
-  const reporter = events ?? createEventReporter({
+  const telemetry = events ?? createTelemetryReporter({
     manifest: gamePack.manifests.events,
     versions: gamePack.versions,
     sink: eventSink,
@@ -85,11 +86,24 @@ export function createGameRuntime(
     snapshotState: snapshotMergeDefenseState,
     onSinkError: onEventSinkError,
   });
+  const domainEvents = createDomainEventQueue();
+  const presentationCues = createPresentationCueQueue();
+  const telemetryBridge = createDomainTelemetryBridge({ reporter: telemetry, onError: onEventSinkError });
   return Object.freeze({
     gamePack,
     host,
     random,
-    events: reporter,
+    // events 保留为旧 Telemetry 门面；新规则只能发布确定性 DomainEvent。
+    events: telemetry,
+    telemetry,
+    domainEvents,
+    presentationCues,
+    publishDomainEvent(definition, state) {
+      const event = domainEvents.publish(definition);
+      telemetryBridge.forward(event, state);
+      return event;
+    },
+    drainDomainEvents: () => domainEvents.drain(),
     registries: Object.freeze({
       skills: SKILL_REGISTRY,
       items: ITEM_REGISTRY,
