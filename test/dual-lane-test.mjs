@@ -37,8 +37,9 @@ paths[0].forEach((cell, index) => {
 });
 assert.equal(grid[0][7].decoration, 'bramble');
 assert.equal(grid[9][0].decoration, 'bramble');
-assert.equal(grid[0][0].type, 'dou');
-assert.equal(grid[9][7].type, 'dou');
+assert.equal(grid[0][0].type, 'gate');
+assert.equal(grid[9][7].type, 'gate');
+assert.equal(grid.flat().filter((cell) => cell.type === 'gate').length, 2, '两路终点是营门，不是两个阿斗');
 
 {
   const state = createGame();
@@ -65,7 +66,7 @@ assert.equal(grid[9][7].type, 'dou');
   }];
   const lives = state.lives;
   updateEnemies(state, 0.1, cellXY);
-  assert.equal(state.lives, lives - 1, '下路敌人应在右下阿斗处扣命');
+  assert.equal(state.lives, lives - 1, '敌人突破任一营门都应扣除同一个阿斗的共享命数');
   const impact = state.effects.find((effect) => effect.kind === 'text' && effect.text === '-1❤');
   const end = cellXY(9, 7);
   assert.deepEqual({ x: impact.x, y: impact.y }, { x: end.x, y: end.y - 20 });

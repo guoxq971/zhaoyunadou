@@ -1,6 +1,6 @@
 // 输入:拖拽(营↔盘、盘内合成)/ 按钮 / 铲子模式
 import { CONFIG } from './config.js';
-import { B, UI, benchRect, boardCell, cellXY, inRect } from './ui-layout.js';
+import { B, UI, benchRect, boardCell, cellXY, inRect, titleStageRect } from './ui-layout.js';
 import { canMerge, detectHero, unlockHero, useBrush, useShovel } from './logic.js';
 import { attemptRecruit, canStartDrag, restoreDrag } from './actions.js';
 import { addRing, addText } from './effects.js';
@@ -164,6 +164,17 @@ export function attachInput(canvas, game, drag) {
     const { x, y } = pt(e);
 
     if (state.title) {
+      for (let index = 0; index < CONFIG.campaign.stages.length; index++) {
+        if (!inRect(x, y, titleStageRect(index))) continue;
+        if (game.selectStage(index)) sfx('place');
+        else sfx('fail');
+        return;
+      }
+      if (inRect(x, y, UI.resetProgress)) {
+        const result = game.requestProgressReset();
+        sfx(result === 'cleared' ? 'hero' : result === 'memory-only' ? 'fail' : 'place');
+        return;
+      }
       if (inRect(x, y, UI.start)) { game.startCurrentStage(); sfx('hero'); }
       return;
     }
@@ -265,6 +276,15 @@ export function attachInput(canvas, game, drag) {
       else if (state.over) game.resolveResult();
       else if (state.phase === 'break') state.phaseT = 0;
       else handled = false;
+    } else if (/^Digit[1-5]$/.test(e.code) && state.title) {
+      const index = Number(e.code.slice(-1)) - 1;
+      if (game.selectStage(index)) sfx('place');
+      else sfx('fail');
+    } else if (e.code === 'KeyR' && state.title) {
+      const result = game.requestProgressReset();
+      sfx(result === 'cleared' ? 'hero' : result === 'memory-only' ? 'fail' : 'place');
+    } else if (e.code === 'Escape' && state.title) {
+      game.cancelProgressReset();
     } else if (e.code === 'KeyP' && !state.title && !state.over) {
       togglePause(state);
     } else if (e.code === 'KeyR' && !state.title && !state.over) {

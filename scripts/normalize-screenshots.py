@@ -3,6 +3,7 @@
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 from PIL import Image
 
@@ -11,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCREENSHOT_ROOT = ROOT / "test-artifacts/screenshots"
 
 
-def resolve_screenshot_dir(value: str | None) -> Path:
+def resolve_screenshot_dir(value: Optional[str]) -> Path:
     """允许传日期、相对目录或绝对目录；未传时处理最新一批截图。"""
     if value:
         candidate = Path(value)

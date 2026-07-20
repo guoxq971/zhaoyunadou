@@ -108,14 +108,14 @@ ok('毛笔:普通单位改写成本关缺少的英雄字并消耗一次', () => 
   assert.equal(useBrush(state, 4, 3), false, '次数耗尽后不可重复改字');
 });
 
-ok('地图:路径连通(相邻格曼哈顿距离=1)且终点是阿斗', () => {
+ok('地图:路径连通(相邻格曼哈顿距离=1)且终点是营门', () => {
   const { grid, path } = buildMap();
   for (let i = 1; i < path.length; i++) {
     const d = Math.abs(path[i].r - path[i - 1].r) + Math.abs(path[i].c - path[i - 1].c);
     assert.equal(d, 1, `路径断裂@${i}`);
   }
   const end = path[path.length - 1];
-  assert.equal(grid[end.r][end.c].type, 'dou');
+  assert.equal(grid[end.r][end.c].type, 'gate');
 });
 
 console.log(`\n全部 ${n} 组断言通过`);

@@ -48,6 +48,13 @@ function drawPauseButton(ctx, paused) {
 }
 
 function drawResources(ctx, state) {
+  ctx.save();
+  ctx.fillStyle = '#493a2d';
+  ctx.font = font(12);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('阿斗', 13, 49);
+  ctx.restore();
   const shown = Math.min(10, state.lives);
   for (let index = 0; index < 10; index++) {
     const col = index % 5;

@@ -10,6 +10,8 @@ export function createGame(stageIndex = 0, clearedStars = 0) {
   return {
     title: true,   // 标题页(restart 时由 main 置 false 直接开局)
     time: 0,
+    resetConfirmUntil: 0,
+    resetResult: 'idle',
     speed: 1,
     mantou: CONFIG.startMantou,
     lives: CONFIG.startLives,

@@ -19,7 +19,7 @@ const manifest = JSON.parse(await readFile(join(artifactDir, 'manifest.json'), '
 assert.equal(manifest.browser, 'Chrome');
 assert.equal(manifest.schemaVersion, 2, '截图清单必须使用可追踪格式');
 assert.equal(manifest.sourceFingerprint, await sourceFingerprint(root), '代码变化后必须重新生成截图证据');
-assert.match(manifest.userAgent, /^Chrome/);
+assert.match(manifest.userAgent, /Chrome\/\d+/, '截图清单必须记录真实 Chrome 用户代理');
 assert.equal(manifest.consoleErrors, 0);
 assert.equal(manifest.consoleWarnings, 0);
 assert.ok(manifest.screenshots.length >= 15, '至少保存 15 张关键截图');

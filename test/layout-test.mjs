@@ -9,6 +9,7 @@ import {
   boardWidth,
   inRect,
   toolRect,
+  titleStageRect,
 } from '../src/ui-layout.js';
 
 assert.deepEqual(CONFIG.canvas, { w: 420, h: 760 }, '逻辑画布比例应贴近参考图');
@@ -37,6 +38,13 @@ assert.ok(B.oy + boardHeight <= UI.bench.y - 12, '棋盘与营栏需保留手绘
 for (const key of ['pause', 'shovel', 'recruit', 'speed', 'start']) {
   assert.ok(UI[key].w >= 44 && UI[key].h >= 44, `${key} 必须满足移动端热区`);
 }
+
+const titleStages = Array.from({ length: CONFIG.campaign.stages.length }, (_, index) => titleStageRect(index));
+assert.equal(titleStages.length, 5);
+assert.ok(titleStages.every((rect) => rect.w >= 44 && rect.h >= 44), '关卡军令章应满足移动端热区');
+assert.ok(titleStages.every((rect, index) => index === 0 || rect.x >= titleStages[index - 1].x + titleStages[index - 1].w), '关卡军令章热区不可重叠');
+assert.ok(titleStages.at(-1).x + titleStages.at(-1).w <= CONFIG.canvas.w - 40);
+assert.ok(UI.resetProgress.w >= 44 && UI.resetProgress.h >= 44);
 
 const lastBench = benchRect(CONFIG.benchSize - 1);
 assert.ok(lastBench.x + lastBench.w <= CONFIG.canvas.w - 24, '营栏不得越出右侧纸边');

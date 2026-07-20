@@ -1,6 +1,8 @@
 import { CONFIG } from './config.js';
 
 export const CAMPAIGN_STORAGE_KEY = CONFIG.campaign.storageKey;
+export const BEST_WAVE_STORAGE_KEY = 'zyad_best';
+export const PROGRESS_STORAGE_KEYS = [CAMPAIGN_STORAGE_KEY, BEST_WAVE_STORAGE_KEY];
 
 export function normalizeClearedStars(value) {
   const parsed = Number(value);
@@ -17,6 +19,18 @@ export function normalizeStageIndex(value) {
 export function loadProgress(storage) {
   try { return normalizeClearedStars(storage?.getItem(CAMPAIGN_STORAGE_KEY)); }
   catch { return 0; }
+}
+
+export function clearProgress(storage) {
+  let persisted = storage?.persistent !== false;
+  for (const key of PROGRESS_STORAGE_KEYS) {
+    try {
+      if (storage?.removeItem(key) === false) persisted = false;
+    } catch {
+      persisted = false;
+    }
+  }
+  return persisted;
 }
 
 export function stageIndexForProgress(clearedStars) {

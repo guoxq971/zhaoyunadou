@@ -1,6 +1,7 @@
 // 参考原作的信息密度重绘标题页；未实现的设置、排行与背包只作静态陈列。
 import { CONFIG } from './config.js';
-import { UI } from './ui-layout.js';
+import { stageIndexForProgress } from './campaign.js';
+import { UI, titleStageRect } from './ui-layout.js';
 import { drawPaper, drawStars, font, roundRect, titleMascot } from './render-theme.js';
 
 function inkLine(ctx, x1, y1, x2, y2, width = 2, color = '#473629') {
@@ -81,14 +82,74 @@ function drawEnergy(ctx, x, y, current, max) {
   ctx.restore();
 }
 
-function drawNotice(ctx, y, text, alpha) {
+function drawStageSelector(ctx, state) {
+  const numerals = ['一', '二', '三', '四', '五'];
+  const highest = stageIndexForProgress(state.clearedStars);
   ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = '#607b76';
-  roundRect(ctx, 29, y, 362, 47, 12); ctx.fill();
-  ctx.strokeStyle = 'rgba(221,233,217,0.52)'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.fillStyle = '#eef0e6'; ctx.font = font(17, false);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 210, y + 24);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  CONFIG.campaign.stages.forEach((stage, index) => {
+    const rect = titleStageRect(index);
+    const selected = index === state.stageIndex;
+    const unlocked = index <= highest;
+    const cleared = index < state.clearedStars;
+    ctx.save();
+    if (selected) {
+      ctx.shadowColor = 'rgba(116,47,34,0.35)';
+      ctx.shadowBlur = 7;
+      ctx.shadowOffsetY = 3;
+    }
+    ctx.fillStyle = selected ? '#b95c46' : unlocked ? 'rgba(238,225,196,0.96)' : 'rgba(164,157,139,0.72)';
+    ctx.strokeStyle = selected ? '#6f281f' : unlocked ? '#766044' : '#777064';
+    ctx.lineWidth = selected ? 2.5 : 1.5;
+    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 4);
+    ctx.fill(); ctx.stroke();
+    ctx.shadowColor = 'transparent';
+
+    ctx.fillStyle = selected ? '#fff1d5' : unlocked ? '#3d3328' : '#6d675d';
+    ctx.font = font(19);
+    ctx.fillText(unlocked ? numerals[index] : '锁', rect.x + rect.w / 2, rect.y + 19);
+    ctx.font = font(10, false);
+    ctx.fillText(unlocked ? '关' : '未解锁', rect.x + rect.w / 2, rect.y + 37);
+    if (cleared) {
+      ctx.fillStyle = '#e4ae18';
+      ctx.strokeStyle = '#76500b';
+      ctx.lineWidth = 1;
+      ctx.font = font(12, false);
+      ctx.strokeText('★', rect.x + rect.w - 8, rect.y + 8);
+      ctx.fillText('★', rect.x + rect.w - 8, rect.y + 8);
+    }
+    ctx.restore();
+  });
+
+  ctx.fillStyle = '#783426';
+  ctx.font = font(13);
+  ctx.fillText(
+    `第 ${state.stageIndex + 1} 关 · ${state.stage?.name || '烽燧初战'} · 已解锁 ${highest + 1}/${CONFIG.campaign.stages.length}`,
+    210,
+    310,
+  );
+  ctx.restore();
+}
+
+function drawResetProgress(ctx, state) {
+  const rect = UI.resetProgress;
+  const confirming = state.resetConfirmUntil > state.time;
+  ctx.save();
+  ctx.fillStyle = confirming ? 'rgba(151,55,42,0.92)' : 'rgba(225,211,181,0.86)';
+  ctx.strokeStyle = confirming ? '#6d281f' : '#66543e';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = confirming ? '#fff0d3' : '#5a4936';
+  ctx.font = font(confirming ? 14 : 13, false);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(confirming ? '再按一次确认重置' : '重置进度', rect.x + rect.w / 2, rect.y + rect.h / 2);
+  if (!confirming && state.resetResult === 'memory-only') {
+    ctx.fillStyle = '#8f3328';
+    ctx.font = font(10, false);
+    ctx.fillText('仅本次会话已重置 · 刷新后可能恢复', 210, rect.y - 9);
+  }
   ctx.restore();
 }
 
@@ -304,9 +365,8 @@ export function drawTitle(ctx, state) {
   ctx.fillText(CONFIG.campaign.rank, 210, 186);
   drawStars(ctx, state.clearedStars || 0, 215, 27);
 
-  // 通知条保留参考图的相互遮挡，形成小游戏式的密集信息层。
-  drawNotice(ctx, 240, `第 ${Math.min(CONFIG.campaign.stages.length, (state.stageIndex || 0) + 2)} 关解锁新武器啦~`, 0.68);
-  drawNotice(ctx, 271, `第 ${Math.min(CONFIG.campaign.stages.length, (state.stageIndex || 0) + 2)} 关解锁英雄技~`, 0.86);
+  // 原来的双层“解锁”条幅是每帧常驻的假通知；这里改为唯一的关卡选择区。
+  drawStageSelector(ctx, state);
 
   drawTitleBoard(ctx, state);
 
@@ -314,6 +374,7 @@ export function drawTitle(ctx, state) {
   drawStartButton(ctx);
   drawRanking(ctx);
   drawBackpack(ctx);
+  drawResetProgress(ctx, state);
 
   ctx.fillStyle = 'rgba(73,57,40,0.76)'; ctx.font = font(13, false);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

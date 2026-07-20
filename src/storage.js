@@ -27,7 +27,47 @@ export function createSafeStorage(primary) {
         return false;
       }
     },
+    removeItem(key) {
+      memory.delete(key);
+      try {
+        if (!primary) return false;
+        primary.removeItem(key);
+        return true;
+      } catch {
+        persistent = false;
+        return false;
+      }
+    },
   };
+}
+
+// 自动化测试可按运行号加前缀，确保同一 origin 下也不会读写玩家的正常存档。
+export function createScopedStorage(storage, namespace = '') {
+  const prefix = namespace ? `${String(namespace)}:` : '';
+  const keyFor = (key) => `${prefix}${key}`;
+  return {
+    get persistent() { return storage?.persistent !== false; },
+    scope: namespace || 'normal',
+    getItem(key) { return storage?.getItem(keyFor(key)) ?? null; },
+    setItem(key, value) { return storage?.setItem(keyFor(key), value) ?? false; },
+    removeItem(key) { return storage?.removeItem(keyFor(key)) ?? false; },
+  };
+}
+
+// 只要出现 e2e 参数就必须与玩家存档隔离；即使参数为空或全是中文也不能回落 normal。
+export function e2eStorageNamespace(search = '') {
+  const params = new URLSearchParams(search);
+  if (!params.has('e2e')) return '';
+  const raw = params.get('e2e') || '';
+  const safe = raw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
+  if (safe) return `zyad-e2e-${safe}`;
+  if (!raw) return 'zyad-e2e-anonymous';
+  let hash = 2166136261;
+  for (const char of raw) {
+    hash ^= char.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `zyad-e2e-run-${(hash >>> 0).toString(16)}`;
 }
 
 export function browserStorage(scope = globalThis) {

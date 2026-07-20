@@ -1,13 +1,13 @@
 // 装配 + 主循环
 import { CONFIG } from './config.js';
-import { loadProgress, resultAction, settleResult } from './campaign.js';
+import { BEST_WAVE_STORAGE_KEY, clearProgress, loadProgress, resultAction, settleResult } from './campaign.js';
 import { advanceBattle } from './game-loop.js';
 import { render } from './render.js';
 import { cellXY } from './ui-layout.js';
 import { attachInput } from './input.js';
 import { initAudio } from './audio.js';
 import { createGameController } from './game-controller.js';
-import { browserStorage, createSafeStorage } from './storage.js';
+import { browserStorage, createSafeStorage, createScopedStorage, e2eStorageNamespace } from './storage.js';
 import { computeCanvasFit } from './canvas-fit.js';
 import { createGameClock } from './game-clock.js';
 import { getAssetStatus } from './render-theme.js';
@@ -35,9 +35,10 @@ function resetDrag() {
   });
 }
 
-const storage = createSafeStorage(browserStorage(window));
+const storageNamespace = e2eStorageNamespace(window.location.search);
+const storage = createScopedStorage(createSafeStorage(browserStorage(window)), storageNamespace);
 const initialProgress = loadProgress(storage);
-const game = createGameController(initialProgress, resetDrag);
+const game = createGameController(initialProgress, resetDrag, () => clearProgress(storage));
 attachInput(canvas, game, drag);
 window.addEventListener('pointerdown', () => { void initAudio(); });
 window.addEventListener('touchstart', () => { void initAudio(); });
@@ -71,8 +72,12 @@ function syncStatus(state, force = false) {
   const dataset = {
     screen,
     stage: String(state.stageIndex + 1),
+    selectedStage: String(state.stageIndex + 1),
     stageCount: String(CONFIG.campaign.stages.length),
+    highestUnlockedStage: String(game.highestUnlockedStageIndex + 1),
     stars: String(state.clearedStars),
+    titleMode: state.title && state.resetConfirmUntil > state.time ? 'reset-confirm' : 'normal',
+    resetResult: state.resetResult ?? 'idle',
     wave: String(state.wave),
     waveTarget: String(state.waveTarget),
     phase: state.phase,
@@ -111,14 +116,20 @@ function syncStatus(state, force = false) {
     assetsReady: String(assetStatus.ready),
     assetFailures: String(assetStatus.failed),
     storageMode: storage.persistent ? 'persistent' : 'memory',
+    storageScope: storageNamespace || 'normal',
   };
   const signature = JSON.stringify(dataset);
   if (signature !== lastDatasetSignature) {
     lastDatasetSignature = signature;
     Object.assign(canvas.dataset, dataset);
   }
+  const titleNotice = state.resetConfirmUntil > state.time
+    ? '，请再次确认重置'
+    : state.resetResult === 'memory-only'
+      ? '，存储受限，刷新后旧进度可能恢复'
+      : '';
   const label = screen === 'title'
-    ? `赵云与阿斗，${CONFIG.campaign.rank}，已获 ${state.clearedStars} 星，第 ${state.stageIndex + 1} 关`
+    ? `赵云与阿斗，${CONFIG.campaign.rank}，已获 ${state.clearedStars} 星，第 ${state.stageIndex + 1} 关${titleNotice}`
     : screen === 'result'
       ? `${state.win ? '大捷' : '败北'}，第 ${state.stageIndex + 1} 关，第 ${state.wave} 波，歼敌 ${state.stats.kills}`
       : `巨鹿，第 ${state.stageIndex + 1} 关，第 ${Math.max(state.wave, 1)} 波，命 ${state.lives}`;
@@ -144,9 +155,9 @@ function step(forcedDt) {
   }
   if (!s.over) advanceBattle(s, dt, cellXY);
   if (s.over && !s.saved) {
-    const best = Number(storage.getItem('zyad_best') || 0);
+    const best = Number(storage.getItem(BEST_WAVE_STORAGE_KEY) || 0);
     const reached = s.win ? s.wave : Math.max(s.wave - 1, 0);
-    if (reached > best) storage.setItem('zyad_best', String(reached));
+    if (reached > best) storage.setItem(BEST_WAVE_STORAGE_KEY, String(reached));
     settleResult(s, storage);
   }
   syncStatus(s);

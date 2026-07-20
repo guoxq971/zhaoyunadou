@@ -15,6 +15,9 @@ export const UI = {
   restart: { x: 130, y: 490, w: 160, h: 56 },
   start:   { x: 110, y: 510, w: 200, h: 68 },
   callWave:{ x: 138, y: 58,  w: 144, h: 34 },
+  // 标题页用五枚并排军令章直接选关；底部重置采用二次确认。
+  stageSelect: { x: 44, y: 244, w: 60, h: 48, gap: 6 },
+  resetProgress: { x: 142, y: 690, w: 136, h: 44 },
 };
 
 export const cellXY = (r, c) => ({
@@ -34,6 +37,13 @@ export const toolRect = (i) => ({
   y: UI.tools.y,
   w: UI.tools.w,
   h: UI.tools.h,
+});
+
+export const titleStageRect = (i) => ({
+  x: UI.stageSelect.x + i * (UI.stageSelect.w + UI.stageSelect.gap),
+  y: UI.stageSelect.y,
+  w: UI.stageSelect.w,
+  h: UI.stageSelect.h,
 });
 
 export function boardCell(x, y) {

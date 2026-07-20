@@ -1,5 +1,5 @@
 // 巨鹿地图：上下两条互不相交、彼此旋转对称的 S 型行军线。
-// 类型：path=行军路 open=可放置 locked=待铲 dou=阿斗。
+// 类型：path=行军路 open=可放置 locked=待铲 gate=两路营门。
 import { CONFIG } from './config.js';
 
 const LANE_0 = [
@@ -33,12 +33,12 @@ export function buildMap() {
     });
   });
 
-  // 敌军从墨色荆棘进入；两位阿斗分别守在对角终点。
+  // 敌军从墨色荆棘进入；两路终点都是营门，共同保护唯一的阿斗命数。
   for (const [lane, path] of paths.entries()) {
     const start = path[0];
     const end = path[path.length - 1];
     grid[start.r][start.c].decoration = 'bramble';
-    grid[end.r][end.c].type = 'dou';
+    grid[end.r][end.c].type = 'gate';
     grid[end.r][end.c].lane = lane;
   }
 

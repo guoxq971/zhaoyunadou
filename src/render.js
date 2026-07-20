@@ -165,15 +165,20 @@ function drawBoard(ctx, state, drag) {
         ctx.fill();
         ctx.strokeStyle = 'rgba(235,225,204,0.55)'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(x + 15, y + 18); ctx.lineTo(x + 24, y + 13); ctx.lineTo(x + 31, y + 20); ctx.stroke();
-      } else if (cell.type === 'dou') {
-        ctx.fillStyle = 'rgba(246,236,213,0.96)';
+      } else if (cell.type === 'gate') {
+        // 两条路线各有一座营门，但共享顶部唯一的“阿斗”命数。
+        ctx.fillStyle = 'rgba(226,210,180,0.97)';
         ctx.fillRect(x, y, B.cellW, B.cellH);
-        ctx.strokeStyle = '#a83227'; ctx.lineWidth = 2; ctx.strokeRect(x + 2, y + 2, B.cellW - 4, B.cellH - 4);
-        drawCard(ctx, x + B.cellW / 2, y + B.cellH / 2, B.cellW - 5, { char: '斗', style: 'troop', height: B.cellH - 5 });
-        for (let i = 0; i < 3; i++) {
-          ctx.fillStyle = '#d73548';
-          ctx.beginPath(); ctx.arc(x - 4 + i * 9, y + 5, 3.5, 0, Math.PI * 2); ctx.fill();
-        }
+        ctx.fillStyle = '#733426';
+        ctx.beginPath();
+        ctx.moveTo(x + 4, y + 14); ctx.lineTo(x + B.cellW / 2, y + 3); ctx.lineTo(x + B.cellW - 4, y + 14);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = '#9f5540';
+        roundRect(ctx, x + 8, y + 13, B.cellW - 16, B.cellH - 17, 2); ctx.fill();
+        ctx.strokeStyle = '#4f2b21'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = '#fff0cf'; ctx.font = font(21);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('营', x + B.cellW / 2, y + B.cellH / 2 + 5);
       }
       if (cell.type === 'spawn' || cell.decoration === 'bramble') {
         // 两路曹军入口使用参考图的黑墨荆棘，不用角色立绘占据格面。

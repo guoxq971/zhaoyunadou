@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import {
+  BEST_WAVE_STORAGE_KEY,
+  CAMPAIGN_STORAGE_KEY,
+  clearProgress,
   loadProgress,
   normalizeClearedStars,
   progressAfterResult,
@@ -28,6 +31,10 @@ class MemoryStorage {
   setItem(key, value) {
     this.values.set(key, String(value));
     this.writes++;
+  }
+
+  removeItem(key) {
+    this.values.delete(key);
   }
 }
 
@@ -73,6 +80,16 @@ assert.equal(loadProgress(new MemoryStorage()), 0);
 assert.deepEqual([0, 1, 2, 3, 4, 5].map(stageIndexForProgress), [0, 1, 2, 3, 4, 4]);
 
 assert.equal(loadProgress({ getItem() { throw new Error('blocked'); } }), 0, '读取存档异常时从 0 星启动');
+
+{
+  const storage = new MemoryStorage({
+    [CAMPAIGN_STORAGE_KEY]: '5',
+    [BEST_WAVE_STORAGE_KEY]: '12',
+  });
+  assert.equal(clearProgress(storage), true);
+  assert.equal(storage.getItem(CAMPAIGN_STORAGE_KEY), null);
+  assert.equal(storage.getItem(BEST_WAVE_STORAGE_KEY), null);
+}
 
 {
   const state = createGame(0, 0);
