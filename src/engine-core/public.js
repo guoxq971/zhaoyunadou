@@ -8,6 +8,10 @@ export {
   createDomainEventQueue,
 } from './domain-event.js';
 export {
+  DOMAIN_EVENT_DISPATCHER_API_VERSION,
+  createDomainEventDispatcher,
+} from './domain-event-dispatcher.js';
+export {
   GAME_COMMAND_API_VERSION,
   assertGameCommand,
   createCommandDispatcher,
