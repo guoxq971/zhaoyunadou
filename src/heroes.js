@@ -7,10 +7,13 @@ import { eventsFor, gamePackFor, registryFor } from './engine-core/runtime-conte
 import { SKILL_REGISTRY } from './rulesets/merge-defense/skill-registry.js';
 import { copyText } from './engine-core/copy.js';
 import { addConfiguredFeedback } from './presentation-pack/feedback-effect.js';
+import { resolveStat } from './systems/attribute/index.js';
 
 export function updateHeroes(state, dt, cellXY) {
   const config = gamePackFor(state)?.config ?? CONFIG;
-  const mult = state.buff && state.time < state.buff.until ? state.buff.mult : 1;
+  const modifiers = state.buff && state.time < state.buff.until
+    ? [{ id: 'liubei-aura', stat: 'damage', operation: 'multiply', value: state.buff.mult, priority: 20 }]
+    : [];
   for (const h of state.heroes) {
     const cfg = config.heroes[h.key];
     const a = cellXY(h.r, h.c), b = cellXY(h.r, h.c + 1);
@@ -24,7 +27,7 @@ export function updateHeroes(state, dt, cellXY) {
         h.cd = cfg.cd;
         h.flash = 0.15;
         addSlash(state, tgt.x, tgt.y, Math.atan2(tgt.y - cy, tgt.x - cx));
-        damageEnemy(state, tgt.e, cfg.dmg * mult, cellXY);
+        damageEnemy(state, tgt.e, resolveStat(cfg.dmg, 'damage', modifiers, state), cellXY);
       }
     }
     if (h.flash > 0) h.flash -= dt;

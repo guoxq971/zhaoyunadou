@@ -1,7 +1,9 @@
 // 纯函数逻辑:抽卡 / 合成 / 英雄拼字 / 铲子 —— 全部可离线单测
 import { CONFIG } from './config.js';
-import { cellAt } from './state.js';
 import { eventsFor, gamePackFor } from './engine-core/runtime-context.js';
+import { cellAt } from './systems/board/index.js';
+import { troopDamage } from './systems/attribute/index.js';
+import { createHeroParts, ensurePieceIdentity, transformPiece } from './systems/piece/index.js';
 
 const configFrom = (value) => value?.config ?? gamePackFor(value)?.config ?? CONFIG;
 
@@ -56,7 +58,7 @@ export function canMerge(a, b, gamePack) {
 
 export const troopDmg = (type, level, gamePack) => {
   const config = configFrom(gamePack);
-  return Math.round(config.troops[type].dmg * Math.pow(config.levelMult, level - 1));
+  return troopDamage(config.troops[type].dmg, level, config.levelMult);
 };
 
 // 放下一个英雄单字后,检查 (r,c) 周围是否拼出「左字·右字」水平相邻的全名
@@ -85,8 +87,12 @@ export function detectHero(grid, r, c, gamePack) {
 
 export function unlockHero(state, { key, r, c, level = 1 }, gamePack) {
   const config = configFrom(gamePack ?? state);
-  state.grid[r][c].unit = { kind: 'hero', key, part: 0, level };
-  state.grid[r][c + 1].unit = { kind: 'hero', key, part: 1, level };
+  const [left, right] = createHeroParts(state, key, level, [
+    { zone: 'grid', r, c },
+    { zone: 'grid', r, c: c + 1 },
+  ]);
+  state.grid[r][c].unit = left;
+  state.grid[r][c + 1].unit = right;
   const h = config.heroes[key];
   state.heroes.push({
     key, r, c, level, cd: 0,
@@ -124,7 +130,8 @@ export function useBrush(state, r, c) {
   const char = owned.includes(first) && !owned.includes(second)
     ? second
     : owned.includes(second) && !owned.includes(first) ? first : first;
-  cell.unit = { kind: 'frag', char, level: 1 };
+  ensurePieceIdentity(state, cell.unit);
+  transformPiece(cell.unit, { kind: 'frag', char, level: 1 });
   state.brushes--;
   if (state.stats) state.stats.brushUses = (state.stats.brushUses ?? 0) + 1;
   return { char, hero: detectHero(state.grid, r, c, gamePackFor(state)) };

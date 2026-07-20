@@ -1,7 +1,7 @@
 const slicedStates = new WeakMap();
 
 // 顶层 getter/setter 是旧调用方的兼容投影；真实可变值只存在命名切片中。
-export function createSlicedState(initialState, ownership, { facades = {} } = {}) {
+export function createSlicedState(initialState, ownership, { facades = {}, privateSlices = {} } = {}) {
   if (!initialState || typeof initialState !== 'object' || Array.isArray(initialState)) {
     throw new TypeError('[state-slices] initialState must be an object');
   }
@@ -22,6 +22,13 @@ export function createSlicedState(initialState, ownership, { facades = {} } = {}
       if (facadeKeys.has(key)) throw new Error(`[state-slices] facade key "${key}" cannot have a direct owner`);
       ownerByKey.set(key, sliceId);
       slice[key] = initialState[key];
+    }
+    slices[sliceId] = slice;
+  }
+  for (const [sliceId, slice] of Object.entries(privateSlices)) {
+    if (slices[sliceId]) throw new Error(`[state-slices] duplicate state slice "${sliceId}"`);
+    if (!slice || typeof slice !== 'object' || Array.isArray(slice)) {
+      throw new TypeError(`[state-slices] private slice "${sliceId}" must be an object`);
     }
     slices[sliceId] = slice;
   }

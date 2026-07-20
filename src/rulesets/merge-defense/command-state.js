@@ -1,14 +1,21 @@
 function unitSnapshot(unit) {
   if (!unit) return null;
+  const identity = {
+    pieceId: unit.pieceId ?? null,
+    revision: unit.revision ?? 0,
+    location: unit.location ? { ...unit.location } : null,
+  };
   if (unit.kind === 'troop') return {
     kind: 'troop', type: unit.type, level: unit.level ?? 1,
     cd: unit.cd === undefined ? null : rounded(unit.cd),
+    ...identity,
   };
-  if (unit.kind === 'frag') return { kind: 'frag', char: unit.char, level: unit.level ?? 1 };
+  if (unit.kind === 'frag') return { kind: 'frag', char: unit.char, level: unit.level ?? 1, ...identity };
   if (unit.kind === 'hero') return {
     kind: 'hero', key: unit.key, part: unit.part, level: unit.level ?? 1,
+    ...identity,
   };
-  return { kind: unit.kind };
+  return { kind: unit.kind, ...identity };
 }
 
 const rounded = (value) => Number.isFinite(value) ? Number(value.toFixed(6)) : value;

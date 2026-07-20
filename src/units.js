@@ -1,12 +1,13 @@
 // 棋盘兵种:索敌、攻击、农民产馒头、弓箭弹道
 import { CONFIG } from './config.js';
-import { troopDmg } from './logic.js';
 import { enemyGameplayXY, damageEnemy } from './enemies.js';
 import { addSlash, addText, addInk } from './effects.js';
 import { gamePackFor } from './engine-core/runtime-context.js';
+import { troopDamage } from './systems/attribute/index.js';
 
-const buffMult = (state) =>
-  state.buff && state.time < state.buff.until ? state.buff.mult : 1;
+const damageModifiers = (state) => state.buff && state.time < state.buff.until
+  ? [{ id: 'liubei-aura', stat: 'damage', operation: 'multiply', value: state.buff.mult, priority: 20 }]
+  : [];
 
 // 找射程内路径进度最深的敌人。返回 {e, x, y} 或 null
 export function findTarget(state, cx, cy, rangeCells, cellXY) {
@@ -24,7 +25,7 @@ export function findTarget(state, cx, cy, rangeCells, cellXY) {
 export function updateUnits(state, dt, cellXY) {
   const gamePack = gamePackFor(state);
   const config = gamePack?.config ?? CONFIG;
-  const mult = buffMult(state);
+  const modifiers = damageModifiers(state);
   for (let r = 0; r < state.grid.length; r++) {
     for (let c = 0; c < state.grid[0].length; c++) {
       const u = state.grid[r][c].unit;
@@ -49,7 +50,7 @@ export function updateUnits(state, dt, cellXY) {
       if (!tgt) continue;
       u.cd = t.cd;
       u.flash = 0.15; // 渲染层用:攻击瞬间字牌抖动
-      const dmg = troopDmg(u.type, u.level, gamePack) * mult;
+      const dmg = troopDamage(t.dmg, u.level, config.levelMult, modifiers, state);
       if (t.behaviorId === 'unit.projectile' || t.projectile) {
         state.projectiles.push({ x, y, target: tgt.e, dmg, speed: t.projectileSpeed });
       } else {

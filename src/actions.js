@@ -1,6 +1,7 @@
 // 可测试的玩家动作：征兵与被中断拖拽的恢复。
 import { ownedFragChars, recruitCost, rollGacha } from './logic.js';
 import { eventsFor, gamePackFor } from './engine-core/runtime-context.js';
+import { ensurePieceIdentity } from './systems/piece/index.js';
 
 export const canStartDrag = (drag, button) =>
   !drag?.item && (button === undefined || button === 0);
@@ -27,6 +28,7 @@ export function attemptRecruit(state, rand = Math.random, drag = null) {
   const got = queuedChar
     ? { kind: 'frag', char: queuedChar, level: 1 }
     : rollGacha(rand, ownedFragChars(state), gamePack);
+  ensurePieceIdentity(state, got, { zone: 'bench', index: slot });
   state.mantou -= cost;
   state.recruitCount++;
   state.stats.recruits++;

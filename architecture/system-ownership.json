@@ -334,8 +334,8 @@
     },
     {
       "source": "src/logic.js",
-      "target": "src/state.js",
-      "reason": "候选基座 economy-formation 尚未改经 integration-quality 公共入口",
+      "target": "src/systems/attribute/index.js",
+      "reason": "兼容 troopDmg 门面暂时委托 Attribute，阶段 D 删除该 Economy 旧导出",
       "removeByPhase": "D"
     },
     {
@@ -355,12 +355,6 @@
       "target": "src/platforms/web/web-host.js",
       "reason": "候选基座 integration-quality 尚未改经 platform-services 公共入口",
       "removeByPhase": "G"
-    },
-    {
-      "source": "src/map.js",
-      "target": "src/config.js",
-      "reason": "候选基座 board-route 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "C"
     },
     {
       "source": "src/platforms/web/web-audio.js",
@@ -579,12 +573,6 @@
       "removeByPhase": "G"
     },
     {
-      "source": "src/rulesets/merge-defense/player-command-dispatcher.js",
-      "target": "src/rulesets/merge-defense/unit-placement.js",
-      "reason": "候选基座 integration-quality 尚未改经 board-route 公共入口",
-      "removeByPhase": "G"
-    },
-    {
       "source": "src/rulesets/merge-defense/skill-registry.js",
       "target": "src/engine-core/registry.js",
       "reason": "候选基座 skill-status 尚未改经 foundation-runtime 公共入口",
@@ -611,8 +599,8 @@
     {
       "source": "src/rulesets/merge-defense/unit-placement.js",
       "target": "src/logic.js",
-      "reason": "候选基座 board-route 尚未改经 economy-formation 公共入口",
-      "removeByPhase": "C"
+      "reason": "合成编排兼容门面仍调用 Economy 的 canMerge",
+      "removeByPhase": "D"
     },
     {
       "source": "src/runtime.js",
@@ -651,12 +639,6 @@
       "removeByPhase": "G"
     },
     {
-      "source": "src/state.js",
-      "target": "src/map.js",
-      "reason": "候选基座 integration-quality 尚未改经 board-route 公共入口",
-      "removeByPhase": "G"
-    },
-    {
       "source": "src/ui-layout.js",
       "target": "src/config.js",
       "reason": "候选基座 ui-interaction 尚未改经 integration-quality 公共入口",
@@ -666,12 +648,6 @@
       "source": "src/units.js",
       "target": "src/config.js",
       "reason": "候选基座 combat 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "D"
-    },
-    {
-      "source": "src/units.js",
-      "target": "src/logic.js",
-      "reason": "候选基座 combat 尚未改经 economy-formation 公共入口",
       "removeByPhase": "D"
     },
     {
@@ -727,6 +703,20 @@
       "realCallers": ["app-shell", "playthrough and stability tests"],
       "delegatesTo": "fixed-route MatchMode update schedule",
       "removalCondition": "all production and tests call MatchMode.advance",
+      "removeByPhase": "G"
+    },
+    {
+      "path": "src/map.js",
+      "realCallers": ["legacy map and dual-lane tests"],
+      "delegatesTo": "board-route buildBoard",
+      "removalCondition": "legacy buildMap imports reach zero",
+      "removeByPhase": "G"
+    },
+    {
+      "path": "src/rulesets/merge-defense/unit-placement.js",
+      "realCallers": ["command dispatcher", "legacy placement and presentation tests"],
+      "delegatesTo": "board-route and piece-model public APIs",
+      "removalCondition": "Economy owns merge handler and UI reads transfer ViewModel",
       "removeByPhase": "G"
     }
   ],
@@ -808,8 +798,8 @@
     },
     {
       "systemId": "board-route",
-      "migrationStatus": "planned",
-      "ownedPaths": ["src/systems/board/**", "src/map.js", "src/rulesets/merge-defense/unit-placement.js"],
+      "migrationStatus": "active",
+      "ownedPaths": ["src/systems/board/**"],
       "ownerRole": "棋盘与路线维护者",
       "ownedStateSlice": "board",
       "publicEntry": "src/systems/board/index.js",
@@ -823,7 +813,7 @@
     },
     {
       "systemId": "piece-model",
-      "migrationStatus": "planned",
+      "migrationStatus": "active",
       "ownedPaths": ["src/systems/piece/**"],
       "ownerRole": "弈子模型维护者",
       "ownedStateSlice": "pieces",
@@ -853,7 +843,7 @@
     },
     {
       "systemId": "attribute",
-      "migrationStatus": "planned",
+      "migrationStatus": "active",
       "ownedPaths": ["src/systems/attribute/**"],
       "ownerRole": "属性维护者",
       "ownedStateSlice": "attributes",
@@ -1005,6 +995,7 @@
         "src/rulesets/merge-defense/command-state.js",
         "src/rulesets/merge-defense/event-snapshot.js",
         "src/rulesets/merge-defense/player-command-dispatcher.js",
+        "src/rulesets/merge-defense/unit-placement.js", "src/map.js",
         "package.json", "games/zhaoyun-adou/generated-manifests.js"
       ],
       "ownerRole": "集成负责人",

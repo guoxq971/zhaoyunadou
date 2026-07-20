@@ -1,109 +1,60 @@
+// 兼容门面：Board 负责校验/占用原子提交，Piece 负责身份/升级；合成编排待阶段 D 迁入 Economy。
+import {
+  classifyTransfer,
+  commitAtomicTransfer,
+  commitMergeOccupancy,
+  inspectTransfer,
+  itemAtLocation,
+  transferDomainEvent,
+} from '../../systems/board/index.js';
+import {
+  ensurePieceIdentity,
+  isMovablePiece,
+  pieceSignature,
+  pieceUpgradedDomainEvent,
+  upgradePiece,
+} from '../../systems/piece/index.js';
 import { canMerge } from '../../logic.js';
+import { publishDomainEventFor } from '../../engine-core/runtime-context.js';
 
-export const isMovableUnit = (item) => item?.kind === 'troop' || item?.kind === 'frag';
+export const isMovableUnit = isMovablePiece;
+export const itemSignature = pieceSignature;
 
-export function itemSignature(item) {
-  if (!item) return 'empty';
-  if (item.kind === 'troop') return `troop:${item.type}:${item.level ?? 1}`;
-  if (item.kind === 'frag') return `frag:${item.char}:${item.level ?? 1}`;
-  if (item.kind === 'hero') return `hero:${item.key}:${item.part ?? 0}:${item.level ?? 1}`;
-  return String(item.kind ?? 'unknown');
-}
-
-function resolveLocation(state, location) {
-  if (location?.zone === 'bench') {
-    const index = Number(location.index);
-    if (!Number.isInteger(index) || index < 0 || index >= state.bench.length) return null;
-    return {
-      zone: 'bench', index,
-      get: () => state.bench[index],
-      set: (value) => { state.bench[index] = value; },
-    };
-  }
-  if (location?.zone === 'grid') {
-    const r = Number(location.r);
-    const c = Number(location.c);
-    const cell = Number.isInteger(r) && Number.isInteger(c) ? state.grid[r]?.[c] : null;
-    if (!cell) return null;
-    return {
-      zone: 'grid', r, c, cell,
-      get: () => cell.unit,
-      set: (value) => { cell.unit = value; },
-    };
-  }
-  return null;
-}
-
-const sameLocation = (source, target) => source.zone === target.zone && (
-  source.zone === 'bench'
-    ? source.index === target.index
-    : source.r === target.r && source.c === target.c
-);
-
-function failure(reason) {
-  return { ok: false, reason };
-}
-
-// 先解析并验证源、目标与反向落点，所有校验完成后才执行至多两次写入。
-function inspectUnitTransfer(state, command, gamePack) {
-  const source = resolveLocation(state, command?.source);
-  if (!source) return failure('invalid-source');
-  const sourceItem = source.get();
-  if (!sourceItem) return failure('source-empty');
-  if (!isMovableUnit(sourceItem)) return failure('source-not-movable');
-  if (command.expectedSource !== undefined && command.expectedSource !== itemSignature(sourceItem)) {
-    return failure('source-changed');
-  }
-
-  const target = resolveLocation(state, command?.target);
-  if (!target) return failure('invalid-target');
-  if (sameLocation(source, target)) return failure('same-location');
-  if (source.zone === 'grid' && source.cell.type !== 'open') return failure('source-not-open');
-  if (target.zone === 'grid' && target.cell.type !== 'open') return failure('target-not-open');
-
-  const targetItem = target.get();
-  if (targetItem && !isMovableUnit(targetItem)) return failure('target-not-movable');
-  const action = target.zone === 'grid' && targetItem && canMerge(targetItem, sourceItem, gamePack)
-    ? 'merge'
-    : targetItem ? 'swap' : 'move';
-
-  return { ok: true, reason: 'none', action, source, target, sourceItem, targetItem };
-}
+const optionsFor = (gamePack) => ({
+  canCombine: (target, source) => canMerge(target, source, gamePack),
+});
 
 export function classifyUnitTransfer(state, command, gamePack) {
-  const inspected = inspectUnitTransfer(state, command, gamePack);
-  return inspected.ok
-    ? { ok: true, reason: 'none', action: inspected.action }
-    : inspected;
+  return classifyTransfer(state, command, optionsFor(gamePack));
 }
 
-export function applyUnitTransfer(state, command, gamePack) {
-  const inspected = inspectUnitTransfer(state, command, gamePack);
-  if (!inspected.ok) return inspected;
-  const { source, target, sourceItem, targetItem, action } = inspected;
-
-  if (action === 'merge') {
-    source.set(null);
-    targetItem.level = (targetItem.level ?? 1) + 1;
-    targetItem.flash = 0.2;
+export function applyUnitTransfer(state, command, gamePack, tick = 0) {
+  const plan = inspectTransfer(state, command, optionsFor(gamePack));
+  if (!plan.ok) return plan;
+  // 手写旧状态可能没有 pieceId；完整校验后、原子提交前统一正规化。
+  ensurePieceIdentity(state, plan.sourceItem, command.source);
+  if (plan.targetItem) ensurePieceIdentity(state, plan.targetItem, command.target);
+  const committed = plan.action === 'merge'
+    ? commitMergeOccupancy(plan)
+    : commitAtomicTransfer(plan);
+  if (!committed.ok) return committed;
+  if (plan.action === 'merge') {
+    upgradePiece(plan.targetItem);
     state.stats.merges++;
+    publishDomainEventFor(state, pieceUpgradedDomainEvent(plan.targetItem, tick));
   } else {
-    source.set(targetItem ?? null);
-    target.set(sourceItem);
+    publishDomainEventFor(state, transferDomainEvent(plan, tick));
   }
-
   return {
     ok: true,
     reason: 'none',
-    action,
+    action: plan.action,
     source: command.source,
     target: command.target,
-    itemKind: sourceItem.kind,
-    itemId: sourceItem.type ?? sourceItem.char,
-    level: action === 'merge' ? targetItem.level : sourceItem.level ?? 1,
+    itemKind: plan.sourceItem.kind,
+    itemId: plan.sourceItem.type ?? plan.sourceItem.char,
+    level: plan.action === 'merge' ? plan.targetItem.level : plan.sourceItem.level ?? 1,
   };
 }
 
-export function itemAtLocation(state, location) {
-  return resolveLocation(state, location)?.get() ?? null;
-}
+export { itemAtLocation };

@@ -136,7 +136,7 @@ export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
     },
     'unit.drop'(command) {
       const state = stateNow();
-      const result = applyUnitTransfer(state, command.payload, gamePack);
+      const result = applyUnitTransfer(state, command.payload, gamePack, command.tick);
       clearDrag();
       if (!result.ok) return invalid(command, result.reason, 'unit-transfer');
       if (result.action === 'merge') {

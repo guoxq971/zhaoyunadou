@@ -1,10 +1,11 @@
 // 对局状态工厂 —— 纯数据,渲染/输入不落这里
 import { CONFIG } from './config.js';
 import { normalizeClearedStars, normalizeStageIndex } from './campaign.js';
-import { buildMap } from './map.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
 import { createSlicedState } from './engine-core/public.js';
 import { attachRuntime } from './engine-core/runtime-context.js';
+import { buildBoard, cellAt } from './systems/board/index.js';
+import { ensurePieceIdentity } from './systems/piece/index.js';
 
 export const STATE_SLICE_KEYS = Object.freeze({
   foundation: Object.freeze(['time', 'speed']),
@@ -38,7 +39,7 @@ export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_
   const config = gamePack?.config ?? CONFIG;
   const safeStageIndex = normalizeStageIndex(stageIndex, gamePack);
   const stage = config.campaign.stages[safeStageIndex];
-  const { grid, path, paths } = buildMap(gamePack, stage.mapId);
+  const { grid, path, paths } = buildBoard(gamePack, stage.mapId);
   const initialState = {
     title: true,   // 标题页(restart 时由 main 置 false 直接开局)
     time: 0,
@@ -97,10 +98,18 @@ export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_
       swaps: 0,
     },
   };
-  const state = createSlicedState(initialState, STATE_SLICE_KEYS, { facades: STATE_FACADE_OWNERS });
+  const state = createSlicedState(initialState, STATE_SLICE_KEYS, {
+    facades: STATE_FACADE_OWNERS,
+    privateSlices: {
+      pieces: { nextSequence: 0 },
+      attributes: { modifiers: [] },
+    },
+  });
+  state.bench.forEach((piece, index) => {
+    if (piece) ensurePieceIdentity(state, piece, { zone: 'bench', index });
+  });
   const context = runtime?.gamePack ? runtime : { ...(runtime ?? {}), gamePack };
   return attachRuntime(state, context);
 }
 
-export const cellAt = (g, r, c) =>
-  (r >= 0 && r < g.length && c >= 0 && c < g[0].length) ? g[r][c] : null;
+export { cellAt };
