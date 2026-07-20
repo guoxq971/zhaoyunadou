@@ -1,5 +1,7 @@
 // 对局道具：洛阳铲被动产出普通铲子；普通铲子仍由玩家拖拽使用。
 import { addText } from './effects.js';
+import { gamePackFor } from './engine-core/runtime-context.js';
+import { copyText } from './engine-core/copy.js';
 
 export function addShovelToBench(state) {
   const slot = state.bench.findIndex((item) => item === null);
@@ -26,6 +28,6 @@ export function updateLuoyangShovel(state, dt) {
   tool.pending = false;
   tool.generated++;
   state.stats.luoyangGenerated = (state.stats.luoyangGenerated ?? 0) + 1;
-  addText(state, 210, 560, '洛阳铲产出普通铲 ×1', '#a56a18', 1.1);
+  addText(state, 210, 560, copyText(gamePackFor(state), 'battle.shovel.generated', {}, '洛阳铲产出普通铲 ×1'), '#a56a18', 1.1);
   return { ...result, generated: tool.generated };
 }

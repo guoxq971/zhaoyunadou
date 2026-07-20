@@ -1,0 +1,76 @@
+{
+  "$schema": "./schemas/assets.schema.json",
+  "schemaVersion": "1.0.0",
+  "version": "1.0.0",
+  "assets": [
+    {
+      "id": "battlefield.ink",
+      "path": "../../assets/battlefield-ink-v1.jpg",
+      "type": "image",
+      "format": "jpeg",
+      "width": 887,
+      "height": 1774,
+      "usage": ["page-background", "battle-background"],
+      "loadPriority": "critical",
+      "required": true,
+      "fallbackRendererId": "background.paper"
+    },
+    {
+      "id": "title.mascot",
+      "path": "../../assets/title-mascot-jiekou-v1.png",
+      "type": "image",
+      "format": "png",
+      "width": 817,
+      "height": 812,
+      "usage": ["title-mascot"],
+      "loadPriority": "high",
+      "required": true,
+      "fallbackRendererId": "title.mascot-canvas"
+    },
+    {
+      "id": "tools.atlas",
+      "path": "../../assets/tool-icon-atlas-jiekou-v1.png",
+      "type": "image",
+      "format": "png",
+      "width": 1024,
+      "height": 768,
+      "usage": ["tool-icons"],
+      "loadPriority": "high",
+      "required": true,
+      "fallbackRendererId": "tools.glyphs"
+    },
+    {
+      "id": "enemy.boss-mask",
+      "path": "../../assets/boss-mask-v1.png",
+      "type": "image",
+      "format": "png",
+      "width": 1254,
+      "height": 1254,
+      "usage": ["reserved-enemy-boss"],
+      "loadPriority": "deferred",
+      "required": false
+    },
+    {
+      "id": "enemy.ink-atlas",
+      "path": "../../assets/enemy-ink-atlas-v1.png",
+      "type": "image",
+      "format": "png",
+      "width": 1254,
+      "height": 1254,
+      "usage": ["reserved-enemy-atlas"],
+      "loadPriority": "deferred",
+      "required": false
+    },
+    {
+      "id": "title.legacy-art",
+      "path": "../../assets/title-art.jpg",
+      "type": "image",
+      "format": "jpeg",
+      "width": 768,
+      "height": 1376,
+      "usage": ["reserved-title-art"],
+      "loadPriority": "deferred",
+      "required": false
+    }
+  ]
+}

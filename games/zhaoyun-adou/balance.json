@@ -1,0 +1,194 @@
+{
+  "$schema": "./schemas/balance.schema.json",
+  "schemaVersion": "1.0.0",
+  "version": "1.0.0",
+  "recruitCost": {
+    "base": 16,
+    "linear": 3,
+    "quadratic": 1
+  },
+  "gachaWeights": [
+    { "kind": "troop", "type": "dao", "w": 21 },
+    { "kind": "troop", "type": "qiang", "w": 21 },
+    { "kind": "troop", "type": "gong", "w": 21 },
+    { "kind": "troop", "type": "qi", "w": 21 },
+    { "kind": "frag", "w": 10 },
+    { "kind": "troop", "type": "nong", "w": 4 },
+    { "kind": "shovel", "itemId": "shovel", "w": 2 }
+  ],
+  "gachaPairing": {
+    "categoryBoost": 3,
+    "partnerBoost": 6
+  },
+  "troops": {
+    "dao": {
+      "char": "刀",
+      "dmg": 6,
+      "cd": 0.55,
+      "range": 1.35,
+      "behaviorId": "unit.melee",
+      "renderId": "troop.dao"
+    },
+    "qiang": {
+      "char": "枪",
+      "dmg": 10,
+      "cd": 0.9,
+      "range": 2.3,
+      "behaviorId": "unit.melee",
+      "renderId": "troop.qiang"
+    },
+    "gong": {
+      "char": "弓",
+      "dmg": 7,
+      "cd": 1.05,
+      "range": 3.8,
+      "projectile": true,
+      "projectileSpeed": 380,
+      "behaviorId": "unit.projectile",
+      "renderId": "troop.gong"
+    },
+    "qi": {
+      "char": "骑",
+      "dmg": 16,
+      "cd": 1.5,
+      "range": 1.9,
+      "behaviorId": "unit.melee",
+      "renderId": "troop.qi"
+    },
+    "nong": {
+      "char": "农",
+      "produce": 2,
+      "interval": 3,
+      "maxLevel": 3,
+      "behaviorId": "unit.producer",
+      "renderId": "troop.nong"
+    }
+  },
+  "levelMult": 2.2,
+  "maxLevel": 5,
+  "heroes": {
+    "liubei": {
+      "name": "刘备",
+      "chars": ["刘", "备"],
+      "dmg": 26,
+      "cd": 0.8,
+      "range": 3.2,
+      "ultCd": 16,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "aura",
+      "renderId": "hero.liubei"
+    },
+    "guanyu": {
+      "name": "关羽",
+      "chars": ["关", "羽"],
+      "dmg": 34,
+      "cd": 0.9,
+      "range": 2.6,
+      "ultCd": 14,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "slash",
+      "renderId": "hero.guanyu"
+    },
+    "zhangfei": {
+      "name": "张飞",
+      "chars": ["张", "飞"],
+      "dmg": 30,
+      "cd": 0.85,
+      "range": 2.2,
+      "ultCd": 15,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "shout",
+      "renderId": "hero.zhangfei"
+    },
+    "zhaoyun": {
+      "name": "赵云",
+      "chars": ["赵", "云"],
+      "dmg": 36,
+      "cd": 0.75,
+      "range": 3,
+      "ultCd": 15,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "dragon",
+      "renderId": "hero.zhaoyun"
+    },
+    "huangzhong": {
+      "name": "黄忠",
+      "chars": ["黄", "忠"],
+      "dmg": 30,
+      "cd": 1,
+      "range": 4.5,
+      "ultCd": 16,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "rain",
+      "renderId": "hero.huangzhong"
+    }
+  },
+  "skills": {
+    "dragon": {
+      "handlerId": "skill.dragon",
+      "dmg": 90,
+      "effectIds": ["effect.dragon", "effect.ink", "effect.text"],
+      "effectSpeed": 14,
+      "effectLife": 5,
+      "hitDistance": 1.2
+    },
+    "rain": {
+      "handlerId": "skill.rain",
+      "dmg": 55,
+      "effectIds": ["effect.rain", "effect.text"]
+    },
+    "shout": {
+      "handlerId": "skill.shout",
+      "dmg": 20,
+      "stun": 2.5,
+      "effectIds": ["effect.ring", "effect.text"]
+    },
+    "slash": {
+      "handlerId": "skill.slash",
+      "dmg": 130,
+      "range": 3,
+      "effectIds": ["effect.ring", "effect.slash", "effect.text"]
+    },
+    "aura": {
+      "handlerId": "skill.aura",
+      "mult": 1.5,
+      "dur": 8,
+      "effectIds": ["effect.ring", "effect.text"]
+    }
+  },
+  "enemy": {
+    "baseHp": 24,
+    "hpGrowth": 1.22,
+    "baseSpeed": 1.05,
+    "types": {
+      "normal": { "char": "贼", "hpMul": 1, "spdMul": 1, "size": 1, "renderId": "enemy.normal" },
+      "fast": { "char": "贼", "hpMul": 0.6, "spdMul": 1.8, "size": 0.9, "tint": "#6a7846", "renderId": "enemy.fast" },
+      "tank": { "char": "贼", "hpMul": 3.2, "spdMul": 0.55, "size": 1.25, "tint": "#56514a", "renderId": "enemy.tank" },
+      "elite": { "char": "贼", "hpMul": 6, "spdMul": 0.8, "size": 1.3, "tint": "#8d2720", "renderId": "enemy.elite" },
+      "boss": { "char": "贼", "hpMul": 22, "spdMul": 0.45, "size": 1.6, "tint": "#711", "renderId": "enemy.boss" }
+    }
+  },
+  "waves": {
+    "size": { "base": 6, "perWave": 1 },
+    "spawnInterval": 0.85,
+    "breakTime": 3.5,
+    "killReward": { "base": 2, "stepEvery": 5, "step": 1 },
+    "waveBonus": { "base": 8, "perWave": 2 }
+  },
+  "items": {
+    "shovel": {
+      "behaviorId": "item.open-locked-cell",
+      "renderId": "item.shovel"
+    },
+    "brush": {
+      "behaviorId": "item.rewrite-featured-hero-char",
+      "renderId": "item.brush"
+    },
+    "luoyang-shovel": {
+      "behaviorId": "item.periodic-generator",
+      "renderId": "item.luoyang-shovel",
+      "interval": 60,
+      "outputItemId": "shovel"
+    }
+  }
+}

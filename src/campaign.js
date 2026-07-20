@@ -1,29 +1,39 @@
 import { CONFIG } from './config.js';
+import { gamePackFor } from './engine-core/runtime-context.js';
 
 export const CAMPAIGN_STORAGE_KEY = CONFIG.campaign.storageKey;
 export const BEST_WAVE_STORAGE_KEY = 'zyad_best';
 export const PROGRESS_STORAGE_KEYS = [CAMPAIGN_STORAGE_KEY, BEST_WAVE_STORAGE_KEY];
 
-export function normalizeClearedStars(value) {
+const configFrom = (value) => value?.config ?? gamePackFor(value)?.config ?? CONFIG;
+
+export function normalizeClearedStars(value, gamePack) {
+  const config = configFrom(gamePack);
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 0;
-  return Math.min(CONFIG.campaign.stages.length, Math.max(0, Math.floor(parsed)));
+  return Math.min(config.campaign.stages.length, Math.max(0, Math.floor(parsed)));
 }
 
-export function normalizeStageIndex(value) {
+export function normalizeStageIndex(value, gamePack) {
+  const config = configFrom(gamePack);
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 0;
-  return Math.min(CONFIG.campaign.stages.length - 1, Math.max(0, Math.floor(parsed)));
+  return Math.min(config.campaign.stages.length - 1, Math.max(0, Math.floor(parsed)));
 }
 
-export function loadProgress(storage) {
-  try { return normalizeClearedStars(storage?.getItem(CAMPAIGN_STORAGE_KEY)); }
+export function loadProgress(storage, gamePack) {
+  const key = gamePack?.manifests?.game?.storage?.progressKey ?? CAMPAIGN_STORAGE_KEY;
+  try { return normalizeClearedStars(storage?.getItem(key), gamePack); }
   catch { return 0; }
 }
 
-export function clearProgress(storage) {
+export function clearProgress(storage, gamePack) {
   let persisted = storage?.persistent !== false;
-  for (const key of PROGRESS_STORAGE_KEYS) {
+  const storageManifest = gamePack?.manifests?.game?.storage;
+  const keys = storageManifest
+    ? [storageManifest.progressKey, storageManifest.bestWaveKey].filter(Boolean)
+    : PROGRESS_STORAGE_KEYS;
+  for (const key of keys) {
     try {
       if (storage?.removeItem(key) === false) persisted = false;
     } catch {
@@ -33,14 +43,16 @@ export function clearProgress(storage) {
   return persisted;
 }
 
-export function stageIndexForProgress(clearedStars) {
-  return Math.min(normalizeClearedStars(clearedStars), CONFIG.campaign.stages.length - 1);
+export function stageIndexForProgress(clearedStars, gamePack) {
+  const config = configFrom(gamePack);
+  return Math.min(normalizeClearedStars(clearedStars, gamePack), config.campaign.stages.length - 1);
 }
 
-export function progressAfterResult(clearedStars, stageIndex, win) {
-  const current = normalizeClearedStars(clearedStars);
+export function progressAfterResult(clearedStars, stageIndex, win, gamePack) {
+  const config = configFrom(gamePack);
+  const current = normalizeClearedStars(clearedStars, gamePack);
   const index = Number(stageIndex);
-  const last = CONFIG.campaign.stages.length - 1;
+  const last = config.campaign.stages.length - 1;
   if (!win || !Number.isInteger(index) || index < 0 || index > last) return current;
 
   // 只允许结算已经解锁的关卡，避免坏状态跨关写进度。
@@ -50,14 +62,16 @@ export function progressAfterResult(clearedStars, stageIndex, win) {
 }
 
 export function settleResult(state, storage) {
-  if (state.saved) return normalizeClearedStars(state.clearedStars);
-  if (!state.over) return normalizeClearedStars(state.clearedStars);
+  const gamePack = gamePackFor(state);
+  const storageKey = gamePack?.manifests?.game?.storage?.progressKey ?? CAMPAIGN_STORAGE_KEY;
+  if (state.saved) return normalizeClearedStars(state.clearedStars, gamePack);
+  if (!state.over) return normalizeClearedStars(state.clearedStars, gamePack);
 
-  const stored = loadProgress(storage);
-  const next = progressAfterResult(stored, state.stageIndex, state.win);
+  const stored = loadProgress(storage, gamePack);
+  const next = progressAfterResult(stored, state.stageIndex, state.win, gamePack);
   let savedPersistently = true;
   if (next !== stored) {
-    try { savedPersistently = storage.setItem(CAMPAIGN_STORAGE_KEY, String(next)) !== false; }
+    try { savedPersistently = storage.setItem(storageKey, String(next)) !== false; }
     catch { savedPersistently = false; }
   }
   state.clearedStars = next;
@@ -67,9 +81,11 @@ export function settleResult(state, storage) {
 }
 
 export function resultAction(state) {
-  const stageIndex = normalizeStageIndex(state.stageIndex);
-  const last = CONFIG.campaign.stages.length - 1;
-  const cleared = normalizeClearedStars(state.clearedStars);
+  const gamePack = gamePackFor(state);
+  const config = configFrom(state);
+  const stageIndex = normalizeStageIndex(state.stageIndex, gamePack);
+  const last = config.campaign.stages.length - 1;
+  const cleared = normalizeClearedStars(state.clearedStars, gamePack);
   const acceptedWin = state.over && state.win && state.saved && cleared > stageIndex;
   if (!acceptedWin) return { kind: 'replay', stageIndex };
   if (stageIndex < last) return { kind: 'next', stageIndex: stageIndex + 1 };

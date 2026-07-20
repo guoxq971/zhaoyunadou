@@ -1,18 +1,20 @@
 // 棋盘兵种:索敌、攻击、农民产馒头、弓箭弹道
 import { CONFIG } from './config.js';
 import { troopDmg } from './logic.js';
-import { enemyXY, damageEnemy } from './enemies.js';
+import { enemyGameplayXY, damageEnemy } from './enemies.js';
 import { addSlash, addText, addInk } from './effects.js';
+import { gamePackFor } from './engine-core/runtime-context.js';
 
 const buffMult = (state) =>
   state.buff && state.time < state.buff.until ? state.buff.mult : 1;
 
 // 找射程内路径进度最深的敌人。返回 {e, x, y} 或 null
 export function findTarget(state, cx, cy, rangeCells, cellXY) {
-  const rangePx = rangeCells * CONFIG.board.cell;
+  const config = gamePackFor(state)?.config ?? CONFIG;
+  const rangePx = rangeCells * config.board.cell;
   let best = null, bestP = -1;
   for (const e of state.enemies) {
-    const pos = enemyXY(state, e, cellXY);
+    const pos = enemyGameplayXY(state, e, cellXY);
     const d = Math.hypot(pos.x - cx, pos.y - cy);
     if (d <= rangePx && e.p > bestP) { bestP = e.p; best = { e, ...pos }; }
   }
@@ -20,15 +22,17 @@ export function findTarget(state, cx, cy, rangeCells, cellXY) {
 }
 
 export function updateUnits(state, dt, cellXY) {
+  const gamePack = gamePackFor(state);
+  const config = gamePack?.config ?? CONFIG;
   const mult = buffMult(state);
   for (let r = 0; r < state.grid.length; r++) {
     for (let c = 0; c < state.grid[0].length; c++) {
       const u = state.grid[r][c].unit;
       if (!u || u.kind !== 'troop') continue;
-      const t = CONFIG.troops[u.type];
+      const t = config.troops[u.type];
       const { x, y } = cellXY(r, c);
 
-      if (u.type === 'nong') { // 农:定时产馒头
+      if (t.behaviorId === 'unit.producer') {
         u.cd = (u.cd ?? t.interval) - dt;
         if (u.cd <= 0) {
           u.cd = t.interval;
@@ -45,9 +49,9 @@ export function updateUnits(state, dt, cellXY) {
       if (!tgt) continue;
       u.cd = t.cd;
       u.flash = 0.15; // 渲染层用:攻击瞬间字牌抖动
-      const dmg = troopDmg(u.type, u.level) * mult;
-      if (t.projectile) {
-        state.projectiles.push({ x, y, target: tgt.e, dmg, speed: 380 });
+      const dmg = troopDmg(u.type, u.level, gamePack) * mult;
+      if (t.behaviorId === 'unit.projectile' || t.projectile) {
+        state.projectiles.push({ x, y, target: tgt.e, dmg, speed: t.projectileSpeed });
       } else {
         addSlash(state, tgt.x, tgt.y, Math.atan2(tgt.y - y, tgt.x - x));
         damageEnemy(state, tgt.e, dmg, cellXY);
@@ -63,7 +67,7 @@ export function updateProjectiles(state, dt, cellXY) {
   for (let i = state.projectiles.length - 1; i >= 0; i--) {
     const p = state.projectiles[i];
     const alive = state.enemies.includes(p.target);
-    const tp = alive ? enemyXY(state, p.target, cellXY) : { x: p.x, y: p.y - 40 };
+    const tp = alive ? enemyGameplayXY(state, p.target, cellXY) : { x: p.x, y: p.y - 40 };
     const d = Math.hypot(tp.x - p.x, tp.y - p.y);
     // 本帧行程覆盖剩余距离时直接命中，避免大 dt 下箭矢越过目标后往返振荡。
     const travel = p.speed * dt;

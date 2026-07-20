@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zhaoyun-adou.local/schemas/game.schema.json",
+  "title": "Game manifest",
+  "type": "object",
+  "required": ["schemaVersion", "id", "title", "gameVersion", "ruleset", "contentVersion", "presentationVersion", "locale", "canvas", "board", "benchSize", "starterUnits", "initialResources", "storage", "manifestRefs"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "$ref": "#/$defs/version" },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1 },
+    "gameVersion": { "$ref": "#/$defs/version" },
+    "ruleset": {
+      "type": "object",
+      "required": ["id", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": { "$ref": "#/$defs/version" }
+      }
+    },
+    "contentVersion": { "$ref": "#/$defs/version" },
+    "presentationVersion": { "$ref": "#/$defs/version" },
+    "locale": { "type": "string", "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$" },
+    "entryScene": { "$ref": "#/$defs/id" },
+    "targetPlatforms": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "canvas": {
+      "type": "object",
+      "required": ["w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "w": { "type": "integer", "minimum": 1 },
+        "h": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "board": {
+      "type": "object",
+      "required": ["cols", "rows", "cell", "cellW", "cellH", "ox", "oy"],
+      "additionalProperties": false,
+      "properties": {
+        "cols": { "type": "integer", "minimum": 1 },
+        "rows": { "type": "integer", "minimum": 1 },
+        "cell": { "type": "number", "exclusiveMinimum": 0 },
+        "cellW": { "type": "number", "exclusiveMinimum": 0 },
+        "cellH": { "type": "number", "exclusiveMinimum": 0 },
+        "ox": { "type": "number", "minimum": 0 },
+        "oy": { "type": "number", "minimum": 0 }
+      }
+    },
+    "benchSize": { "type": "integer", "minimum": 1 },
+    "starterUnits": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/id" }
+    },
+    "initialResources": {
+      "type": "object",
+      "required": ["mantou", "lives", "shovels", "brushes"],
+      "additionalProperties": false,
+      "properties": {
+        "mantou": { "type": "number", "minimum": 0 },
+        "lives": { "type": "integer", "minimum": 1 },
+        "shovels": { "type": "integer", "minimum": 0 },
+        "brushes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "required": ["progressKey", "bestWaveKey"],
+      "additionalProperties": false,
+      "properties": {
+        "progressKey": { "type": "string", "minLength": 1 },
+        "bestWaveKey": { "type": "string", "minLength": 1 },
+        "e2ePrefix": { "type": "string", "minLength": 1 }
+      }
+    },
+    "manifestRefs": {
+      "type": "object",
+      "required": ["balance", "levels", "copy", "theme", "assets", "audio", "events"],
+      "additionalProperties": false,
+      "properties": {
+        "balance": { "$ref": "#/$defs/manifestRef" },
+        "levels": { "$ref": "#/$defs/manifestRef" },
+        "copy": { "$ref": "#/$defs/manifestRef" },
+        "theme": { "$ref": "#/$defs/manifestRef" },
+        "assets": { "$ref": "#/$defs/manifestRef" },
+        "audio": { "$ref": "#/$defs/manifestRef" },
+        "events": { "$ref": "#/$defs/manifestRef" }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "manifestRef": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.json$" }
+  }
+}

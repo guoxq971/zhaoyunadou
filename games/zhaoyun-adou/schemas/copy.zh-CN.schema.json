@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zhaoyun-adou.local/schemas/copy.zh-CN.schema.json",
+  "title": "Simplified Chinese copy manifest",
+  "type": "object",
+  "required": ["schemaVersion", "version", "locale", "strings", "stageNumerals"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "$ref": "#/$defs/version" },
+    "version": { "$ref": "#/$defs/version" },
+    "locale": { "const": "zh-CN" },
+    "strings": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*$": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "stageNumerals": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" }
+  }
+}

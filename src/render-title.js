@@ -1,8 +1,12 @@
 // 参考原作的信息密度重绘标题页；未实现的设置、排行与背包只作静态陈列。
-import { CONFIG } from './config.js';
 import { stageIndexForProgress } from './campaign.js';
 import { UI, titleStageRect } from './ui-layout.js';
-import { drawPaper, drawStars, font, roundRect, titleMascot } from './render-theme.js';
+import {
+  assetsFor, drawPaper, drawStars, font, presentationTokens, roundRect, themeColors,
+} from './render-theme.js';
+import { DEFAULT_GAME_PACK } from './game-pack.js';
+import { gamePackFor } from './engine-core/runtime-context.js';
+import { copyText } from './engine-core/copy.js';
 
 function inkLine(ctx, x1, y1, x2, y2, width = 2, color = '#473629') {
   ctx.save();
@@ -16,7 +20,7 @@ function inkLine(ctx, x1, y1, x2, y2, width = 2, color = '#473629') {
   ctx.restore();
 }
 
-function drawAvatar(ctx, x, y) {
+function drawAvatar(ctx, x, y, gamePack) {
   ctx.save();
   ctx.fillStyle = 'rgba(48,42,34,0.25)';
   roundRect(ctx, x + 3, y + 4, 42, 42, 4); ctx.fill();
@@ -30,13 +34,13 @@ function drawAvatar(ctx, x, y) {
   ctx.beginPath(); ctx.arc(x + 19, y + 14, 7, Math.PI, 0); ctx.fill();
   ctx.fillStyle = '#2d2924'; ctx.font = font(13);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('云', x + 19, y + 26);
+  ctx.fillText(copyText(gamePack, 'title.avatar.glyph'), x + 19, y + 26);
   ctx.fillStyle = '#8c3b2d';
   ctx.beginPath(); ctx.moveTo(x + 29, y + 28); ctx.lineTo(x + 40, y + 37); ctx.lineTo(x + 31, y + 39); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
 
-function drawCoinPill(ctx, x, y, value) {
+function drawCoinPill(ctx, x, y, value, gamePack) {
   ctx.save();
   ctx.shadowColor = 'rgba(54,39,24,0.34)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 2;
   const g = ctx.createLinearGradient(x, y, x + 126, y);
@@ -47,7 +51,8 @@ function drawCoinPill(ctx, x, y, value) {
   ctx.fillStyle = '#f2bc17'; ctx.strokeStyle = '#8c5c08'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(x + 20, y + 17.5, 15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#6d3f08'; ctx.font = font(16);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('刀', x + 20, y + 18);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(copyText(gamePack, 'title.coin.glyph'), x + 20, y + 18);
   ctx.fillStyle = '#ffe36e'; ctx.font = font(17);
   ctx.fillText(String(value), x + 74, y + 18);
   ctx.restore();
@@ -82,58 +87,70 @@ function drawEnergy(ctx, x, y, current, max) {
   ctx.restore();
 }
 
-function drawStageSelector(ctx, state) {
-  const numerals = ['一', '二', '三', '四', '五'];
-  const highest = stageIndexForProgress(state.clearedStars);
+function drawStageSelector(ctx, state, gamePack) {
+  const config = gamePack.config;
+  const colors = themeColors(gamePack);
+  const copy = (id, values, fallback) => copyText(gamePack, id, values, fallback);
+  const numerals = gamePack.manifests.copy.stageNumerals;
+  const highest = stageIndexForProgress(state.clearedStars, gamePack);
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  CONFIG.campaign.stages.forEach((stage, index) => {
+  config.campaign.stages.forEach((stage, index) => {
     const rect = titleStageRect(index);
     const selected = index === state.stageIndex;
     const unlocked = index <= highest;
     const cleared = index < state.clearedStars;
     ctx.save();
     if (selected) {
-      ctx.shadowColor = 'rgba(116,47,34,0.35)';
-      ctx.shadowBlur = 7;
-      ctx.shadowOffsetY = 3;
+      ctx.shadowColor = 'rgba(58,45,29,0.2)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetY = 2;
     }
-    ctx.fillStyle = selected ? '#b95c46' : unlocked ? 'rgba(238,225,196,0.96)' : 'rgba(164,157,139,0.72)';
-    ctx.strokeStyle = selected ? '#6f281f' : unlocked ? '#766044' : '#777064';
-    ctx.lineWidth = selected ? 2.5 : 1.5;
+    ctx.fillStyle = selected ? colors.paperRaised : unlocked ? 'rgba(245,235,214,0.96)' : colors.disabledSurface;
+    ctx.strokeStyle = selected ? colors.cinnabarPrimary : unlocked ? colors.inkMuted : colors.disabledInk;
+    ctx.lineWidth = selected ? 2 : 1;
     roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 4);
     ctx.fill(); ctx.stroke();
     ctx.shadowColor = 'transparent';
 
-    ctx.fillStyle = selected ? '#fff1d5' : unlocked ? '#3d3328' : '#6d675d';
+    ctx.fillStyle = selected ? colors.cinnabarPrimary : unlocked ? colors.inkStrong : colors.disabledInk;
     ctx.font = font(19);
-    ctx.fillText(unlocked ? numerals[index] : '锁', rect.x + rect.w / 2, rect.y + 19);
+    ctx.fillText(unlocked ? numerals[index] : copy('title.stage.locked'), rect.x + rect.w / 2, rect.y + 19);
     ctx.font = font(10, false);
-    ctx.fillText(unlocked ? '关' : '未解锁', rect.x + rect.w / 2, rect.y + 37);
+    ctx.fillText(unlocked ? copy('title.stage.unlocked') : copy('title.stage.notUnlocked'), rect.x + rect.w / 2, rect.y + 37);
     if (cleared) {
-      ctx.fillStyle = '#e4ae18';
+      ctx.fillStyle = colors.goldReward;
       ctx.strokeStyle = '#76500b';
       ctx.lineWidth = 1;
       ctx.font = font(12, false);
       ctx.strokeText('★', rect.x + rect.w - 8, rect.y + 8);
       ctx.fillText('★', rect.x + rect.w - 8, rect.y + 8);
     }
+    if (selected) {
+      ctx.fillStyle = colors.cinnabarPrimary;
+      ctx.fillRect(rect.x + 7, rect.y + rect.h - 4, rect.w - 14, 2);
+    }
     ctx.restore();
   });
 
-  ctx.fillStyle = '#783426';
+  ctx.fillStyle = colors.inkMuted;
   ctx.font = font(13);
   ctx.fillText(
-    `第 ${state.stageIndex + 1} 关 · ${state.stage?.name || '烽燧初战'} · 已解锁 ${highest + 1}/${CONFIG.campaign.stages.length}`,
+    copy('title.stage.summary', {
+      stage: state.stageIndex + 1,
+      stageName: state.stage?.name ?? config.campaign.stages[0].name,
+      unlocked: highest + 1,
+      total: config.campaign.stages.length,
+    }),
     210,
     310,
   );
   ctx.restore();
 }
 
-function drawResetProgress(ctx, state) {
+function drawResetProgress(ctx, state, gamePack) {
   const rect = UI.resetProgress;
   const confirming = state.resetConfirmUntil > state.time;
   ctx.save();
@@ -144,11 +161,11 @@ function drawResetProgress(ctx, state) {
   ctx.fillStyle = confirming ? '#fff0d3' : '#5a4936';
   ctx.font = font(confirming ? 14 : 13, false);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(confirming ? '再按一次确认重置' : '重置进度', rect.x + rect.w / 2, rect.y + rect.h / 2);
+  ctx.fillText(copyText(gamePack, confirming ? 'title.reset.confirm' : 'title.reset'), rect.x + rect.w / 2, rect.y + rect.h / 2);
   if (!confirming && state.resetResult === 'memory-only') {
     ctx.fillStyle = '#8f3328';
     ctx.font = font(10, false);
-    ctx.fillText('仅本次会话已重置 · 刷新后可能恢复', 210, rect.y - 9);
+    ctx.fillText(copyText(gamePack, 'title.reset.memoryOnly'), 210, rect.y - 9);
   }
   ctx.restore();
 }
@@ -169,25 +186,25 @@ function drawCrossedBlades(ctx) {
   ctx.restore();
 }
 
-function drawStartButton(ctx) {
+function drawStartButton(ctx, gamePack) {
   const rect = UI.start;
+  const colors = themeColors(gamePack);
+  const tokens = presentationTokens(gamePack);
   ctx.save();
-  ctx.shadowColor = 'rgba(51,30,21,0.38)'; ctx.shadowBlur = 7; ctx.shadowOffsetY = 4;
-  ctx.fillStyle = '#7d3d32';
-  roundRect(ctx, rect.x - 5, rect.y - 4, rect.w + 10, rect.h + 8, 3); ctx.fill();
-  ctx.shadowColor = 'transparent';
-  const wood = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h);
-  wood.addColorStop(0, '#c86c54'); wood.addColorStop(1, '#a84c3d');
-  ctx.fillStyle = wood; ctx.strokeStyle = '#5d261f'; ctx.lineWidth = 3;
+  ctx.shadowColor = 'rgba(51,30,21,0.34)';
+  ctx.shadowBlur = tokens.shadows.buttonBlur + 2; ctx.shadowOffsetY = 4;
+  ctx.fillStyle = colors.cinnabarAction;
+  ctx.strokeStyle = colors.inkStructure; ctx.lineWidth = tokens.strokes.strong;
   roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 3); ctx.fill(); ctx.stroke();
-  ctx.strokeStyle = 'rgba(243,164,133,0.72)'; ctx.lineWidth = 1.5;
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = colors.paperLight; ctx.globalAlpha = 0.68; ctx.lineWidth = tokens.strokes.hairline;
   roundRect(ctx, rect.x + 7, rect.y + 7, rect.w - 14, rect.h - 14, 1); ctx.stroke();
-  ctx.fillStyle = 'rgba(102,41,31,0.28)';
-  for (let i = 0; i < 4; i++) ctx.fillRect(rect.x + 16, rect.y + 14 + i * 12, rect.w - 32, 1);
-  ctx.fillStyle = '#fff3dc'; ctx.strokeStyle = '#36221c'; ctx.lineWidth = 4;
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = colors.paperRaised; ctx.strokeStyle = colors.inkStrong; ctx.lineWidth = 3;
   ctx.font = font(29); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.strokeText('开始游戏', rect.x + rect.w / 2 - 4, rect.y + rect.h / 2 + 2);
-  ctx.fillText('开始游戏', rect.x + rect.w / 2 - 4, rect.y + rect.h / 2 + 2);
+  const label = copyText(gamePack, 'title.start');
+  ctx.strokeText(label, rect.x + rect.w / 2 - 4, rect.y + rect.h / 2 + 2);
+  ctx.fillText(label, rect.x + rect.w / 2 - 4, rect.y + rect.h / 2 + 2);
   ctx.fillStyle = '#ffd12d'; ctx.strokeStyle = '#6b4007'; ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(rect.x + rect.w - 24, rect.y + 17); ctx.lineTo(rect.x + rect.w - 35, rect.y + 37);
@@ -197,13 +214,15 @@ function drawStartButton(ctx) {
   ctx.restore();
 }
 
-function drawRanking(ctx) {
+function drawRanking(ctx, gamePack) {
+  const tokens = presentationTokens(gamePack);
   ctx.save();
+  ctx.globalAlpha = tokens.title.peripheralAlpha;
   ctx.translate(59, 633);
   ctx.fillStyle = '#e5d4b3'; ctx.strokeStyle = '#3b3026'; ctx.lineWidth = 2;
   roundRect(ctx, -22, 0, 44, 52, 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#3d342a'; ctx.font = font(13); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('排行榜', 0, 10);
+  ctx.fillText(copyText(gamePack, 'title.ranking'), 0, 10);
   ctx.fillStyle = '#b47726';
   for (let i = 0; i < 3; i++) ctx.fillRect(-13 + i * 10, 24 + i * 4, 7, 17 - i * 4);
   ctx.strokeStyle = '#3d3024'; ctx.lineWidth = 1;
@@ -211,8 +230,10 @@ function drawRanking(ctx) {
   ctx.restore();
 }
 
-function drawBackpack(ctx) {
+function drawBackpack(ctx, gamePack) {
+  const tokens = presentationTokens(gamePack);
   ctx.save();
+  ctx.globalAlpha = tokens.title.peripheralAlpha;
   ctx.translate(352, 640);
   ctx.fillStyle = '#aa632d'; ctx.strokeStyle = '#38281e'; ctx.lineWidth = 2.5;
   ctx.beginPath();
@@ -225,7 +246,7 @@ function drawBackpack(ctx) {
   ctx.strokeStyle = '#3b2e22'; ctx.lineWidth = 4;
   ctx.beginPath(); ctx.arc(0, -13, 12, Math.PI, 0); ctx.stroke();
   ctx.fillStyle = '#8c4b29'; ctx.font = font(12);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('武器背包', 0, 44);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(copyText(gamePack, 'title.backpack'), 0, 44);
   ctx.restore();
 }
 
@@ -297,14 +318,15 @@ function drawMascotFallback(ctx, x, y) {
   ctx.restore();
 }
 
-function drawTitleBoard(ctx, state) {
+function drawTitleBoard(ctx, state, gamePack, host) {
   ctx.save();
-  ctx.globalAlpha = 0.88;
-  ctx.fillStyle = 'rgba(111,133,107,0.18)';
+  const colors = themeColors(gamePack);
+  const tokens = presentationTokens(gamePack);
+  ctx.fillStyle = 'rgba(56,118,95,0.16)';
   ctx.beginPath(); ctx.ellipse(210, 402, 126, 48, -0.02, 0, Math.PI * 2); ctx.fill();
 
   ctx.shadowColor = 'rgba(70,56,38,0.24)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 5;
-  ctx.fillStyle = '#eadfc5'; ctx.strokeStyle = '#705c42'; ctx.lineWidth = 3;
+  ctx.fillStyle = colors.paperRaised; ctx.strokeStyle = colors.inkMuted; ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(121, 330); ctx.lineTo(302, 329); ctx.lineTo(284, 417); ctx.lineTo(137, 417); ctx.closePath();
   ctx.fill(); ctx.stroke();
@@ -318,66 +340,75 @@ function drawTitleBoard(ctx, state) {
   ctx.fillStyle = '#f1e8d4'; ctx.strokeStyle = '#5b4935'; ctx.lineWidth = 2;
   roundRect(ctx, 150, 339, 58, 59, 3); ctx.fill(); ctx.stroke();
   ctx.fillStyle = '#25221e'; ctx.font = font(51);
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('斗', 179, 370);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(copyText(gamePack, 'title.board.protectedGlyph'), 179, 370);
 
   ctx.fillStyle = '#e8bb3e'; ctx.strokeStyle = '#8a5a16';
   roundRect(ctx, 214, 350, 43, 43, 3); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = '#7f351f'; ctx.font = font(29); ctx.fillText('云', 236, 372);
+  ctx.fillStyle = '#7f351f'; ctx.font = font(29);
+  ctx.fillText(copyText(gamePack, 'title.board.heroGlyph'), 236, 372);
 
-  const source = state?.theme?.images?.titleMascot || titleMascot;
+  const source = state?.theme?.images?.titleMascot || assetsFor(gamePack, host).titleMascot;
   const image = source?.status === 'ready' ? source.image : source;
   if (image?.complete || image?.naturalWidth || image?.width) {
     // 按素材原始比例装入棋盘，避免长枪和人物被压扁。
     const ratio = (image.naturalWidth || image.width) / (image.naturalHeight || image.height);
-    const width = Math.min(118, 96 * ratio);
+    const width = Math.min(tokens.title.mascotMaxWidth, tokens.title.mascotWidth * ratio);
     const height = width / ratio;
-    ctx.drawImage(image, 239 - width / 2, 365 - height / 2, width, height);
+    ctx.drawImage(image, 244 - width / 2, 362 - height / 2, width, height);
   } else {
     drawMascotFallback(ctx, 239, 357);
   }
   ctx.restore();
 
   ctx.save();
-  ctx.fillStyle = '#994425'; ctx.font = font(41); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('赵 云', 210, 448);
+  ctx.fillStyle = colors.cinnabarPrimary; ctx.font = font(41); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(copyText(gamePack, 'title.board.heroName'), 210, 448);
   ctx.restore();
 }
 
-export function drawTitle(ctx, state) {
-  drawPaper(ctx);
-  const reveal = Math.min(1, Math.max(0, (state.time || 0) / 0.8));
+export function drawTitle(ctx, state, gamePack = gamePackFor(state, DEFAULT_GAME_PACK), host = null) {
+  const config = gamePack.config;
+  const colors = themeColors(gamePack);
+  const tokens = presentationTokens(gamePack);
+  drawPaper(ctx, gamePack, host);
+  const reveal = Math.min(1, Math.max(0, (state.time || 0) / tokens.motion.titleRevealSeconds));
   drawInkBackdrop(ctx);
   ctx.save();
   drawMountainWash(ctx);
 
-  ctx.globalAlpha = reveal;
-  ctx.translate(0, (1 - reveal) * 10);
-
-  drawAvatar(ctx, 35, 23);
-  drawCoinPill(ctx, 84, 27, Math.max(0, state.clearedStars || 0));
+  drawAvatar(ctx, 35, 23, gamePack);
+  drawCoinPill(ctx, 84, 27, Math.max(0, state.clearedStars || 0), gamePack);
   drawGear(ctx, 56, 91);
   drawEnergy(ctx, 88, 74, Math.min(25, Math.max(0, state.mantou ?? 25)), 30);
 
-  ctx.fillStyle = '#9d3328'; ctx.strokeStyle = 'rgba(245,225,198,0.62)'; ctx.lineWidth = 3;
-  ctx.font = font(48); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.strokeText('赵云与阿斗', 210, 151); ctx.fillText('赵云与阿斗', 210, 151);
-  ctx.fillStyle = '#514535'; ctx.font = font(17);
-  ctx.fillText(CONFIG.campaign.rank, 210, 186);
-  drawStars(ctx, state.clearedStars || 0, 215, 27);
+  ctx.fillStyle = colors.inkStrong; ctx.strokeStyle = 'rgba(255,250,239,0.72)'; ctx.lineWidth = 3;
+  ctx.font = font(52); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const title = copyText(gamePack, 'game.title');
+  ctx.strokeText(title, 210, 151); ctx.fillText(title, 210, 151);
+  ctx.fillStyle = colors.cinnabarPrimary;
+  ctx.fillRect(325, 139, 4, 24);
+  ctx.fillStyle = colors.inkMuted; ctx.font = font(17);
+  ctx.fillText(config.campaign.rank, 210, 186);
+  drawStars(ctx, state.clearedStars || 0, 215, 27, gamePack);
 
   // 原来的双层“解锁”条幅是每帧常驻的假通知；这里改为唯一的关卡选择区。
-  drawStageSelector(ctx, state);
+  drawStageSelector(ctx, state, gamePack);
 
-  drawTitleBoard(ctx, state);
+  ctx.save();
+  ctx.globalAlpha = tokens.title.revealAlphaStart + reveal * (1 - tokens.title.revealAlphaStart);
+  ctx.translate(0, (1 - reveal) * tokens.title.revealOffsetY);
+  drawTitleBoard(ctx, state, gamePack, host);
+  ctx.restore();
 
   drawCrossedBlades(ctx);
-  drawStartButton(ctx);
-  drawRanking(ctx);
-  drawBackpack(ctx);
-  drawResetProgress(ctx, state);
+  drawStartButton(ctx, gamePack);
+  drawRanking(ctx, gamePack);
+  drawBackpack(ctx, gamePack);
+  drawResetProgress(ctx, state, gamePack);
 
   ctx.fillStyle = 'rgba(73,57,40,0.76)'; ctx.font = font(13, false);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(`${state.stage?.name || '烽燧初战'} · 第 ${(state.stageIndex || 0) + 1} 关`, 210, 604);
+  ctx.fillText(`${state.stage?.name || config.campaign.stages[0].name} · 第 ${(state.stageIndex || 0) + 1} 关`, 210, 604);
   ctx.restore();
 }

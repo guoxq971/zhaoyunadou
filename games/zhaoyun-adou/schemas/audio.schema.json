@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zhaoyun-adou.local/schemas/audio.schema.json",
+  "title": "Audio manifest",
+  "type": "object",
+  "required": ["schemaVersion", "version", "engineId", "cues", "eventMap", "bgm"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "$ref": "#/$defs/version" },
+    "version": { "$ref": "#/$defs/version" },
+    "engineId": { "$ref": "#/$defs/id" },
+    "cues": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": { "^[a-z][a-z0-9.-]*$": { "$ref": "#/$defs/cue" } },
+      "additionalProperties": false
+    },
+    "eventMap": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": { "^[a-z][a-z0-9_]*$": { "$ref": "#/$defs/id" } },
+      "additionalProperties": false
+    },
+    "bgm": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/id" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "cue": {
+      "type": "object",
+      "required": ["group", "voices"],
+      "additionalProperties": false,
+      "properties": {
+        "group": { "enum": ["sfx", "ui", "bgm", "ambient"] },
+        "voices": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/voice" } }
+      }
+    },
+    "voice": {
+      "type": "object",
+      "required": ["freq", "dur", "wave", "gain", "slide"],
+      "additionalProperties": false,
+      "properties": {
+        "freq": { "type": "number", "exclusiveMinimum": 0 },
+        "dur": { "type": "number", "exclusiveMinimum": 0 },
+        "wave": { "enum": ["sine", "square", "sawtooth", "triangle"] },
+        "gain": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "slide": { "type": "number" }
+      }
+    }
+  }
+}

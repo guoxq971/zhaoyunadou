@@ -92,6 +92,16 @@ assert.equal(loadProgress({ getItem() { throw new Error('blocked'); } }), 0, 'è¯
 }
 
 {
+  const customPack = {
+    manifests: { game: { storage: { progressKey: 'custom_progress', bestWaveKey: 'custom_best' } } },
+  };
+  const storage = new MemoryStorage({ custom_progress: '3', custom_best: '9' });
+  assert.equal(clearProgress(storage, customPack), true);
+  assert.equal(storage.getItem('custom_progress'), null);
+  assert.equal(storage.getItem('custom_best'), null);
+}
+
+{
   const state = createGame(0, 0);
   Object.assign(state, { over: true, win: true });
   const result = settleResult(state, {

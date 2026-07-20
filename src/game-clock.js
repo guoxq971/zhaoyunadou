@@ -1,4 +1,5 @@
-export function createGameClock(now = () => performance.now()) {
+export function createGameClock(now) {
+  if (typeof now !== 'function') throw new TypeError('monotonic now() is required');
   let last = now();
   return {
     reset() { last = now(); },

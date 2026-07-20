@@ -1,7 +1,7 @@
-// localStorage 可能因隐私策略或配额抛错；内存影子保证本次会话仍可游玩。
+// 持久层可能因隐私策略或配额抛错；内存影子保证本次会话仍可游玩。
 export function createSafeStorage(primary) {
   const memory = new Map();
-  let persistent = Boolean(primary);
+  let persistent = Boolean(primary) && primary.persistent !== false;
   return {
     get persistent() { return persistent; },
     getItem(key) {
@@ -20,7 +20,10 @@ export function createSafeStorage(primary) {
       memory.set(key, String(value));
       try {
         if (!primary) return false;
-        primary.setItem(key, String(value));
+        if (primary.setItem(key, String(value)) === false) {
+          persistent = false;
+          return false;
+        }
         return true;
       } catch {
         persistent = false;
@@ -31,7 +34,10 @@ export function createSafeStorage(primary) {
       memory.delete(key);
       try {
         if (!primary) return false;
-        primary.removeItem(key);
+        if (primary.removeItem(key) === false) {
+          persistent = false;
+          return false;
+        }
         return true;
       } catch {
         persistent = false;
@@ -56,9 +62,15 @@ export function createScopedStorage(storage, namespace = '') {
 
 // 只要出现 e2e 参数就必须与玩家存档隔离；即使参数为空或全是中文也不能回落 normal。
 export function e2eStorageNamespace(search = '') {
-  const params = new URLSearchParams(search);
-  if (!params.has('e2e')) return '';
-  const raw = params.get('e2e') || '';
+  const query = String(search).replace(/^\?/, '').split('&');
+  const decode = (value) => {
+    try { return decodeURIComponent(value); } catch { return value; }
+  };
+  const pair = query.find((entry) => decode(entry.split('=')[0] ?? '') === 'e2e');
+  if (pair === undefined) return '';
+  const encoded = pair.includes('=') ? pair.slice(pair.indexOf('=') + 1) : '';
+  let raw = '';
+  try { raw = decodeURIComponent(encoded.replace(/\+/g, ' ')); } catch { raw = encoded; }
   const safe = raw.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48);
   if (safe) return `zyad-e2e-${safe}`;
   if (!raw) return 'zyad-e2e-anonymous';
@@ -68,8 +80,4 @@ export function e2eStorageNamespace(search = '') {
     hash = Math.imul(hash, 16777619);
   }
   return `zyad-e2e-run-${(hash >>> 0).toString(16)}`;
-}
-
-export function browserStorage(scope = globalThis) {
-  try { return scope.localStorage ?? null; } catch { return null; }
 }

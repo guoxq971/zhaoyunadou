@@ -15,6 +15,7 @@ assert.equal(e2eStorageNamespace(''), '');
 assert.equal(e2eStorageNamespace('?e2e=selector-1'), 'zyad-e2e-selector-1');
 assert.equal(e2eStorageNamespace('?e2e'), 'zyad-e2e-anonymous', '空 e2e 参数也必须隔离');
 assert.match(e2eStorageNamespace('?e2e=关卡选择'), /^zyad-e2e-run-[0-9a-f]+$/, '非拉丁运行号不可回落正常存档');
+assert.doesNotThrow(() => e2eStorageNamespace('?%E0%A4%A=x'), '损坏查询参数不得阻断 Web Host 构造');
 
 {
   const fit = computeCanvasFit(1916, 808, 1);
@@ -22,6 +23,31 @@ assert.match(e2eStorageNamespace('?e2e=关卡选择'), /^zyad-e2e-run-[0-9a-f]+$
   assert.equal(fit.cssHeight, 760);
   assert.equal(fit.pixelWidth, 420);
   assert.equal(fit.pixelHeight, 760);
+}
+
+{
+  const storage = createSafeStorage({
+    persistent: false,
+    getItem() { return null; },
+    setItem() { return false; },
+    removeItem() { return false; },
+  });
+  assert.equal(storage.persistent, false);
+  assert.equal(storage.setItem('stars', '4'), false);
+  assert.equal(storage.getItem('stars'), '4', '不可持久化时仍保存会话内进度');
+  assert.equal(storage.removeItem('stars'), false);
+  assert.equal(storage.getItem('stars'), null);
+}
+
+{
+  const storage = createSafeStorage({
+    persistent: true,
+    getItem() { return null; },
+    setItem() { return false; },
+    removeItem() { return false; },
+  });
+  assert.equal(storage.setItem('stars', '2'), false);
+  assert.equal(storage.persistent, false, 'Adapter 返回 false 后必须公开 memory 降级');
 }
 
 {

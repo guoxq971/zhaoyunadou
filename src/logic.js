@@ -1,17 +1,21 @@
 // 纯函数逻辑:抽卡 / 合成 / 英雄拼字 / 铲子 —— 全部可离线单测
 import { CONFIG } from './config.js';
 import { cellAt } from './state.js';
+import { eventsFor, gamePackFor } from './engine-core/runtime-context.js';
 
-export const recruitCost = (i) => CONFIG.recruitCost(i);
+const configFrom = (value) => value?.config ?? gamePackFor(value)?.config ?? CONFIG;
+
+export const recruitCost = (i, gamePack) => configFrom(gamePack).recruitCost(i);
 
 // 抽卡。ownedChars:场上+营栏已有的英雄单字,用于配对加权(已有搭档的字概率×2)
-export function rollGacha(rand, ownedChars = []) {
-  const hasUnmatchedHeroChar = Object.values(CONFIG.heroes).some(({ chars: [a, b] }) =>
+export function rollGacha(rand, ownedChars = [], gamePack) {
+  const config = configFrom(gamePack);
+  const hasUnmatchedHeroChar = Object.values(config.heroes).some(({ chars: [a, b] }) =>
     (ownedChars.includes(a) && !ownedChars.includes(b)) ||
     (ownedChars.includes(b) && !ownedChars.includes(a)));
-  const pool = CONFIG.gachaWeights.map((entry) =>
+  const pool = config.gachaWeights.map((entry) =>
     entry.kind === 'frag' && hasUnmatchedHeroChar
-      ? { ...entry, w: entry.w * CONFIG.gachaPairing.categoryBoost }
+      ? { ...entry, w: entry.w * config.gachaPairing.categoryBoost }
       : entry);
   const total = pool.reduce((s, e) => s + e.w, 0);
   let x = rand() * total;
@@ -21,13 +25,13 @@ export function rollGacha(rand, ownedChars = []) {
   if (picked.kind === 'shovel') return { kind: 'shovel' };
   // 英雄单字:凑对加权
   const chars = [];
-  for (const h of Object.values(CONFIG.heroes)) {
+  for (const h of Object.values(config.heroes)) {
     for (let i = 0; i < 2; i++) {
       const c = h.chars[i], partner = h.chars[1 - i];
       chars.push({
         c,
         w: ownedChars.includes(partner) && !ownedChars.includes(c)
-          ? CONFIG.gachaPairing.partnerBoost
+          ? config.gachaPairing.partnerBoost
           : 1,
       });
     }
@@ -38,26 +42,30 @@ export function rollGacha(rand, ownedChars = []) {
   return { kind: 'frag', char: chars[0].c, level: 1 };
 }
 
-export function canMerge(a, b) {
+export function canMerge(a, b, gamePack) {
+  const config = configFrom(gamePack);
   if (!a || !b || a.kind !== b.kind) return false;
   const aLevel = a.level ?? 1;
   const bLevel = b.level ?? 1;
   if (aLevel !== bLevel) return false;
-  if (a.kind === 'frag') return a.char === b.char && aLevel < CONFIG.maxLevel;
+  if (a.kind === 'frag') return a.char === b.char && aLevel < config.maxLevel;
   if (a.kind !== 'troop' || a.type !== b.type) return false;
-  const cap = a.type === 'nong' ? 3 : CONFIG.maxLevel; // 农最高 3 级
+  const cap = config.troops[a.type]?.maxLevel ?? config.maxLevel;
   return aLevel < cap;
 }
 
-export const troopDmg = (type, level) =>
-  Math.round(CONFIG.troops[type].dmg * Math.pow(CONFIG.levelMult, level - 1));
+export const troopDmg = (type, level, gamePack) => {
+  const config = configFrom(gamePack);
+  return Math.round(config.troops[type].dmg * Math.pow(config.levelMult, level - 1));
+};
 
 // 放下一个英雄单字后,检查 (r,c) 周围是否拼出「左字·右字」水平相邻的全名
 // 返回 {key, r, c}(c 为左字所在列)或 null
-export function detectHero(grid, r, c) {
+export function detectHero(grid, r, c, gamePack) {
+  const config = configFrom(gamePack);
   const me = cellAt(grid, r, c)?.unit;
   if (!me || me.kind !== 'frag') return null;
-  for (const [key, h] of Object.entries(CONFIG.heroes)) {
+  for (const [key, h] of Object.entries(config.heroes)) {
     const [a, b] = h.chars;
     if (me.char === a) {
       const right = cellAt(grid, r, c + 1)?.unit;
@@ -75,13 +83,20 @@ export function detectHero(grid, r, c) {
   return null;
 }
 
-export function unlockHero(state, { key, r, c, level = 1 }) {
+export function unlockHero(state, { key, r, c, level = 1 }, gamePack) {
+  const config = configFrom(gamePack ?? state);
   state.grid[r][c].unit = { kind: 'hero', key, part: 0, level };
   state.grid[r][c + 1].unit = { kind: 'hero', key, part: 1, level };
-  const h = CONFIG.heroes[key];
-  state.heroes.push({ key, r, c, level, cd: 0, ultCd: h.ultCd * 0.5 });
+  const h = config.heroes[key];
+  state.heroes.push({
+    key, r, c, level, cd: 0,
+    ultCd: h.ultCd * (h.initialUltCooldownRatio ?? 0.5),
+  });
   state.lastHeroUnlocked = key;
   if (state.stats) state.stats.heroUnlocks = (state.stats.heroUnlocks ?? 0) + 1;
+  eventsFor(state)?.emit('hero_unlock', state, {
+    result: 'success', reason: 'pair-completed', heroId: key,
+  });
 }
 
 export function useShovel(state, r, c) {
@@ -97,7 +112,8 @@ export function useShovel(state, r, c) {
 export function useBrush(state, r, c) {
   const cell = cellAt(state.grid, r, c);
   if (!cell?.unit || !['troop', 'frag'].includes(cell.unit.kind) || state.brushes <= 0) return false;
-  const featured = CONFIG.heroes[state.stage.featuredHero];
+  const config = configFrom(state);
+  const featured = config.heroes[state.stage.featuredHero];
   if (!featured) return false;
   const [first, second] = featured.chars;
   const owned = ownedFragChars(state).filter((char, index, chars) => {
@@ -111,7 +127,7 @@ export function useBrush(state, r, c) {
   cell.unit = { kind: 'frag', char, level: 1 };
   state.brushes--;
   if (state.stats) state.stats.brushUses = (state.stats.brushUses ?? 0) + 1;
-  return { char, hero: detectHero(state.grid, r, c) };
+  return { char, hero: detectHero(state.grid, r, c, gamePackFor(state)) };
 }
 
 // 场上 + 营栏所有英雄单字(供抽卡加权)

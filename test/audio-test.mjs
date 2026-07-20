@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import { createAudioEngine } from '../src/audio.js';
+import { createWebAudioAdapter } from '../src/platforms/web/web-audio.js';
+import { DEFAULT_GAME_PACK } from '../src/game-pack.js';
 
-assert.equal(await createAudioEngine({}).init(), false, '无 WebAudio 时应静默降级');
+const manifest = DEFAULT_GAME_PACK.manifests.audio;
+assert.equal(await createWebAudioAdapter({}, manifest).init(), false, '无 WebAudio 时应静默降级');
 
 {
   let attempts = 0;
@@ -13,7 +15,7 @@ assert.equal(await createAudioEngine({}).init(), false, '无 WebAudio 时应静�
       this.state = 'running';
     }
   }
-  const engine = createAudioEngine({ AudioContext: FakeAudioContext });
+  const engine = createWebAudioAdapter({ AudioContext: FakeAudioContext }, manifest);
   assert.equal(await engine.init(), false, '首次恢复失败必须被捕获');
   assert.equal(await engine.init(), true, '后续交互必须能够重试音频恢复');
   assert.equal(attempts, 2);

@@ -1,0 +1,51 @@
+{
+  "$schema": "./schemas/game.schema.json",
+  "schemaVersion": "1.0.0",
+  "id": "zhaoyun-adou",
+  "title": "赵云与阿斗",
+  "gameVersion": "1.0.0",
+  "ruleset": {
+    "id": "merge-defense",
+    "version": "1.0.0"
+  },
+  "contentVersion": "1.0.0",
+  "presentationVersion": "1.0.0",
+  "locale": "zh-CN",
+  "entryScene": "title",
+  "targetPlatforms": ["web"],
+  "canvas": {
+    "w": 420,
+    "h": 760
+  },
+  "board": {
+    "cols": 8,
+    "rows": 10,
+    "cell": 40,
+    "cellW": 43,
+    "cellH": 43,
+    "ox": 38,
+    "oy": 96
+  },
+  "benchSize": 5,
+  "starterUnits": ["qiang", "gong", "dao"],
+  "initialResources": {
+    "mantou": 40,
+    "lives": 6,
+    "shovels": 1,
+    "brushes": 1
+  },
+  "storage": {
+    "progressKey": "zyad_cleared_stars",
+    "bestWaveKey": "zyad_best",
+    "e2ePrefix": "zyad-e2e"
+  },
+  "manifestRefs": {
+    "balance": "balance.json",
+    "levels": "levels.json",
+    "copy": "copy.zh-CN.json",
+    "theme": "theme.json",
+    "assets": "assets.json",
+    "audio": "audio.json",
+    "events": "events.json"
+  }
+}

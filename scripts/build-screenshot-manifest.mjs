@@ -16,7 +16,7 @@ const artifactDir = join(root, 'test-artifacts/screenshots', date);
 const raw = JSON.parse(await readFile(join(artifactDir, 'raw-captures.json'), 'utf8'));
 const booleanKeys = new Set([
   'assetsReady', 'bossActive', 'luoyangEnabled', 'luoyangPending', 'over',
-  'paused', 'phaseReady', 'saveWarning', 'win',
+  'paused', 'phaseReady', 'saveWarning', 'win', 'lastCommandResult',
 ]);
 const numberPattern = /^-?(?:\d+|\d+\.\d+)$/;
 
@@ -54,9 +54,9 @@ for (const capture of raw.captures) {
     file: capture.file,
     runId: raw.runId,
     testPoint,
-    viewport: '1916x808',
+    viewport: capture.viewport ?? raw.viewport ?? 'unknown',
     imageSize: pngSize(bytes, capture.file),
-    canvasRect: '420x760@748,24',
+    canvasRect: capture.canvasRect ?? raw.canvasRect ?? 'unknown',
     state,
     result: 'pass',
   });

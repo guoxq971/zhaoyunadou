@@ -1,0 +1,38 @@
+{
+  "$schema": "./schemas/events.schema.json",
+  "schemaVersion": "1.0.0",
+  "version": "1.0.0",
+  "gameVersion": "1.0.0",
+  "rulesetVersion": "1.0.0",
+  "contentVersion": "1.0.0",
+  "requiredCommonFields": [
+    "eventId",
+    "gameVersion",
+    "rulesetVersion",
+    "contentVersion",
+    "sessionTime",
+    "stage",
+    "wave",
+    "resourceSnapshot",
+    "result",
+    "reason"
+  ],
+  "events": [
+    { "id": "session_start", "category": "session", "requiredFields": [], "privacy": "none" },
+    { "id": "session_end", "category": "session", "requiredFields": ["result", "reason"], "privacy": "none" },
+    { "id": "stage_start", "category": "stage", "requiredFields": ["stage"], "privacy": "none" },
+    { "id": "stage_end", "category": "stage", "requiredFields": ["stage", "result", "reason"], "privacy": "none" },
+    { "id": "recruit_attempt", "category": "recruit", "requiredFields": ["cost"], "privacy": "none" },
+    { "id": "recruit_result", "category": "recruit", "requiredFields": ["cost", "result", "reason"], "privacy": "none" },
+    { "id": "deploy", "category": "deploy", "requiredFields": ["unitId", "cell", "result", "reason"], "privacy": "none" },
+    { "id": "merge", "category": "merge", "requiredFields": ["unitId", "level", "result", "reason"], "privacy": "none" },
+    { "id": "hero_unlock", "category": "hero", "requiredFields": ["heroId", "result", "reason"], "privacy": "none" },
+    { "id": "hero_cast", "category": "hero", "requiredFields": ["heroId", "skillId", "result", "reason"], "privacy": "none" },
+    { "id": "wave_start", "category": "wave", "requiredFields": ["stage", "wave"], "privacy": "none" },
+    { "id": "wave_end", "category": "wave", "requiredFields": ["stage", "wave", "result", "reason"], "privacy": "none" },
+    { "id": "enemy_leak", "category": "enemy_leak", "requiredFields": ["enemyId", "livesRemaining", "reason"], "privacy": "none" },
+    { "id": "invalid_action", "category": "invalid_action", "requiredFields": ["actionId", "reason"], "privacy": "none" },
+    { "id": "retry", "category": "retry", "requiredFields": ["stage", "reason"], "privacy": "none" },
+    { "id": "quit", "category": "quit", "requiredFields": ["stage", "wave", "reason"], "privacy": "none" }
+  ]
+}

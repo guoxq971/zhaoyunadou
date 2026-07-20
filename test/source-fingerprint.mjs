@@ -15,7 +15,7 @@ async function collectFiles(root, target, output) {
 
 export async function sourceFingerprint(root) {
   const files = [];
-  for (const target of ['index.html', 'package.json', 'assets', 'src', 'test']) {
+  for (const target of ['index.html', 'package.json', 'assets', 'games', 'src', 'test']) {
     await collectFiles(root, target, files);
   }
   const hash = createHash('sha256');

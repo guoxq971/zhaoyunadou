@@ -1,7 +1,9 @@
 // 参考图式底部操作区：营栏与主按钮保持可操作，黑框军械栏只表达系统状态。
-import { CONFIG } from './config.js';
 import { UI, benchRect, toolRect } from './ui-layout.js';
-import { drawToolAtlasIcon, font, roundRect } from './render-theme.js';
+import { drawToolAtlasIcon, font, presentationTokens, roundRect, themeColors } from './render-theme.js';
+import { copyText } from './engine-core/copy.js';
+import { DEFAULT_GAME_PACK } from './game-pack.js';
+import { classifyUnitTransfer } from './rulesets/merge-defense/unit-placement.js';
 
 function strokePath(ctx, points, { close = false, width = 3, color = '#211b16' } = {}) {
   ctx.beginPath();
@@ -14,40 +16,40 @@ function strokePath(ctx, points, { close = false, width = 3, color = '#211b16' }
   ctx.stroke();
 }
 
-function drawCamp(ctx, state, drag, drawCard) {
+function drawCamp(ctx, state, drag, drawCard, gamePack, host) {
+  const config = gamePack.config;
+  const colors = themeColors(gamePack);
+  const tokens = presentationTokens(gamePack);
   const y = UI.bench.y;
   ctx.save();
 
   // 营字小屋檐略高于纸槽，保留参考图中“贴着棋盘”的紧凑感。
-  ctx.shadowColor = 'rgba(42,28,18,0.3)';
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetY = 3;
-  ctx.fillStyle = '#77351f';
-  strokePath(ctx, [[22, y + 7], [48, y - 10], [74, y + 7]], { close: true, width: 3 });
+  ctx.shadowColor = 'rgba(42,28,18,0.2)';
+  ctx.shadowBlur = 3;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = colors.inkStructure;
+  strokePath(ctx, [[22, y + 7], [48, y - 10], [74, y + 7]], { close: true, width: tokens.strokes.default, color: colors.inkStrong });
   ctx.fill();
-  ctx.fillStyle = '#4e2519';
+  ctx.fillStyle = colors.inkStructure;
   roundRect(ctx, 27, y + 5, 42, 43, 2);
   ctx.fill();
   ctx.shadowColor = 'transparent';
-  ctx.strokeStyle = '#211813';
-  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = colors.inkStrong;
+  ctx.lineWidth = tokens.strokes.default;
   ctx.stroke();
-  ctx.fillStyle = '#f5e4c2';
+  ctx.fillStyle = colors.paperRaised;
   ctx.font = font(25);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('营', 48, y + 27);
+  ctx.fillText(copyText(gamePack, 'battle.camp'), 48, y + 27);
 
-  for (let i = 0; i < CONFIG.benchSize; i++) {
+  for (let i = 0; i < config.benchSize; i++) {
     const rect = benchRect(i);
-    const paper = ctx.createLinearGradient(0, rect.y, 0, rect.y + rect.h);
-    paper.addColorStop(0, '#fffdf5');
-    paper.addColorStop(1, '#ddd2bd');
-    ctx.fillStyle = paper;
+    ctx.fillStyle = colors.paperRaised;
     roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 2);
     ctx.fill();
-    ctx.strokeStyle = '#766c5b';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = colors.cardBorder;
+    ctx.lineWidth = tokens.strokes.default;
     ctx.stroke();
     ctx.strokeStyle = 'rgba(102,84,61,0.25)';
     ctx.lineWidth = 0.8;
@@ -58,63 +60,96 @@ function drawCamp(ctx, state, drag, drawCard) {
 
     const item = state.bench?.[i];
     const isDragged = drag?.item && drag.from === 'bench' && drag.index === i;
-    if (!item || isDragged) continue;
-    if (item.kind === 'troop') {
-      drawCard(ctx, rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w - 4, {
-        char: CONFIG.troops[item.type]?.char ?? '?',
-        level: item.level,
-        style: 'troop',
-      });
-    } else if (item.kind === 'frag') {
-      drawCard(ctx, rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w - 4, {
-        char: item.char,
-        level: item.level ?? 1,
-        style: 'frag',
-      });
-    } else if (!drawToolAtlasIcon(ctx, 1, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10)) {
-      ctx.fillStyle = '#9b711e';
-      ctx.font = font(25);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('铲', rect.x + rect.w / 2, rect.y + rect.h / 2);
+    if (item && !isDragged) {
+      if (item.kind === 'troop') {
+        drawCard(ctx, rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w - 4, {
+          char: config.troops[item.type]?.char ?? '?',
+          level: item.level,
+          style: 'troop',
+        });
+      } else if (item.kind === 'frag') {
+        drawCard(ctx, rect.x + rect.w / 2, rect.y + rect.h / 2, rect.w - 4, {
+          char: item.char,
+          level: item.level ?? 1,
+          style: 'frag',
+        });
+      } else if (!drawToolAtlasIcon(ctx, 'item.shovel', rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, gamePack, host)) {
+        ctx.fillStyle = '#9b711e';
+        ctx.font = font(25);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('铲', rect.x + rect.w / 2, rect.y + rect.h / 2);
+      }
+    }
+
+    if (isDragged) {
+      ctx.setLineDash([5, 3]);
+      ctx.strokeStyle = colors.swapTarget ?? '#287eaa';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6);
+      ctx.setLineDash([]);
+    } else if (drag?.item?.kind === 'troop' || drag?.item?.kind === 'frag') {
+      const preview = classifyUnitTransfer(state, {
+        source: drag.source,
+        target: { zone: 'bench', index: i },
+        expectedSource: drag.expectedSource,
+      }, gamePack);
+      const hovered = drag.hover?.zone === 'bench' && drag.hover.index === i;
+      const color = preview.ok
+        ? preview.action === 'swap' ? (colors.swapTarget ?? '#287eaa') : (colors.validTarget ?? '#3b8b55')
+        : hovered ? (colors.invalidTarget ?? '#bd2d26') : null;
+      if (color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = hovered ? 3.5 : 2;
+        ctx.strokeRect(rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 4);
+      }
+    } else if (drag?.item?.kind === 'shovel') {
+      const hovered = drag.hover?.zone === 'bench' && drag.hover.index === i;
+      if (!item || hovered) {
+        ctx.strokeStyle = !item ? (colors.validTarget ?? '#3b8b55') : (colors.invalidTarget ?? '#bd2d26');
+        ctx.lineWidth = hovered ? 3.5 : 2;
+        ctx.strokeRect(rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 4);
+      }
     }
   }
   ctx.restore();
 }
 
-function drawRoundBase(ctx, rect, { active = true, selected = false } = {}) {
+function drawRoundBase(ctx, rect, gamePack, { active = true, selected = false } = {}) {
+  const colors = themeColors(gamePack);
+  const tokens = presentationTokens(gamePack);
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
   const radius = Math.min(rect.w, rect.h) / 2 - 2;
   ctx.save();
-  ctx.globalAlpha = active ? 1 : 0.48;
-  ctx.shadowColor = 'rgba(35,24,16,0.35)';
-  ctx.shadowBlur = 5;
-  ctx.shadowOffsetY = 3;
-  ctx.fillStyle = selected ? '#e8b43c' : '#e8deca';
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = active ? 'rgba(35,24,16,0.22)' : 'rgba(35,24,16,0.1)';
+  ctx.shadowBlur = 3;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = active ? selected ? colors.qingPlayableWash : colors.paperRaised : colors.disabledSurface;
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowColor = 'transparent';
-  ctx.strokeStyle = selected ? '#8b2c1e' : '#181613';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = selected ? colors.qingPlayable : active ? colors.inkStructure : colors.disabledInk;
+  ctx.lineWidth = selected ? tokens.strokes.strong : tokens.strokes.default;
   ctx.stroke();
-  ctx.strokeStyle = selected ? '#fff0a8' : 'rgba(117,93,61,0.58)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = selected ? colors.paperRaised : colors.cellLine;
+  ctx.lineWidth = tokens.strokes.hairline;
   ctx.beginPath();
   ctx.arc(cx, cy, radius - 5, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
 
-function drawBrush(ctx, rect, state, drag) {
+function drawBrush(ctx, rect, state, drag, gamePack, host) {
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
   const enabled = state.brushes > 0;
-  drawRoundBase(ctx, rect, { active: enabled, selected: drag?.mode === 'brush' });
+  drawRoundBase(ctx, rect, gamePack, { active: enabled, selected: drag?.mode === 'brush' });
   ctx.save();
   ctx.globalAlpha = enabled ? 1 : 0.45;
-  if (!drawToolAtlasIcon(ctx, 3, cx - 24, cy - 28, 48, 48)) {
+  if (!drawToolAtlasIcon(ctx, 'item.brush', cx - 24, cy - 28, 48, 48, gamePack, host)) {
     ctx.fillStyle = '#35281d';
     ctx.font = font(28);
     ctx.textAlign = 'center';
@@ -129,50 +164,70 @@ function drawBrush(ctx, rect, state, drag) {
   ctx.fillText(`×${state.brushes ?? 0}`, cx + 15, cy + 18);
 }
 
-function drawRecruit(ctx, state) {
+function batchPreview(state, config) {
+  const free = state.bench.filter((item) => item === null).length;
+  let remaining = state.mantou;
+  let count = 0;
+  let cost = 0;
+  while (count < free) {
+    const next = config.recruitCost(state.recruitCount + count);
+    if (remaining < next) break;
+    remaining -= next;
+    cost += next;
+    count++;
+  }
+  return { free, count, cost };
+}
+
+function drawRecruit(ctx, state, drag, gamePack, host) {
+  const config = gamePack.config;
+  const colors = themeColors(gamePack);
+  const tokens = presentationTokens(gamePack);
   const rect = UI.recruit;
-  const cost = CONFIG.recruitCost(state.recruitCount);
-  const benchFree = state.bench?.some((item) => item === null);
-  const enabled = state.mantou >= cost && benchFree;
+  const preview = batchPreview(state, config);
+  const enabled = preview.count > 0;
   ctx.save();
-  ctx.globalAlpha = enabled ? 1 : 0.52;
-  ctx.shadowColor = 'rgba(45,26,16,0.42)';
-  ctx.shadowBlur = 5;
-  ctx.shadowOffsetY = 4;
-  ctx.fillStyle = '#c96d48';
+  ctx.shadowColor = enabled ? 'rgba(45,26,16,0.34)' : 'rgba(45,26,16,0.08)';
+  ctx.shadowBlur = enabled ? tokens.shadows.buttonBlur : 2;
+  ctx.shadowOffsetY = enabled ? 3 : 1;
+  ctx.fillStyle = enabled ? colors.cinnabarAction : colors.disabledSurface;
   roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 5);
   ctx.fill();
   ctx.shadowColor = 'transparent';
-  ctx.strokeStyle = '#2c1d16';
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = enabled ? colors.inkStructure : colors.disabledInk;
+  ctx.lineWidth = tokens.strokes.strong;
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,211,174,0.62)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = enabled ? colors.paperLight : colors.inkMuted;
+  ctx.lineWidth = tokens.strokes.hairline;
   roundRect(ctx, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, 2);
   ctx.stroke();
-  ctx.fillStyle = '#231b17';
+  ctx.fillStyle = enabled ? colors.paperRaised : colors.disabledInk;
   ctx.font = font(28);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('征兵', rect.x + rect.w / 2, rect.y + 24);
-  if (!drawToolAtlasIcon(ctx, 0, rect.x + 39, rect.y + 36, 25, 25)) {
-    ctx.fillStyle = '#f4ecda';
-    ctx.beginPath();
-    ctx.ellipse(rect.x + 52, rect.y + 48, 10, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#34271e';
-  ctx.font = font(15);
-  ctx.fillText(benchFree ? String(cost) : '营满', rect.x + 80, rect.y + 48);
+  ctx.fillText(copyText(gamePack, 'battle.recruit.batch', {}, '征满'), rect.x + rect.w / 2, rect.y + 23);
+  ctx.fillStyle = enabled ? colors.paperLight : colors.disabledInk;
+  ctx.font = font(13);
+  const latest = drag?.lastRecruitBatch?.until > state.time ? drag.lastRecruitBatch : null;
+  const summary = latest
+    ? copyText(gamePack, 'battle.recruit.batchResult', {
+      count: latest.filledCount, cost: latest.totalCost,
+    }, `征得 ${latest.filledCount} · 耗 ${latest.totalCost}`)
+    : preview.count > 0
+      ? copyText(gamePack, 'battle.recruit.batchPreview', {
+        count: preview.count, cost: preview.cost,
+      }, `可征 ${preview.count} · 耗 ${preview.cost}`)
+      : preview.free === 0 ? copyText(gamePack, 'battle.benchFull') : '馒头不足';
+  ctx.fillText(summary, rect.x + rect.w / 2, rect.y + 48);
   ctx.restore();
 }
 
-function drawSpeedBag(ctx, rect, state) {
+function drawSpeedBag(ctx, rect, state, gamePack, host) {
   const cx = rect.x + rect.w / 2;
   const cy = rect.y + rect.h / 2;
-  drawRoundBase(ctx, rect, { selected: state.speed === 2 });
+  drawRoundBase(ctx, rect, gamePack, { selected: state.speed === 2 });
   ctx.save();
-  drawToolAtlasIcon(ctx, 10, cx - 24, cy - 28, 48, 48);
+  drawToolAtlasIcon(ctx, 'item.explosives', cx - 24, cy - 28, 48, 48, gamePack, host);
   ctx.fillStyle = '#f6ead2';
   ctx.strokeStyle = '#2b241d';
   ctx.lineWidth = 3;
@@ -186,35 +241,37 @@ function drawSpeedBag(ctx, rect, state) {
 }
 
 const PASSIVE_TOOLS = [
-  { icon: 1, key: 'luoyang' },
-  { icon: 2, key: 'treasure' },
-  { icon: 11, key: 'talisman' },
-  { icon: 4, key: 'recruit-scroll' },
-  { icon: 5, key: 'meteor' },
+  { icon: 'item.shovel', key: 'luoyang' },
+  { icon: 'item.treasure', key: 'treasure' },
+  { icon: 'item.talisman', key: 'talisman' },
+  { icon: 'item.recruit-scroll', key: 'recruit-scroll' },
+  { icon: 'item.meteor', key: 'meteor' },
 ];
 
-function drawToolStatus(ctx, state) {
+function drawToolStatus(ctx, state, gamePack, host) {
+  const colors = themeColors(gamePack);
+  const tokens = presentationTokens(gamePack);
   ctx.save();
   const remaining = Math.max(0, Math.ceil((state.luoyang?.interval ?? 60) - (state.luoyang?.elapsed ?? 0)));
   for (let i = 0; i < 5; i++) {
     const rect = toolRect(i);
     const tool = PASSIVE_TOOLS[i];
     const equipped = tool.key === 'luoyang' && state.luoyang?.enabled;
-    ctx.shadowColor = 'rgba(34,23,15,0.34)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 3;
-    ctx.fillStyle = equipped ? '#d9ad3d' : '#59564d';
+    ctx.shadowColor = equipped ? 'rgba(34,23,15,0.22)' : 'transparent';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetY = 2;
+    ctx.fillStyle = equipped ? colors.qingPlayableWash : 'rgba(255,253,246,0.32)';
     roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 5);
     ctx.fill();
     ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = equipped ? '#9c6618' : '#171512';
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = equipped ? colors.qingPlayable : colors.inkMuted;
+    ctx.lineWidth = equipped ? tokens.strokes.strong : tokens.strokes.hairline;
     ctx.stroke();
-    ctx.fillStyle = equipped ? '#ead69d' : '#77766d';
+    ctx.fillStyle = equipped ? 'rgba(255,253,246,0.48)' : 'rgba(255,253,246,0.16)';
     ctx.fillRect(rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10);
     ctx.save();
-    ctx.globalAlpha = equipped ? 1 : 0.52;
-    drawToolAtlasIcon(ctx, tool.icon, rect.x + 6, rect.y + 4, rect.w - 12, rect.h - 9);
+    ctx.globalAlpha = equipped ? 1 : 0.28;
+    drawToolAtlasIcon(ctx, tool.icon, rect.x + 6, rect.y + 4, rect.w - 12, rect.h - 9, gamePack, host);
     ctx.restore();
     if (!equipped) continue;
     ctx.fillStyle = 'rgba(51,39,24,0.9)';
@@ -224,15 +281,15 @@ function drawToolStatus(ctx, state) {
     ctx.font = font(8, false);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(state.luoyang.pending ? '待发' : String(remaining), rect.x + rect.w - 12.5, rect.y + 10.5);
+    ctx.fillText(state.luoyang.pending ? copyText(gamePack, 'battle.tool.pending') : String(remaining), rect.x + rect.w - 12.5, rect.y + 10.5);
   }
   ctx.restore();
 }
 
-export function drawBattleControls(ctx, state, drag, drawCard) {
-  drawCamp(ctx, state, drag, drawCard);
-  drawBrush(ctx, UI.shovel, state, drag);
-  drawRecruit(ctx, state);
-  drawSpeedBag(ctx, UI.speed, state);
-  drawToolStatus(ctx, state);
+export function drawBattleControls(ctx, state, drag, drawCard, gamePack = DEFAULT_GAME_PACK, host = null) {
+  drawCamp(ctx, state, drag, drawCard, gamePack, host);
+  drawBrush(ctx, UI.shovel, state, drag, gamePack, host);
+  drawRecruit(ctx, state, drag, gamePack, host);
+  drawSpeedBag(ctx, UI.speed, state, gamePack, host);
+  drawToolStatus(ctx, state, gamePack, host);
 }

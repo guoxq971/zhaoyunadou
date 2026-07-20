@@ -1,0 +1,181 @@
+{
+  "$schema": "./schemas/theme.schema.json",
+  "schemaVersion": "1.0.0",
+  "version": "1.0.0",
+  "id": "ink-warm",
+  "fontFamily": "\"Kaiti SC\",\"STKaiti\",KaiTi,\"KaiTi SC\",serif",
+  "assetRefs": [
+    "battlefield.ink",
+    "title.mascot",
+    "tools.atlas"
+  ],
+  "assetBindings": {
+    "battleBackdrop": "battlefield.ink",
+    "titleMascot": "title.mascot",
+    "toolIconAtlas": "tools.atlas"
+  },
+  "colors": {
+    "pageBackground": "#17150f",
+    "canvasBackground": "#f0e4cd",
+    "paper": "#f0e4cd",
+    "paperLight": "#fffaf1",
+    "paperRaised": "#fffdf6",
+    "ink": "#20221d",
+    "inkStrong": "#171913",
+    "inkStructure": "#30352e",
+    "inkMuted": "#686154",
+    "cinnabar": "#a52f27",
+    "cinnabarPrimary": "#bd3c30",
+    "cinnabarAction": "#c94a36",
+    "gold": "#dfa91f",
+    "goldReward": "#dfa91f",
+    "mutedGold": "#88764b",
+    "qingPlayable": "#38765f",
+    "qingPlayableWash": "rgba(199,224,208,0.96)",
+    "lockedCell": "rgba(105,113,107,0.90)",
+    "openCell": "rgba(199,224,208,0.96)",
+    "pathCell": "rgba(221,198,166,0.96)",
+    "routeLine": "#30352e",
+    "routeArrow": "#bd3c30",
+    "validTarget": "#2f8461",
+    "mergeTarget": "#d3a21e",
+    "swapTarget": "#2f8461",
+    "invalidTarget": "#bd3028",
+    "gate": "#a74635",
+    "danger": "#b72f28",
+    "brush": "#4f574c",
+    "shovel": "#9c7625",
+    "boardSurface": "#ead9bc",
+    "boardFrame": "#302c25",
+    "cellLine": "rgba(48,53,46,0.28)",
+    "cardBorder": "#6d6558",
+    "disabledSurface": "#c9c1b2",
+    "disabledInk": "#70695e"
+  },
+  "layout": {
+    "pause": { "x": 40, "y": 10, "w": 48, "h": 48 },
+    "recruit": { "x": 142, "y": 606, "w": 136, "h": 62 },
+    "shovel": { "x": 44, "y": 604, "w": 64, "h": 64 },
+    "speed": { "x": 312, "y": 604, "w": 64, "h": 64 },
+    "bench": { "x": 78, "y": 542, "w": 48, "h": 48, "gap": 4 },
+    "tools": { "x": 48, "y": 680, "w": 58, "h": 52, "gap": 6 },
+    "restart": { "x": 130, "y": 490, "w": 160, "h": 56 },
+    "start": { "x": 110, "y": 510, "w": 200, "h": 68 },
+    "callWave": { "x": 138, "y": 58, "w": 144, "h": 34 },
+    "stageSelect": { "x": 44, "y": 244, "w": 60, "h": 48, "gap": 6 },
+    "resetProgress": { "x": 142, "y": 690, "w": 136, "h": 44 }
+  },
+  "heroVisuals": {
+    "hero.liubei": { "paper": "#f3e4bd", "accent": "#b8842f", "ink": "#7b4f14", "glow": "rgba(220,169,62,0.36)", "weaponRendererId": "weapon.double-swords" },
+    "hero.guanyu": { "paper": "#dfe8d0", "accent": "#4d7449", "ink": "#285432", "glow": "rgba(76,132,74,0.32)", "weaponRendererId": "weapon.guandao" },
+    "hero.zhangfei": { "paper": "#eadced", "accent": "#815783", "ink": "#65316d", "glow": "rgba(143,82,151,0.32)", "weaponRendererId": "weapon.serpent-spear" },
+    "hero.zhaoyun": { "paper": "#dbe8ed", "accent": "#547e95", "ink": "#2e647f", "glow": "rgba(76,142,176,0.34)", "weaponRendererId": "weapon.spear" },
+    "hero.huangzhong": { "paper": "#f1dfc5", "accent": "#ad7631", "ink": "#94601e", "glow": "rgba(218,146,51,0.34)", "weaponRendererId": "weapon.bow" }
+  },
+  "renderers": {
+    "scenes": {
+      "title": "scene.ink-warm-title",
+      "battle": "scene.ink-warm-battle",
+      "result": "scene.ink-warm-result"
+    },
+    "troops": {
+      "troop.dao": "card.ink-troop",
+      "troop.qiang": "card.ink-troop",
+      "troop.gong": "card.ink-troop",
+      "troop.qi": "card.ink-troop",
+      "troop.nong": "card.ink-troop"
+    },
+    "enemies": {
+      "enemy.normal": "enemy.ink-normal",
+      "enemy.fast": "enemy.ink-fast",
+      "enemy.tank": "enemy.ink-tank",
+      "enemy.elite": "enemy.ink-elite",
+      "enemy.boss": "enemy.ink-boss"
+    },
+    "items": {
+      "item.shovel": "item.atlas-shovel",
+      "item.brush": "item.atlas-brush",
+      "item.luoyang-shovel": "item.atlas-shovel"
+    },
+    "effects": {
+      "effect.ink": "effect.ink-splash",
+      "effect.text": "effect.floating-text",
+      "effect.slash": "effect.ink-slash",
+      "effect.ring": "effect.expanding-ring",
+      "effect.dragon": "effect.flame-dragon",
+      "effect.rain": "effect.arrow-rain"
+    }
+  },
+  "toolAtlas": {
+    "assetId": "tools.atlas",
+    "columns": 4,
+    "rows": 3,
+    "sourceSize": 256,
+    "slots": {
+      "currency.mantou": 0,
+      "item.shovel": 1,
+      "item.treasure": 2,
+      "item.brush": 3,
+      "item.recruit-scroll": 4,
+      "item.meteor": 5,
+      "item.recycle": 6,
+      "item.inkstone": 7,
+      "terrain.soil": 8,
+      "item.spikes": 9,
+      "item.explosives": 10,
+      "item.talisman": 11
+    }
+  },
+  "feedback": {
+    "recruit": { "effectId": "effect.ring", "color": "#bd3c30" },
+    "deploy": { "effectId": "effect.ring", "color": "#2f8461" },
+    "merge": { "effectId": "effect.ring", "color": "#d3a21e" },
+    "hero_unlock": { "effectId": "effect.ring", "color": "#dfa91f" },
+    "hero_cast": { "effectId": "effect.ring", "color": "#dfa91f" },
+    "invalid_action": { "effectId": "effect.text", "color": "#bd3028" }
+  },
+  "presentation": {
+    "backdrop": {
+      "artAlpha": 0.38,
+      "veilTop": "rgba(245,235,214,0.24)",
+      "veilMid": "rgba(238,227,204,0.10)",
+      "veilBottom": "rgba(231,216,191,0.20)"
+    },
+    "strokes": {
+      "hairline": 0.8,
+      "default": 1.4,
+      "strong": 2.2,
+      "focus": 3
+    },
+    "shadows": {
+      "cardBlur": 5,
+      "cardOffsetY": 2,
+      "boardBlur": 8,
+      "buttonBlur": 5
+    },
+    "motion": {
+      "titleRevealSeconds": 0.5,
+      "feedbackSeconds": 0.62,
+      "batchStepSeconds": 0.08,
+      "invalidReboundSeconds": 0.22,
+      "targetPulseHz": 1.2
+    },
+    "route": {
+      "lineWidth": 2.4,
+      "underlayWidth": 4.4,
+      "dash": [7, 5],
+      "primaryAlpha": 0.84,
+      "secondaryAlpha": 0.7,
+      "markerRadius": 11,
+      "arrowSize": 7,
+      "arrowAlpha": 0.95
+    },
+    "title": {
+      "mascotWidth": 128,
+      "mascotMaxWidth": 144,
+      "revealOffsetY": 8,
+      "revealAlphaStart": 0.78,
+      "peripheralAlpha": 0.65
+    }
+  }
+}

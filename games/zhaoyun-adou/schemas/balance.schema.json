@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zhaoyun-adou.local/schemas/balance.schema.json",
+  "title": "Balance manifest",
+  "type": "object",
+  "required": ["schemaVersion", "version", "recruitCost", "gachaWeights", "gachaPairing", "troops", "levelMult", "maxLevel", "heroes", "skills", "enemy", "waves", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "$ref": "#/$defs/version" },
+    "version": { "$ref": "#/$defs/version" },
+    "recruitCost": {
+      "type": "object",
+      "required": ["base", "linear", "quadratic"],
+      "additionalProperties": false,
+      "properties": {
+        "base": { "type": "number", "minimum": 0 },
+        "linear": { "type": "number", "minimum": 0 },
+        "quadratic": { "type": "number", "minimum": 0 }
+      }
+    },
+    "gachaWeights": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["kind", "w"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "enum": ["troop", "frag", "shovel"] },
+          "type": { "$ref": "#/$defs/id" },
+          "itemId": { "$ref": "#/$defs/id" },
+          "w": { "type": "number", "exclusiveMinimum": 0 }
+        }
+      }
+    },
+    "gachaPairing": {
+      "type": "object",
+      "required": ["categoryBoost", "partnerBoost"],
+      "additionalProperties": false,
+      "properties": {
+        "categoryBoost": { "type": "number", "minimum": 1 },
+        "partnerBoost": { "type": "number", "minimum": 1 }
+      }
+    },
+    "troops": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9.-]*$": { "$ref": "#/$defs/troop" }
+      },
+      "additionalProperties": false
+    },
+    "levelMult": { "type": "number", "minimum": 1 },
+    "maxLevel": { "type": "integer", "minimum": 1 },
+    "heroes": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9.-]*$": { "$ref": "#/$defs/hero" }
+      },
+      "additionalProperties": false
+    },
+    "skills": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9.-]*$": { "$ref": "#/$defs/skill" }
+      },
+      "additionalProperties": false
+    },
+    "enemy": { "$ref": "#/$defs/enemy" },
+    "waves": { "$ref": "#/$defs/waves" },
+    "items": {
+      "type": "object",
+      "minProperties": 1,
+      "patternProperties": {
+        "^[a-z][a-z0-9.-]*$": { "$ref": "#/$defs/item" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "positive": { "type": "number", "exclusiveMinimum": 0 },
+    "troop": {
+      "type": "object",
+      "required": ["char", "behaviorId", "renderId"],
+      "additionalProperties": false,
+      "properties": {
+        "char": { "type": "string", "minLength": 1 },
+        "dmg": { "type": "number", "minimum": 0 },
+        "cd": { "$ref": "#/$defs/positive" },
+        "range": { "$ref": "#/$defs/positive" },
+        "projectile": { "type": "boolean" },
+        "projectileSpeed": { "$ref": "#/$defs/positive" },
+        "produce": { "$ref": "#/$defs/positive" },
+        "interval": { "$ref": "#/$defs/positive" },
+        "maxLevel": { "type": "integer", "minimum": 1 },
+        "behaviorId": { "$ref": "#/$defs/id" },
+        "renderId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "hero": {
+      "type": "object",
+      "required": ["name", "chars", "dmg", "cd", "range", "ultCd", "initialUltCooldownRatio", "skillId", "renderId"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "chars": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string", "minLength": 1 } },
+        "dmg": { "$ref": "#/$defs/positive" },
+        "cd": { "$ref": "#/$defs/positive" },
+        "range": { "$ref": "#/$defs/positive" },
+        "ultCd": { "$ref": "#/$defs/positive" },
+        "initialUltCooldownRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "skillId": { "$ref": "#/$defs/id" },
+        "renderId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "required": ["handlerId", "effectIds"],
+      "additionalProperties": false,
+      "properties": {
+        "handlerId": { "$ref": "#/$defs/id" },
+        "effectIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+        "dmg": { "type": "number", "minimum": 0 },
+        "range": { "$ref": "#/$defs/positive" },
+        "stun": { "$ref": "#/$defs/positive" },
+        "mult": { "$ref": "#/$defs/positive" },
+        "dur": { "$ref": "#/$defs/positive" },
+        "effectSpeed": { "$ref": "#/$defs/positive" },
+        "effectLife": { "$ref": "#/$defs/positive" },
+        "hitDistance": { "$ref": "#/$defs/positive" }
+      }
+    },
+    "enemyType": {
+      "type": "object",
+      "required": ["char", "hpMul", "spdMul", "size", "renderId"],
+      "additionalProperties": false,
+      "properties": {
+        "char": { "type": "string", "minLength": 1 },
+        "hpMul": { "$ref": "#/$defs/positive" },
+        "spdMul": { "$ref": "#/$defs/positive" },
+        "size": { "$ref": "#/$defs/positive" },
+        "tint": { "type": "string", "minLength": 1 },
+        "renderId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "enemy": {
+      "type": "object",
+      "required": ["baseHp", "hpGrowth", "baseSpeed", "types"],
+      "additionalProperties": false,
+      "properties": {
+        "baseHp": { "$ref": "#/$defs/positive" },
+        "hpGrowth": { "$ref": "#/$defs/positive" },
+        "baseSpeed": { "$ref": "#/$defs/positive" },
+        "types": {
+          "type": "object",
+          "minProperties": 1,
+          "patternProperties": { "^[a-z][a-z0-9.-]*$": { "$ref": "#/$defs/enemyType" } },
+          "additionalProperties": false
+        }
+      }
+    },
+    "linearFormula": {
+      "type": "object",
+      "required": ["base", "perWave"],
+      "additionalProperties": false,
+      "properties": {
+        "base": { "type": "number", "minimum": 0 },
+        "perWave": { "type": "number", "minimum": 0 }
+      }
+    },
+    "waves": {
+      "type": "object",
+      "required": ["size", "spawnInterval", "breakTime", "killReward", "waveBonus"],
+      "additionalProperties": false,
+      "properties": {
+        "size": { "$ref": "#/$defs/linearFormula" },
+        "spawnInterval": { "$ref": "#/$defs/positive" },
+        "breakTime": { "$ref": "#/$defs/positive" },
+        "killReward": {
+          "type": "object",
+          "required": ["base", "stepEvery", "step"],
+          "additionalProperties": false,
+          "properties": {
+            "base": { "type": "number", "minimum": 0 },
+            "stepEvery": { "type": "integer", "minimum": 1 },
+            "step": { "type": "number", "minimum": 0 }
+          }
+        },
+        "waveBonus": { "$ref": "#/$defs/linearFormula" }
+      }
+    },
+    "item": {
+      "type": "object",
+      "required": ["behaviorId", "renderId"],
+      "additionalProperties": false,
+      "properties": {
+        "behaviorId": { "$ref": "#/$defs/id" },
+        "renderId": { "$ref": "#/$defs/id" },
+        "interval": { "$ref": "#/$defs/positive" },
+        "outputItemId": { "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}
