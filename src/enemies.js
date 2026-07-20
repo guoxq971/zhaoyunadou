@@ -1,147 +1,137 @@
-// 波次生成 + 敌人沿路径移动 + 到达扣命
+// 兼容门面：Encounter 拥有波次，Combat 拥有移动/伤害；本文件仅保留旧 API 和表现适配。
 import { CONFIG } from './config.js';
 import { addInk, addText } from './effects.js';
-import { eventsFor, gamePackFor, randomFor } from './engine-core/runtime-context.js';
 import { copyText } from './engine-core/copy.js';
+import { gamePackFor, getStateSlice, randomFor, runtimeFor } from './engine-core/public.js';
+import { routeForEntity } from './systems/board/index.js';
+import {
+  acceptEnemySpawn,
+  damageEnemy as resolveDamage,
+  enemyGameplayXY,
+  updateEnemies as moveEnemies,
+} from './systems/combat/index.js';
+import {
+  createEnemySpawnDefinition,
+  updateStageEncounter,
+} from './systems/stage-encounter/index.js';
+import {
+  publishSystemDomainEvent,
+  pumpSystemDomainEvents,
+} from './rulesets/merge-defense/domain-event-runtime.js';
 
-// 每波兵种构成
-function pickType(state, wave, idx, total) {
-  if (wave === state.waveTarget && idx === total - 1) return state.stage.finalEnemy;
-  if (wave % 5 === 0 && idx === total - 1) return 'elite';
-  const plan = state.stage.enemyPlan ?? { fastFromWave: 4, tankFromWave: 7 };
-  if (wave >= plan.fastFromWave && idx % 5 === 3) return 'fast';
-  if (wave >= plan.tankFromWave && idx % 6 === 4) return 'tank';
-  return 'normal';
-}
+const configFor = (state) => gamePackFor(state)?.config ?? CONFIG;
+const packFor = (state) => gamePackFor(state) ?? { config: CONFIG };
+const tickFor = (state) => runtimeFor(state)?.currentTick?.() ?? 0;
 
-// 新状态使用 paths；旧存档/单元测试仍可只提供 path。
-function availablePaths(state) {
-  if (Array.isArray(state.paths) && state.paths.length > 0) return state.paths;
-  return Array.isArray(state.path) ? [state.path] : [];
-}
-
-function pathForEnemy(state, enemy) {
-  const paths = availablePaths(state);
-  return paths[enemy?.lane ?? 0] ?? paths[0] ?? [];
-}
-
-export function spawnEnemy(state, type, idx = state.enemies.length) {
-  const E = gamePackFor(state)?.config?.enemy ?? CONFIG.enemy;
-  const t = E.types[type];
-  const hp = Math.round(E.baseHp * Math.pow(E.hpGrowth, state.wave - 1) * t.hpMul * state.stage.enemyHpMul);
-  const pathCount = Math.max(1, availablePaths(state).length);
-  state.enemies.push({
-    type, wave: state.wave, hp, maxHp: hp,
-    lane: ((idx % pathCount) + pathCount) % pathCount, // 同波敌军按序上下路交替。
-    p: 0,                       // 路径进度(格),浮点
-    speed: E.baseSpeed * t.spdMul,
-    stun: 0, bob: randomFor(state, 'presentation')() * 6.28,
-    spawnedAt: state.time,
+export function ensureEnemyIdentity(state, enemy) {
+  if (enemy.enemyId) return enemy.enemyId;
+  const encounter = getStateSlice(state, 'encounter');
+  encounter.nextEnemySequence = (encounter.nextEnemySequence ?? 0) + 1;
+  Object.defineProperty(enemy, 'enemyId', {
+    value: `enemy-${encounter.nextEnemySequence}`,
+    writable: true,
+    configurable: true,
   });
+  return enemy.enemyId;
+}
+
+export function spawnEnemy(state, type, index = state.enemies.length) {
+  const encounter = getStateSlice(state, 'encounter');
+  encounter.nextEnemySequence = (encounter.nextEnemySequence ?? 0) + 1;
+  const definition = createEnemySpawnDefinition({
+    gamePack: packFor(state),
+    stage: state.stage,
+    wave: state.wave,
+    type,
+    index,
+    laneCount: Math.max(1, state.paths?.length ?? 1),
+    spawnedAt: state.time,
+    enemyId: `enemy-${encounter.nextEnemySequence}`,
+  });
+  const enemy = acceptEnemySpawn(state, definition);
+  enemy.bob = randomFor(state, 'presentation')() * Math.PI * 2;
+  return enemy;
 }
 
 export function updateWaves(state, dt) {
-  const W = gamePackFor(state)?.config?.waves ?? CONFIG.waves;
-  if (state.phase === 'break') {
-    if (state.phaseT === null) return;
-    state.phaseT -= dt;
-    if (state.phaseT <= 0) {
-      state.wave++;
-      state.phase = 'wave';
-      state.spawnLeft = W.size(state.wave);
-      state.spawnTotal = state.spawnLeft;
-      state.spawnT = 0;
-      eventsFor(state)?.emit('wave_start', state, {
-        result: 'started', reason: 'countdown-complete', wave: state.wave,
-      });
-    }
-    return;
+  const gamePack = packFor(state);
+  const result = updateStageEncounter(state, dt, gamePack, {
+    acceptEnemySpawn(_state, definition) {
+      const enemy = acceptEnemySpawn(state, definition);
+      enemy.bob = randomFor(state, 'presentation')() * Math.PI * 2;
+      return enemy;
+    },
+    getLaneCount: () => Math.max(1, state.paths?.length ?? 1),
+    hasActiveEnemies: () => state.enemies.length > 0,
+    getElapsedTime: () => state.time,
+    publishDomainEvent: (_state, definition) => publishSystemDomainEvent(state, definition, gamePack),
+  }, tickFor(state));
+  pumpSystemDomainEvents(state, gamePack);
+  if (['wave-completed', 'encounter-completed'].includes(result.action)) {
+    addText(state, 210, 400, copyText(gamePack, 'battle.wave.cleared', {
+      wave: state.wave, reward: result.reward,
+    }, `第${state.wave}波克复 +${result.reward}馒头`), '#8a6d3b', 1.6);
   }
-  // wave 阶段:按间隔出兵
-  if (state.spawnLeft > 0) {
-    state.spawnT -= dt;
-    if (state.spawnT <= 0) {
-      const idx = state.spawnTotal - state.spawnLeft;
-      spawnEnemy(state, pickType(state, state.wave, idx, state.spawnTotal), idx);
-      state.spawnLeft--;
-      state.spawnT = W.spawnInterval;
-    }
-  } else if (state.enemies.length === 0) {
-    // 本波清空
-    const bonus = W.waveBonus(state.wave);
-    state.mantou += bonus;
-    addText(state, 210, 400, copyText(gamePackFor(state), 'battle.wave.cleared', {
-      wave: state.wave, reward: bonus,
-    }, `第${state.wave}波克复 +${bonus}馒头`), '#8a6d3b', 1.6);
-    eventsFor(state)?.emit('wave_end', state, {
-      result: 'cleared', reason: 'enemies-cleared', wave: state.wave, reward: bonus,
-    });
-    if (state.wave >= state.waveTarget) { state.over = true; state.win = true; return; }
-    state.phase = 'break';
-    state.phaseT = W.breakTime;
-  }
+  return result;
 }
 
 export function updateEnemies(state, dt, cellXY) {
-  for (let i = state.enemies.length - 1; i >= 0; i--) {
-    const e = state.enemies[i];
-    const path = pathForEnemy(state, e);
-    const endP = path.length - 1;
-    if (endP < 0) continue;
-    if (e.hitFlash > 0) e.hitFlash = Math.max(0, e.hitFlash - dt);
-    if (e.stun > 0) { e.stun -= dt; continue; }
-    e.p += e.speed * dt;
-    e.bob += dt * 8;
-    if (e.p >= endP) {
-      const livesBefore = state.lives;
-      state.enemies.splice(i, 1);
-      state.lives = Math.max(0, state.lives - 1);
-      const { x, y } = cellXY(path[endP].r, path[endP].c);
-      addInk(state, x, y, '#a02020');
-      addText(state, x, y - 20, copyText(gamePackFor(state), 'battle.enemy.leak', {}, '-1❤'), '#c03030', 1.2);
-      eventsFor(state)?.emit('enemy_leak', state, {
-        result: 'life-lost', reason: 'reached-gate', enemyId: e.type,
-        laneId: String(e.lane ?? 0), livesBefore, livesRemaining: state.lives,
-      });
-      if (state.lives <= 0) { state.over = true; state.win = false; }
-    }
+  for (const enemy of state.enemies) {
+    ensureEnemyIdentity(state, enemy);
+    if (enemy.hitFlash > 0) enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
+    enemy.bob = (enemy.bob ?? 0) + dt * 8;
   }
-}
-
-// 规则坐标只取路径进度，不消费或引入纯表现随机。
-export function enemyGameplayXY(state, e, cellXY) {
-  const path = pathForEnemy(state, e);
-  if (path.length === 0) return { x: 0, y: 0 };
-  if (path.length === 1) return cellXY(path[0].r, path[0].c);
-  const i = Math.max(0, Math.min(Math.floor(e.p), path.length - 2));
-  const f = Math.max(0, Math.min(e.p - i, 1));
-  const a = path[i], b = path[i + 1];
-  const pa = cellXY(a.r, a.c), pb = cellXY(b.r, b.c);
-  return { x: pa.x + (pb.x - pa.x) * f, y: pa.y + (pb.y - pa.y) * f };
-}
-
-// 渲染坐标在规则坐标上叠加浮动，不再反向影响索敌、技能或弹道。
-export function enemyXY(state, e, cellXY) {
-  const point = enemyGameplayXY(state, e, cellXY);
-  return { x: point.x, y: point.y + Math.sin(e.bob ?? 0) * 2 };
-}
-
-export function damageEnemy(state, e, dmg, cellXY) {
-  e.hp -= dmg;
-  e.hitFlash = 0.12;
-  const { x, y } = enemyXY(state, e, cellXY);
-  addText(state, x + (randomFor(state, 'presentation')() * 16 - 8), y - 18, String(Math.round(dmg)), '#222', 0.7);
-  addInk(state, x, y, '#1a1a1a');
-  if (e.hp <= 0) {
-    const gamePack = gamePackFor(state);
-    const defeatColor = gamePack?.manifests?.theme?.colors?.cinnabarPrimary ?? '#a02020';
-    addText(state, x, y - 28, copyText(gamePack, 'battle.enemy.defeated', {}, '破'), defeatColor, 1.35, {
-      life: 0.82, feedbackId: 'enemy-defeated',
-    });
-    const idx = state.enemies.indexOf(e);
-    if (idx >= 0) state.enemies.splice(idx, 1);
-    state.stats.kills++;
-    const waves = gamePackFor(state)?.config?.waves ?? CONFIG.waves;
-    state.mantou += waves.killReward(e.wave);
+  const enemiesById = new Map(state.enemies.map((enemy) => [enemy.enemyId, enemy]));
+  const gamePack = packFor(state);
+  const result = moveEnemies(state, dt, cellXY, {
+    tick: tickFor(state),
+    publish: (definition) => publishSystemDomainEvent(state, definition, gamePack),
+    isMovementBlocked(_state, enemy) {
+      if (!(enemy.stun > 0)) return false;
+      enemy.stun -= dt;
+      return true;
+    },
+  });
+  for (const event of result.leaked) {
+    const enemy = enemiesById.get(event.payload.enemyId);
+    const route = enemy ? routeForEntity(state, enemy) : [];
+    const end = route.at(-1);
+    const point = end ? cellXY(end.r, end.c) : { x: 0, y: 0 };
+    addInk(state, point.x, point.y, '#a02020');
+    addText(state, point.x, point.y - 20, copyText(gamePack, 'battle.enemy.leak', {}, '-1❤'), '#c03030', 1.2);
   }
+  pumpSystemDomainEvents(state, gamePack);
+  return result;
+}
+
+export { enemyGameplayXY };
+
+export function enemyXY(state, enemy, cellXY) {
+  const point = enemyGameplayXY(state, enemy, cellXY);
+  return { x: point.x, y: point.y + Math.sin(enemy.bob ?? 0) * 2 };
+}
+
+export function damageEnemy(state, enemy, damage, cellXY, metadata = {}) {
+  ensureEnemyIdentity(state, enemy);
+  const gamePack = packFor(state);
+  const position = enemyXY(state, enemy, cellXY);
+  const result = resolveDamage(state, enemy, damage, {
+    tick: tickFor(state),
+    attackerId: metadata.attackerId ?? metadata.source ?? null,
+    attackKind: metadata.attackKind ?? 'direct',
+    publish: (definition) => publishSystemDomainEvent(state, definition, gamePack),
+  });
+  if (!result.ok) return result;
+  enemy.hitFlash = 0.12;
+  addText(state, position.x + (randomFor(state, 'presentation')() * 16 - 8), position.y - 18,
+    String(Math.round(damage)), '#222', 0.7);
+  addInk(state, position.x, position.y, '#1a1a1a');
+  if (result.defeated) {
+    const color = gamePack?.manifests?.theme?.colors?.cinnabarPrimary ?? '#a02020';
+    addText(state, position.x, position.y - 28,
+      copyText(gamePack, 'battle.enemy.defeated', {}, '破'), color, 1.35,
+      { life: 0.82, feedbackId: 'enemy-defeated' });
+  }
+  pumpSystemDomainEvents(state, gamePack);
+  return result;
 }

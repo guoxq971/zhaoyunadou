@@ -1,5 +1,6 @@
 // 跨系统使用的稳定基础契约入口；内部模块仍可按职责拆分。
 export { CONTROLLER_API_VERSION } from './controller.js';
+export { copyText } from './copy.js';
 export { composeCommandHandlerMaps } from './command-handlers.js';
 export {
   DOMAIN_EVENT_API_VERSION,
@@ -28,6 +29,19 @@ export {
 } from './presentation-cue.js';
 export { createRegistry } from './registry.js';
 export { createSlicedState, getStateSlice, hasStateSlices } from './state-slices.js';
+export {
+  attachRuntime,
+  domainEventsFor,
+  eventsFor,
+  gamePackFor,
+  hostFor,
+  presentationCuesFor,
+  publishDomainEventFor,
+  randomFor,
+  registryFor,
+  runtimeFor,
+  telemetryFor,
+} from './runtime-context.js';
 export {
   assertSerializableData,
   assertStableId,

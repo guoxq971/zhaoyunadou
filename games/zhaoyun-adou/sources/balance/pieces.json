@@ -1,0 +1,48 @@
+{
+  "troops": {
+    "dao": {
+      "char": "刀",
+      "dmg": 6,
+      "cd": 0.55,
+      "range": 1.35,
+      "behaviorId": "unit.melee",
+      "renderId": "troop.dao"
+    },
+    "qiang": {
+      "char": "枪",
+      "dmg": 10,
+      "cd": 0.9,
+      "range": 2.3,
+      "behaviorId": "unit.melee",
+      "renderId": "troop.qiang"
+    },
+    "gong": {
+      "char": "弓",
+      "dmg": 7,
+      "cd": 1.05,
+      "range": 3.8,
+      "projectile": true,
+      "projectileSpeed": 380,
+      "behaviorId": "unit.projectile",
+      "renderId": "troop.gong"
+    },
+    "qi": {
+      "char": "骑",
+      "dmg": 16,
+      "cd": 1.5,
+      "range": 1.9,
+      "behaviorId": "unit.melee",
+      "renderId": "troop.qi"
+    },
+    "nong": {
+      "char": "农",
+      "produce": 2,
+      "interval": 3,
+      "maxLevel": 3,
+      "behaviorId": "unit.producer",
+      "renderId": "troop.nong"
+    }
+  },
+  "levelMult": 2.2,
+  "maxLevel": 5
+}

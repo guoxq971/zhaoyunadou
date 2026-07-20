@@ -1,0 +1,23 @@
+{
+  "$schema": "./schemas/balance.schema.json",
+  "schemaVersion": "1.0.0",
+  "version": "1.0.0",
+  "recruitCost": {
+    "base": 16,
+    "linear": 3,
+    "quadratic": 1
+  },
+  "gachaWeights": [
+    { "kind": "troop", "type": "dao", "w": 21 },
+    { "kind": "troop", "type": "qiang", "w": 21 },
+    { "kind": "troop", "type": "gong", "w": 21 },
+    { "kind": "troop", "type": "qi", "w": 21 },
+    { "kind": "frag", "w": 10 },
+    { "kind": "troop", "type": "nong", "w": 4 },
+    { "kind": "shovel", "itemId": "shovel", "w": 2 }
+  ],
+  "gachaPairing": {
+    "categoryBoost": 3,
+    "partnerBoost": 6
+  }
+}

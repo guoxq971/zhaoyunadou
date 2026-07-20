@@ -1,0 +1,21 @@
+{
+  "enemy": {
+    "baseHp": 24,
+    "hpGrowth": 1.22,
+    "baseSpeed": 1.05,
+    "types": {
+      "normal": { "char": "贼", "hpMul": 1, "spdMul": 1, "size": 1, "renderId": "enemy.normal" },
+      "fast": { "char": "贼", "hpMul": 0.6, "spdMul": 1.8, "size": 0.9, "tint": "#6a7846", "renderId": "enemy.fast" },
+      "tank": { "char": "贼", "hpMul": 3.2, "spdMul": 0.55, "size": 1.25, "tint": "#56514a", "renderId": "enemy.tank" },
+      "elite": { "char": "贼", "hpMul": 6, "spdMul": 0.8, "size": 1.3, "tint": "#8d2720", "renderId": "enemy.elite" },
+      "boss": { "char": "贼", "hpMul": 22, "spdMul": 0.45, "size": 1.6, "tint": "#711", "renderId": "enemy.boss" }
+    }
+  },
+  "waves": {
+    "size": { "base": 6, "perWave": 1 },
+    "spawnInterval": 0.85,
+    "breakTime": 3.5,
+    "killReward": { "base": 2, "stepEvery": 5, "step": 1 },
+    "waveBonus": { "base": 8, "perWave": 2 }
+  }
+}

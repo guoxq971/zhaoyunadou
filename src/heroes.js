@@ -1,84 +1,128 @@
-// 英雄:双格单位持续攻击 + 定时大招
+// 兼容门面：英雄冷却、状态和技能实体交由 Skill/Status，表现通过 Cue 消费。
 import { CONFIG } from './config.js';
+import {
+  createPresentationCueQueue,
+  gamePackFor,
+  presentationCuesFor,
+  runtimeFor,
+} from './engine-core/public.js';
+import { damageEnemy, enemyGameplayXY, ensureEnemyIdentity } from './enemies.js';
 import { findTarget } from './units.js';
-import { enemyXY, damageEnemy } from './enemies.js';
-import { addSlash, addText, addInk } from './effects.js';
-import { eventsFor, gamePackFor, registryFor } from './engine-core/runtime-context.js';
-import { SKILL_REGISTRY } from './rulesets/merge-defense/skill-registry.js';
-import { copyText } from './engine-core/copy.js';
-import { addConfiguredFeedback } from './presentation-pack/feedback-effect.js';
-import { resolveStat } from './systems/attribute/index.js';
+import {
+  createSkillStatusSystem,
+  skillStatusStateFor,
+} from './systems/skill-status/index.js';
+import { consumePresentationCues } from './systems/skin-presentation/index.js';
+import {
+  publishSystemDomainEvent,
+  pumpSystemDomainEvents,
+} from './rulesets/merge-defense/domain-event-runtime.js';
+
+const systems = new WeakMap();
+const localCueQueues = new WeakMap();
+const packFor = (state) => gamePackFor(state) ?? { config: CONFIG };
+const tickFor = (state) => runtimeFor(state)?.currentTick?.() ?? 0;
+
+function cueQueueFor(state) {
+  const runtimeQueue = presentationCuesFor(state);
+  if (runtimeQueue) return runtimeQueue;
+  if (!localCueQueues.has(state)) localCueQueues.set(state, createPresentationCueQueue());
+  return localCueQueues.get(state);
+}
+
+function combatPort(state) {
+  return {
+    listEnemies: (world) => [...world.enemies],
+    findTarget: (world, { x, y, rangeCells, cellXY }) => {
+      const target = findTarget(world, x, y, rangeCells, cellXY);
+      return target ? { enemy: target.e, ...target } : null;
+    },
+    positionOf: (world, enemy, cellXY) => enemyGameplayXY(world, enemy, cellXY),
+    damage: (world, enemy, amount, metadata) => damageEnemy(
+      world,
+      enemy,
+      amount,
+      metadata.cellXY,
+      { attackerId: metadata.source, attackKind: metadata.attackKind },
+    ),
+    idOf(enemy) { return ensureEnemyIdentity(state, enemy); },
+    laneOf: (enemy) => enemy.lane ?? 0,
+    progressOf: (enemy) => enemy.p,
+  };
+}
+
+function systemFor(state) {
+  let system = systems.get(state);
+  if (system) return system;
+  const gamePack = packFor(state);
+  system = createSkillStatusSystem({
+    combat: combatPort(state),
+    publishCue: cueQueueFor(state),
+    publishEvent: (definition) => publishSystemDomainEvent(state, definition, gamePack),
+  });
+  systems.set(state, system);
+  return system;
+}
+
+function flushPresentation(state) {
+  const gamePack = packFor(state);
+  const cues = cueQueueFor(state).drain();
+  consumePresentationCues(state, cues, gamePack);
+  return cues;
+}
+
+function syncLegacyStunMirror(state, system, skillState) {
+  for (const enemy of state.enemies) {
+    const id = ensureEnemyIdentity(state, enemy);
+    enemy.stun = Math.max(enemy.stun ?? 0, system.statusRemaining(skillState, id, 'stun', state.time));
+  }
+}
 
 export function updateHeroes(state, dt, cellXY) {
-  const config = gamePackFor(state)?.config ?? CONFIG;
-  const modifiers = state.buff && state.time < state.buff.until
-    ? [{ id: 'liubei-aura', stat: 'damage', operation: 'multiply', value: state.buff.mult, priority: 20 }]
-    : [];
-  for (const h of state.heroes) {
-    const cfg = config.heroes[h.key];
-    const a = cellXY(h.r, h.c), b = cellXY(h.r, h.c + 1);
-    const cx = (a.x + b.x) / 2, cy = a.y;
-
-    // 平A
-    h.cd -= dt;
-    if (h.cd <= 0) {
-      const tgt = findTarget(state, cx, cy, cfg.range, cellXY);
-      if (tgt) {
-        h.cd = cfg.cd;
-        h.flash = 0.15;
-        addSlash(state, tgt.x, tgt.y, Math.atan2(tgt.y - cy, tgt.x - cx));
-        damageEnemy(state, tgt.e, resolveStat(cfg.dmg, 'damage', modifiers, state), cellXY);
-      }
-    }
-    if (h.flash > 0) h.flash -= dt;
-
-    // 大招:有敌人才放
-    h.ultCd -= dt;
-    if (h.ultCd <= 0 && state.enemies.length > 0) {
-      h.ultCd = cfg.ultCd;
-      castUlt(state, h, cfg, cx, cy, cellXY);
-    }
-  }
+  const gamePack = packFor(state);
+  for (const enemy of state.enemies) ensureEnemyIdentity(state, enemy);
+  const skillState = skillStatusStateFor(state);
+  const system = systemFor(state);
+  system.updateStatuses({ skillState, time: state.time, tick: tickFor(state) });
+  const result = system.updateHeroes({
+    world: state,
+    skillState,
+    config: gamePack.config,
+    dt,
+    cellXY,
+    laneIds: (state.paths?.length ? state.paths : [state.path]).map((_path, lane) => lane),
+    time: state.time,
+    tick: tickFor(state),
+  });
+  syncLegacyStunMirror(state, system, skillState);
+  pumpSystemDomainEvents(state, gamePack);
+  flushPresentation(state);
+  return result;
 }
 
-function castUlt(state, h, cfg, cx, cy, cellXY) {
-  const config = gamePackFor(state)?.config ?? CONFIG;
-  const skillId = cfg.skillId ?? cfg.ult;
-  const U = config.ults[skillId] ?? config.ults[cfg.ult];
-  const handlerId = U.handlerId ?? `skill.${skillId}`;
-  state.lastHeroCast = h.key;
-  if (state.stats) state.stats.heroCasts = (state.stats.heroCasts ?? 0) + 1;
-  const gamePack = gamePackFor(state);
-  const feedback = gamePack?.manifests?.theme?.feedback?.hero_cast;
-  const heroColor = feedback?.color ?? '#d8a61f';
-  addConfiguredFeedback(state, feedback, {
-    x: cx, y: cy, maxR: 72, life: 0.56, feedbackId: 'hero-cast-onset',
-  });
-  addText(state, cx, cy - 30, copyText(gamePack, 'battle.hero.cast', { heroName: cfg.name }, `【${cfg.name}】`), heroColor, 1.55, {
-    life: 0.72, feedbackId: 'hero-cast-title',
-  });
-  const registry = registryFor(state, 'skills', SKILL_REGISTRY);
-  registry.get(handlerId)({ state, hero: h, heroConfig: cfg, skill: U, cx, cy, cellXY, board: config.board });
-  eventsFor(state)?.emit('hero_cast', state, {
-    result: 'success', reason: 'auto-cast', heroId: h.key, skillId,
-  });
-}
-
-// 火龙沿路径伤害结算(演出体在 effects 里推进)
+// 火龙在旧 p 位置先命中；推进只能由 advanceSkillEntities 在弹道结算后调用。
 export function updateDragonDamage(state, cellXY) {
-  const config = gamePackFor(state)?.config ?? CONFIG;
-  const U = config.ults.dragon;
-  for (const f of state.effects) {
-    if (f.kind !== 'dragon') continue;
-    for (const e of [...state.enemies]) {
-      // 每条火龙只结算自己所在路线，避免双路线敌人受到重复伤害。
-      if ((e.lane ?? 0) !== (f.lane ?? 0)) continue;
-      if (f.hit.has(e)) continue;
-      if (Math.abs(e.p - f.p) < (f.hitDistance ?? U.hitDistance ?? 1.2)) {
-        f.hit.add(e);
-        addInk(state, ...(() => { const p = enemyXY(state, e, cellXY); return [p.x, p.y]; })(), '#c25a1a');
-        damageEnemy(state, e, U.dmg, cellXY);
-      }
-    }
-  }
+  const gamePack = packFor(state);
+  const skillState = skillStatusStateFor(state);
+  const result = systemFor(state).resolveDragonHits({
+    world: state,
+    skillState,
+    cellXY,
+    tick: tickFor(state),
+  });
+  pumpSystemDomainEvents(state, gamePack);
+  flushPresentation(state);
+  return result;
+}
+
+export function advanceSkillEntities(state, dt) {
+  const skillState = skillStatusStateFor(state);
+  const result = systemFor(state).advanceDragons({
+    skillState,
+    dt,
+    tick: tickFor(state),
+    routeLengthForLane: (lane) => (state.paths?.[lane] ?? state.path ?? []).length,
+  });
+  flushPresentation(state);
+  return result;
 }

@@ -1,85 +1,100 @@
-// 棋盘兵种:索敌、攻击、农民产馒头、弓箭弹道
+// 兼容门面：攻击/弹道交由 Combat，农民产出交由 Economy。
 import { CONFIG } from './config.js';
-import { enemyGameplayXY, damageEnemy } from './enemies.js';
-import { addSlash, addText, addInk } from './effects.js';
-import { gamePackFor } from './engine-core/runtime-context.js';
-import { troopDamage } from './systems/attribute/index.js';
+import { addInk, addSlash, addText } from './effects.js';
+import { copyText, gamePackFor, randomFor, runtimeFor } from './engine-core/public.js';
+import {
+  enemyGameplayXY,
+  findTarget as selectTarget,
+  updateProjectiles as resolveProjectiles,
+  updateUnits as resolveUnitAttacks,
+} from './systems/combat/index.js';
+import { updateProducerIncome } from './systems/economy/index.js';
+import { ensureEnemyIdentity } from './enemies.js';
+import {
+  publishSystemDomainEvent,
+  pumpSystemDomainEvents,
+} from './rulesets/merge-defense/domain-event-runtime.js';
 
-const damageModifiers = (state) => state.buff && state.time < state.buff.until
-  ? [{ id: 'liubei-aura', stat: 'damage', operation: 'multiply', value: state.buff.mult, priority: 20 }]
-  : [];
+const packFor = (state) => gamePackFor(state) ?? { config: CONFIG };
+const tickFor = (state) => runtimeFor(state)?.currentTick?.() ?? 0;
 
-// 找射程内路径进度最深的敌人。返回 {e, x, y} 或 null
 export function findTarget(state, cx, cy, rangeCells, cellXY) {
-  const config = gamePackFor(state)?.config ?? CONFIG;
-  const rangePx = rangeCells * config.board.cell;
-  let best = null, bestP = -1;
-  for (const e of state.enemies) {
-    const pos = enemyGameplayXY(state, e, cellXY);
-    const d = Math.hypot(pos.x - cx, pos.y - cy);
-    if (d <= rangePx && e.p > bestP) { bestP = e.p; best = { e, ...pos }; }
+  return selectTarget(state, cx, cy, rangeCells, cellXY, {
+    cellSize: packFor(state).config.board.cell,
+  });
+}
+
+function locateAttacker(state, attackerId) {
+  for (let row = 0; row < state.grid.length; row++) for (let column = 0; column < state.grid[row].length; column++) {
+    const piece = state.grid[row][column].unit;
+    if (piece?.pieceId === attackerId || attackerId === `legacy-piece-${row}-${column}`) return piece;
   }
-  return best;
+  return null;
+}
+
+function combatPresentation(state, event, positions, gamePack) {
+  if (event.type === 'combat.attack_resolved') {
+    const point = positions.get(event.payload.enemyId) ?? { x: 0, y: 0 };
+    const target = state.enemies.find(({ enemyId }) => enemyId === event.payload.enemyId);
+    if (target) target.hitFlash = 0.12;
+    const attacker = locateAttacker(state, event.payload.attackerId);
+    if (attacker) attacker.flash = 0.15;
+    if (event.payload.attackKind === 'direct') addSlash(state, point.x, point.y, 0);
+    addText(state, point.x + (randomFor(state, 'presentation')() * 16 - 8), point.y - 18,
+      String(Math.round(event.payload.damage)), '#222', 0.7);
+    addInk(state, point.x, point.y, '#1a1a1a');
+  } else if (event.type === 'combat.enemy_defeated') {
+    const point = positions.get(event.payload.enemyId) ?? { x: 0, y: 0 };
+    const color = gamePack?.manifests?.theme?.colors?.cinnabarPrimary ?? '#a02020';
+    addText(state, point.x, point.y - 28,
+      copyText(gamePack, 'battle.enemy.defeated', {}, '破'), color, 1.35,
+      { life: 0.82, feedbackId: 'enemy-defeated' });
+  }
+}
+
+function eventPublisher(state, cellXY, gamePack) {
+  const positions = new Map(state.enemies.map((enemy) => {
+    ensureEnemyIdentity(state, enemy);
+    return [enemy.enemyId, enemyGameplayXY(state, enemy, cellXY)];
+  }));
+  return (definition) => {
+    const event = publishSystemDomainEvent(state, definition, gamePack);
+    combatPresentation(state, event, positions, gamePack);
+    return event;
+  };
 }
 
 export function updateUnits(state, dt, cellXY) {
-  const gamePack = gamePackFor(state);
-  const config = gamePack?.config ?? CONFIG;
-  const modifiers = damageModifiers(state);
-  for (let r = 0; r < state.grid.length; r++) {
-    for (let c = 0; c < state.grid[0].length; c++) {
-      const u = state.grid[r][c].unit;
-      if (!u || u.kind !== 'troop') continue;
-      const t = config.troops[u.type];
-      const { x, y } = cellXY(r, c);
-
-      if (t.behaviorId === 'unit.producer') {
-        u.cd = (u.cd ?? t.interval) - dt;
-        if (u.cd <= 0) {
-          u.cd = t.interval;
-          const gain = t.produce * u.level;
-          state.mantou += gain;
-          addText(state, x, y - 14, `+${gain}`, '#b8860b', 0.9);
-        }
-        continue;
-      }
-
-      u.cd = (u.cd ?? 0) - dt;
-      if (u.cd > 0) continue;
-      const tgt = findTarget(state, x, y, t.range, cellXY);
-      if (!tgt) continue;
-      u.cd = t.cd;
-      u.flash = 0.15; // 渲染层用:攻击瞬间字牌抖动
-      const dmg = troopDamage(t.dmg, u.level, config.levelMult, modifiers, state);
-      if (t.behaviorId === 'unit.projectile' || t.projectile) {
-        state.projectiles.push({ x, y, target: tgt.e, dmg, speed: t.projectileSpeed });
-      } else {
-        addSlash(state, tgt.x, tgt.y, Math.atan2(tgt.y - y, tgt.x - x));
-        damageEnemy(state, tgt.e, dmg, cellXY);
-      }
-    }
+  const gamePack = packFor(state);
+  for (const enemy of state.enemies) ensureEnemyIdentity(state, enemy);
+  for (const gain of updateProducerIncome(state, dt, cellXY, gamePack.config)) {
+    addText(state, gain.x, gain.y - 14, `+${gain.amount}`, '#b8860b', 0.9);
   }
-  // 攻击抖动衰减
-  for (const row of state.grid) for (const cell of row)
+  const result = resolveUnitAttacks(state, dt, cellXY, {
+    config: gamePack.config,
+    tick: tickFor(state),
+    publish: eventPublisher(state, cellXY, gamePack),
+    modifiers: state.buff && state.time < state.buff.until
+      ? [{
+        id: 'liubei-aura', stat: 'damage', operation: 'multiply',
+        value: state.buff.mult, priority: 20,
+      }]
+      : [],
+  });
+  for (const row of state.grid) for (const cell of row) {
     if (cell.unit?.flash > 0) cell.unit.flash -= dt;
+  }
+  pumpSystemDomainEvents(state, gamePack);
+  return result;
 }
 
 export function updateProjectiles(state, dt, cellXY) {
-  for (let i = state.projectiles.length - 1; i >= 0; i--) {
-    const p = state.projectiles[i];
-    const alive = state.enemies.includes(p.target);
-    const tp = alive ? enemyGameplayXY(state, p.target, cellXY) : { x: p.x, y: p.y - 40 };
-    const d = Math.hypot(tp.x - p.x, tp.y - p.y);
-    // 本帧行程覆盖剩余距离时直接命中，避免大 dt 下箭矢越过目标后往返振荡。
-    const travel = p.speed * dt;
-    if (!alive || d <= travel + 8) {
-      if (alive) damageEnemy(state, p.target, p.dmg, cellXY);
-      else addInk(state, p.x, p.y);
-      state.projectiles.splice(i, 1);
-      continue;
-    }
-    p.ang = Math.atan2(tp.y - p.y, tp.x - p.x);
-    p.x += Math.cos(p.ang) * travel;
-    p.y += Math.sin(p.ang) * travel;
-  }
+  const gamePack = packFor(state);
+  for (const enemy of state.enemies) ensureEnemyIdentity(state, enemy);
+  const result = resolveProjectiles(state, dt, cellXY, {
+    tick: tickFor(state),
+    publish: eventPublisher(state, cellXY, gamePack),
+  });
+  pumpSystemDomainEvents(state, gamePack);
+  return result;
 }

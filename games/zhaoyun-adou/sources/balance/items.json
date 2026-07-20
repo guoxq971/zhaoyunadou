@@ -1,0 +1,18 @@
+{
+  "items": {
+    "shovel": {
+      "behaviorId": "item.open-locked-cell",
+      "renderId": "item.shovel"
+    },
+    "brush": {
+      "behaviorId": "item.rewrite-featured-hero-char",
+      "renderId": "item.brush"
+    },
+    "luoyang-shovel": {
+      "behaviorId": "item.periodic-generator",
+      "renderId": "item.luoyang-shovel",
+      "interval": 60,
+      "outputItemId": "shovel"
+    }
+  }
+}

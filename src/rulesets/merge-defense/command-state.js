@@ -1,3 +1,8 @@
+import { getStateSlice } from '../../engine-core/public.js';
+import { snapshotCombatRuntimeState } from '../../systems/combat/index.js';
+import { snapshotEconomyRuntimeState } from '../../systems/economy/index.js';
+import { snapshotSkillStatus } from '../../systems/skill-status/index.js';
+
 function unitSnapshot(unit) {
   if (!unit) return null;
   const identity = {
@@ -22,6 +27,19 @@ const rounded = (value) => Number.isFinite(value) ? Number(value.toFixed(6)) : v
 
 // 这是关键玩法状态摘要；排除纯表现粒子，但保留会造成伤害的龙、弹道与敌军状态。
 export function snapshotMergeDefenseCommandState(state) {
+  const skillStatus = snapshotSkillStatus(getStateSlice(state, 'skillStatus'));
+  const encounter = getStateSlice(state, 'encounter');
+  const dragons = skillStatus.dragons.length > 0
+    ? skillStatus.dragons
+    : state.effects.filter((effect) => effect.kind === 'dragon').map((effect) => ({
+      lane: effect.lane ?? 0, p: rounded(effect.p), t: rounded(effect.t),
+      speed: rounded(effect.speed), life: rounded(effect.life),
+      hitDistance: rounded(effect.hitDistance),
+      hit: [...(effect.hit ?? [])]
+        .map((enemy) => state.enemies.indexOf(enemy))
+        .filter((index) => index >= 0)
+        .sort((a, b) => a - b),
+    }));
   return {
     stageIndex: state.stageIndex,
     clearedStars: state.clearedStars,
@@ -64,24 +82,27 @@ export function snapshotMergeDefenseCommandState(state) {
       cd: rounded(hero.cd), ultCd: rounded(hero.ultCd),
     })),
     enemies: state.enemies.map((enemy) => ({
+      enemyId: enemy.enemyId ?? null,
       type: enemy.type, wave: enemy.wave, lane: enemy.lane ?? 0,
       hp: rounded(enemy.hp), p: rounded(enemy.p), speed: rounded(enemy.speed),
       stun: rounded(enemy.stun),
     })),
     projectiles: state.projectiles.map((projectile) => ({
+      projectileId: projectile.projectileId ?? null,
       x: rounded(projectile.x), y: rounded(projectile.y),
-      dmg: projectile.dmg, speed: projectile.speed,
-      targetIndex: state.enemies.indexOf(projectile.target),
+      dmg: projectile.damage ?? projectile.dmg, speed: projectile.speed,
+      targetEnemyId: projectile.targetEnemyId ?? projectile.target?.enemyId ?? null,
     })),
-    dragons: state.effects.filter((effect) => effect.kind === 'dragon').map((effect) => ({
-      lane: effect.lane ?? 0, p: rounded(effect.p), t: rounded(effect.t),
-      speed: rounded(effect.speed), life: rounded(effect.life),
-      hitDistance: rounded(effect.hitDistance),
-      hit: [...(effect.hit ?? [])]
-        .map((enemy) => state.enemies.indexOf(enemy))
-        .filter((index) => index >= 0)
-        .sort((a, b) => a - b),
-    })),
+    dragons,
+    statuses: skillStatus.statuses,
+    nextSkillEntitySequence: skillStatus.nextEntitySequence,
+    combatRuntime: snapshotCombatRuntimeState(state),
+    economyRuntime: snapshotEconomyRuntimeState(state),
+    encounterRuntime: {
+      nextEnemySequence: encounter.nextEnemySequence ?? 0,
+      completed: Boolean(encounter.completed),
+      result: encounter.result ?? null,
+    },
     stats: { ...state.stats },
   };
 }

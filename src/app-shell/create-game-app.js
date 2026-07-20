@@ -1,4 +1,3 @@
-import { BEST_WAVE_STORAGE_KEY, clearProgress, loadProgress, resultAction, settleResult } from '../campaign.js';
 import { createSafeAudioAdapter } from '../audio.js';
 import { createGameClock } from '../game-clock.js';
 import { createGameController } from '../game-controller.js';
@@ -11,6 +10,7 @@ import { createGameRuntime } from '../runtime.js';
 import { createSafeStorage, createScopedStorage } from '../storage.js';
 import { cellXY } from '../ui-layout.js';
 import { createRandomStreams } from '../engine-core/random.js';
+import { createProgressSave } from '../systems/progress-save/index.js';
 import { createGameStatusSynchronizer } from './game-status.js';
 
 function resetDragState(drag) {
@@ -49,6 +49,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
   let clock = null;
   let syncStatus = null;
   let localControl = null;
+  let progressSave = null;
   let commandLog = null;
   let logicTick = 0;
   let started = false;
@@ -77,6 +78,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     clock = null;
     syncStatus = null;
     localControl = null;
+    progressSave = null;
     commandLog = null;
     logicTick = 0;
     appPaused = false;
@@ -100,6 +102,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
   function step(forcedDt) {
     if (!started || destroyed || !game) return;
     logicTick++;
+    runtime.setCurrentTick(logicTick);
     const state = game.state;
     const dt = forcedDt ?? clock.next(state.speed, appPaused);
     if (state.title) {
@@ -109,19 +112,22 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     }
     if (!state.over) advanceBattle(state, dt, cellXY, gamePack);
     if (state.over && !state.saved) {
-      const bestKey = gamePack.manifests.game.storage.bestWaveKey ?? BEST_WAVE_STORAGE_KEY;
-      const best = Number(storage.getItem(bestKey) || 0);
       const reached = state.win ? state.wave : Math.max(state.wave - 1, 0);
-      if (reached > best) storage.setItem(bestKey, String(reached));
-      settleResult(state, storage);
+      const settled = progressSave.settleMatchResult({
+        stageIndex: state.stageIndex,
+        win: state.win,
+        bestWave: reached,
+      });
+      state.clearedStars = settled.profile.clearedStars;
+      state.saveWarning = settled.degraded;
+      state.saved = true;
       runtime.events.emit('stage_end', state, {
         result: state.win ? 'won' : 'lost',
         reason: state.win ? 'waves-cleared' : 'lives-depleted',
       });
       endedStages.add(state);
     }
-    // 当前阶段只有 Telemetry bridge 消费领域事实；后续系统消费者在此确定性边界接入。
-    runtime.drainDomainEvents();
+    runtime.pumpDomainEvents(state);
     syncStatus(state);
   }
 
@@ -161,7 +167,24 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     try {
       const primary = createSafeStorage(host.storage);
       storage = createScopedStorage(primary, host.storage.scope ?? '');
-      const initialProgress = loadProgress(storage, gamePack);
+      const manifest = gamePack.manifests.game;
+      progressSave = createProgressSave({
+        storage,
+        identity: {
+          gameId: manifest.id,
+          gameVersion: gamePack.versions.gameVersion,
+          rulesetVersion: gamePack.versions.rulesetVersion,
+          contentVersion: gamePack.versions.contentVersion,
+        },
+        stageCount: gamePack.config.campaign.stages.length,
+        keys: {
+          profileKey: manifest.storage.profileKey ?? 'zyad_profile_progress',
+          legacyProgressKey: manifest.storage.progressKey,
+          legacyBestWaveKey: manifest.storage.bestWaveKey,
+        },
+      });
+      const loadedProgress = progressSave.loadProfileProgress();
+      const initialProgress = loadedProgress.profile.clearedStars;
       runtime = createGameRuntime(gamePack, {
         eventSink,
         host,
@@ -171,10 +194,11 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
       game = createGameController(
         initialProgress,
         () => resetDragState(drag),
-        () => clearProgress(storage, gamePack),
+        () => progressSave.clearProgress(),
         gamePack,
         runtime,
       );
+      game.state.saveWarning = loadedProgress.degraded;
       clock = createGameClock(() => host.scheduler.now());
       localControl = createLocalGameControl({
         inputSource: host.input,

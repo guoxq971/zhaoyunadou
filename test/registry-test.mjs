@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { DEFAULT_GAME_PACK } from '../src/game-pack.js';
 import { SKILL_REGISTRY } from '../src/rulesets/merge-defense/skill-registry.js';
+import { SKILL_HANDLER_REGISTRY } from '../src/systems/skill-status/index.js';
 import { ITEM_REGISTRY } from '../src/rulesets/merge-defense/item-registry.js';
 import { EFFECT_LIFECYCLE_REGISTRY } from '../src/rulesets/merge-defense/effect-registry.js';
 import {
@@ -12,6 +13,8 @@ import { assertRuntimeBindings } from '../src/runtime.js';
 
 const { balance, theme, audio } = DEFAULT_GAME_PACK.manifests;
 const heroPresentations = createHeroPresentationRegistry(theme);
+
+assert.equal(SKILL_REGISTRY, SKILL_HANDLER_REGISTRY, '兼容门面必须直接转发 Skill/Status 公共注册表');
 
 for (const [id, skill] of Object.entries(balance.skills)) {
   assert.equal(SKILL_REGISTRY.has(skill.handlerId), true, `技能 ${id} handler 必须注册`);

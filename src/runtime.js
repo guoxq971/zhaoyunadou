@@ -16,6 +16,7 @@ import {
 } from './presentation-pack/presentation-registry.js';
 import { createAudioCueRegistry } from './presentation-pack/audio-cue-registry.js';
 import { snapshotMergeDefenseState } from './rulesets/merge-defense/event-snapshot.js';
+import { createMergeDefenseDomainEventDispatcher } from './rulesets/merge-defense/domain-event-router.js';
 
 const requireBinding = (registry, id, path) => {
   if (!registry.has(id)) throw new Error(`[game-pack] ${path}: unknown ${registry.kind} id "${id}"`);
@@ -89,7 +90,10 @@ export function createGameRuntime(
   const domainEvents = createDomainEventQueue();
   const presentationCues = createPresentationCueQueue();
   const telemetryBridge = createDomainTelemetryBridge({ reporter: telemetry, onError: onEventSinkError });
-  return Object.freeze({
+  const domainDispatcher = createMergeDefenseDomainEventDispatcher();
+  let currentTick = 0;
+  let runtime;
+  runtime = Object.freeze({
     gamePack,
     host,
     random,
@@ -98,12 +102,23 @@ export function createGameRuntime(
     telemetry,
     domainEvents,
     presentationCues,
+    currentTick: () => currentTick,
+    setCurrentTick(tick) {
+      if (!Number.isInteger(tick) || tick < 0) throw new TypeError('[runtime] tick must be a non-negative integer');
+      currentTick = tick;
+    },
     publishDomainEvent(definition, state) {
       const event = domainEvents.publish(definition);
       telemetryBridge.forward(event, state);
       return event;
     },
     drainDomainEvents: () => domainEvents.drain(),
+    pumpDomainEvents(state) {
+      return domainDispatcher.pump(domainEvents, state, {
+        gamePack,
+        publish: (definition) => runtime.publishDomainEvent(definition, state),
+      });
+    },
     registries: Object.freeze({
       skills: SKILL_REGISTRY,
       items: ITEM_REGISTRY,
@@ -113,4 +128,5 @@ export function createGameRuntime(
       audioCues: createAudioCueRegistry(gamePack.manifests.audio),
     }),
   });
+  return runtime;
 }

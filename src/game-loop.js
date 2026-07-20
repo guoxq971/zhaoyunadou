@@ -1,9 +1,9 @@
 import { updateWaves, updateEnemies } from './enemies.js';
 import { updateUnits, updateProjectiles } from './units.js';
-import { updateHeroes, updateDragonDamage } from './heroes.js';
+import { advanceSkillEntities, updateHeroes, updateDragonDamage } from './heroes.js';
 import { updateEffects } from './effects.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { gamePackFor, registryFor } from './engine-core/runtime-context.js';
+import { gamePackFor, registryFor } from './engine-core/public.js';
 import { ITEM_REGISTRY } from './rulesets/merge-defense/item-registry.js';
 
 export function advanceBattle(state, dt, cellXY, gamePack = gamePackFor(state, DEFAULT_GAME_PACK)) {
@@ -23,5 +23,6 @@ export function advanceBattle(state, dt, cellXY, gamePack = gamePackFor(state, D
   updateHeroes(state, dt, cellXY);
   updateDragonDamage(state, cellXY);
   updateProjectiles(state, dt, cellXY);
+  advanceSkillEntities(state, dt);
   updateEffects(state, dt);
 }

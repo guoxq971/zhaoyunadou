@@ -1,13 +1,12 @@
-import { attemptBatchRecruit } from '../../actions.js';
-import { eventsFor, randomFor, registryFor } from '../../engine-core/runtime-context.js';
-import { detectHero, unlockHero } from '../../logic.js';
-import { ITEM_REGISTRY } from './item-registry.js';
+import { composeCommandHandlerMaps, eventsFor } from '../../engine-core/public.js';
 import {
-  applyUnitTransfer,
+  createEconomyCommandHandlers,
   itemAtLocation,
   itemSignature,
   isMovableUnit,
-} from './unit-placement.js';
+} from '../../systems/economy/index.js';
+import { createEquipmentCommandHandlers } from '../../systems/equipment-items/index.js';
+import { createStageEncounterCommandHandlers } from '../../systems/stage-encounter/index.js';
 
 export const PLAYER_COMMAND_TYPES = Object.freeze([
   'campaign.select_stage',
@@ -46,7 +45,6 @@ function sourceFields(location) {
 }
 
 export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
-  const items = gamePack.manifests.balance.items;
   const stateNow = () => game.state;
   const events = () => eventsFor(stateNow());
   const invalid = (command, reason, actionId = command.type) => {
@@ -88,16 +86,6 @@ export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
       const action = game.requestProgressReset();
       return { ok: true, reason: 'none', action };
     },
-    'battle.batch_recruit'(command) {
-      if (stateNow().title || stateNow().over) return invalid(command, 'not-in-battle');
-      return attemptBatchRecruit(stateNow(), randomFor(stateNow(), 'gameplay'), drag);
-    },
-    'battle.start_wave'(command) {
-      const state = stateNow();
-      if (state.title || state.over || state.phase !== 'break') return invalid(command, 'wave-not-ready');
-      state.phaseT = 0;
-      return { ok: true, reason: 'none', wave: state.wave + 1 };
-    },
     'battle.set_paused'(command) {
       const state = stateNow();
       if (state.title || state.over) return invalid(command, 'not-in-battle');
@@ -134,66 +122,6 @@ export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
       clearDrag();
       return { ok: true, reason: 'none', active };
     },
-    'unit.drop'(command) {
-      const state = stateNow();
-      const result = applyUnitTransfer(state, command.payload, gamePack, command.tick);
-      clearDrag();
-      if (!result.ok) return invalid(command, result.reason, 'unit-transfer');
-      if (result.action === 'merge') {
-        events()?.emit('merge', state, {
-          result: 'success', reason: 'none', unitId: result.itemId,
-          itemKind: result.itemKind, level: result.level,
-          cell: result.target.zone === 'grid' ? { r: result.target.r, c: result.target.c } : null,
-        });
-      } else if (result.target.zone === 'grid') {
-        events()?.emit('deploy', state, {
-          result: 'success', reason: 'none', unitId: result.itemId,
-          itemKind: result.itemKind, action: result.action,
-          cell: { r: result.target.r, c: result.target.c }, source: result.source.zone,
-        });
-      }
-      if (result.action === 'move') state.stats.moves = (state.stats.moves ?? 0) + 1;
-      if (result.action === 'swap') state.stats.swaps = (state.stats.swaps ?? 0) + 1;
-      const candidates = [];
-      if (result.target.zone === 'grid') candidates.push(result.target);
-      if (result.action === 'swap' && result.source.zone === 'grid') candidates.push(result.source);
-      for (const cell of candidates) {
-        const hero = detectHero(state.grid, cell.r, cell.c, gamePack);
-        if (!hero) continue;
-        unlockHero(state, hero, gamePack);
-        result.heroUnlocked ??= hero.key;
-        result.heroCell ??= { r: hero.r, c: hero.c };
-      }
-      return result;
-    },
-    'item.relocate'(command) {
-      const state = stateNow();
-      const source = command.payload.source;
-      const target = command.payload.target;
-      const item = itemAtLocation(state, source);
-      const occupied = itemAtLocation(state, target);
-      const targetIndex = Number(target?.index);
-      const validTarget = target?.zone === 'bench'
-        && Number.isInteger(targetIndex)
-        && targetIndex >= 0
-        && targetIndex < state.bench.length;
-      let result;
-      if (source?.zone !== 'bench' || item?.kind !== 'shovel') result = invalid(command, 'source-not-movable');
-      else if (!validTarget) result = invalid(command, 'invalid-target');
-      else if (source.index === target.index) result = invalid(command, 'same-location');
-      else if (occupied) result = invalid(command, 'target-not-empty');
-      else if (command.payload.expectedSource !== itemSignature(item)) result = invalid(command, 'source-changed');
-      else {
-        state.bench[targetIndex] = item;
-        state.bench[source.index] = null;
-        result = {
-          ok: true, reason: 'none', action: 'move', itemId: 'shovel', source,
-          target: { zone: 'bench', index: targetIndex },
-        };
-      }
-      clearDrag();
-      return result;
-    },
     'item.select_mode'(command) {
       const state = stateNow();
       const itemId = command.payload.itemId ?? null;
@@ -206,50 +134,6 @@ export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
       if (!['brush', 'shovel'].includes(itemId)) return invalid(command, 'unknown-item');
       drag.mode = drag.mode === itemId ? null : itemId;
       return { ok: true, reason: 'none', itemId: drag.mode };
-    },
-    'item.use'(command) {
-      const state = stateNow();
-      const { itemId, target, source } = command.payload;
-      if (target?.zone !== 'grid') {
-        clearDrag();
-        return invalid(command, 'invalid-target', itemId);
-      }
-      const registry = registryFor(state, 'items', ITEM_REGISTRY);
-      if (itemId === 'brush') {
-        const rewritten = registry.get(items.brush.behaviorId).use(state, target.r, target.c);
-        if (!rewritten) return invalid(command, 'invalid-brush-target', 'brush');
-        drag.mode = null;
-        if (rewritten.hero) unlockHero(state, rewritten.hero, gamePack);
-        return {
-          ok: true, reason: 'none', action: 'use', itemId,
-          target, char: rewritten.char, heroUnlocked: rewritten.hero?.key ?? null,
-        };
-      }
-      if (itemId !== 'shovel') return invalid(command, 'unknown-item');
-      const slot = source?.zone === 'bench'
-        ? source.index
-        : state.bench.findIndex((entry) => entry?.kind === 'shovel');
-      const shovel = state.bench[slot];
-      if (shovel?.kind !== 'shovel') {
-        clearDrag();
-        return invalid(command, 'tool-unavailable', 'shovel');
-      }
-      if (command.payload.expectedSource && command.payload.expectedSource !== itemSignature(shovel)) {
-        clearDrag();
-        return invalid(command, 'source-changed', 'shovel');
-      }
-      const used = registry.get(items.shovel.behaviorId).use(state, target.r, target.c);
-      if (!used) {
-        clearDrag();
-        return invalid(command, state.grid[target.r]?.[target.c] ? 'target-not-locked' : 'invalid-target', 'shovel');
-      }
-      state.bench[slot] = null;
-      events()?.emit('deploy', state, {
-        result: 'success', reason: 'none', unitId: 'shovel',
-        cell: { r: target.r, c: target.c }, source: source ? 'bench' : 'shovel-mode',
-      });
-      clearDrag();
-      return { ok: true, reason: 'none', action: 'use', itemId, target };
     },
     'result.resolve'(command) {
       if (!stateNow().over) return invalid(command, 'result-not-ready');
@@ -267,5 +151,19 @@ export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
       return { ok: true, reason: 'none', title: true };
     },
   };
-  return handlers;
+  return composeCommandHandlerMaps([
+    { systemId: 'match-controller', handlers },
+    {
+      systemId: 'economy-formation',
+      handlers: createEconomyCommandHandlers({ game, drag, gamePack, invalid, clearDrag }),
+    },
+    {
+      systemId: 'equipment-items',
+      handlers: createEquipmentCommandHandlers({ game, drag, gamePack, invalid, clearDrag }),
+    },
+    {
+      systemId: 'stage-encounter',
+      handlers: createStageEncounterCommandHandlers({ getState: stateNow, invalid }),
+    },
+  ]);
 }

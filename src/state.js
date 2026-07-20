@@ -2,22 +2,21 @@
 import { CONFIG } from './config.js';
 import { normalizeClearedStars, normalizeStageIndex } from './campaign.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { createSlicedState } from './engine-core/public.js';
-import { attachRuntime } from './engine-core/runtime-context.js';
+import { attachRuntime, createSlicedState, getStateSlice } from './engine-core/public.js';
 import { buildBoard, cellAt } from './systems/board/index.js';
 import { ensurePieceIdentity } from './systems/piece/index.js';
 
 export const STATE_SLICE_KEYS = Object.freeze({
   foundation: Object.freeze(['time', 'speed']),
   match: Object.freeze(['title', 'resetConfirmUntil', 'resetResult', 'stageIndex', 'stage', 'over', 'win']),
-  progress: Object.freeze(['clearedStars']),
+  progress: Object.freeze(['clearedStars', 'saved', 'saveWarning']),
   board: Object.freeze(['grid', 'path', 'paths']),
   economy: Object.freeze(['mantou', 'recruitCount', 'recruitQueue', 'bench']),
   equipmentItems: Object.freeze(['shovels', 'brushes', 'luoyang']),
   skillStatus: Object.freeze(['heroes', 'buff', 'lastHeroUnlocked', 'lastHeroCast']),
   combat: Object.freeze(['enemies', 'projectiles']),
   presentation: Object.freeze(['effects']),
-  encounter: Object.freeze(['lives', 'waveTarget', 'wave', 'phase', 'phaseT', 'spawnLeft', 'spawnT']),
+  encounter: Object.freeze(['lives', 'waveTarget', 'wave', 'phase', 'phaseT', 'spawnLeft', 'spawnTotal', 'spawnT']),
 });
 
 export const STATE_FACADE_OWNERS = Object.freeze({
@@ -65,6 +64,8 @@ export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_
     stage,
     waveTarget: stage.waveCount,
     clearedStars: normalizeClearedStars(clearedStars, gamePack),
+    saved: undefined,
+    saveWarning: undefined,
     grid, path, paths,
     bench: Array.from({ length: config.benchSize }, (_, index) => {
       const type = config.starterUnits[index];
@@ -81,6 +82,7 @@ export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_
     phase: 'break',  // break | wave
     phaseT: null,    // 首波等玩家主动开战;后续波次为数字倒计时
     spawnLeft: 0,
+    spawnTotal: 0,
     spawnT: 0,
     over: false, win: false,
     lastHeroUnlocked: null,
@@ -104,6 +106,21 @@ export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_
       pieces: { nextSequence: 0 },
       attributes: { modifiers: [] },
     },
+  });
+  Object.assign(getStateSlice(state, 'economy'), { producerCooldowns: {} });
+  Object.assign(getStateSlice(state, 'combat'), {
+    attackCooldowns: {},
+    nextProjectileSequence: 0,
+  });
+  Object.assign(getStateSlice(state, 'skillStatus'), {
+    dragons: [],
+    statuses: [],
+    nextEntitySequence: 0,
+  });
+  Object.assign(getStateSlice(state, 'encounter'), {
+    nextEnemySequence: 0,
+    completed: false,
+    result: null,
   });
   state.bench.forEach((piece, index) => {
     if (piece) ensurePieceIdentity(state, piece, { zone: 'bench', index });

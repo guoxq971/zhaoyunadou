@@ -1,0 +1,92 @@
+{
+  "heroes": {
+    "liubei": {
+      "name": "刘备",
+      "chars": ["刘", "备"],
+      "dmg": 26,
+      "cd": 0.8,
+      "range": 3.2,
+      "ultCd": 16,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "aura",
+      "renderId": "hero.liubei"
+    },
+    "guanyu": {
+      "name": "关羽",
+      "chars": ["关", "羽"],
+      "dmg": 34,
+      "cd": 0.9,
+      "range": 2.6,
+      "ultCd": 14,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "slash",
+      "renderId": "hero.guanyu"
+    },
+    "zhangfei": {
+      "name": "张飞",
+      "chars": ["张", "飞"],
+      "dmg": 30,
+      "cd": 0.85,
+      "range": 2.2,
+      "ultCd": 15,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "shout",
+      "renderId": "hero.zhangfei"
+    },
+    "zhaoyun": {
+      "name": "赵云",
+      "chars": ["赵", "云"],
+      "dmg": 36,
+      "cd": 0.75,
+      "range": 3,
+      "ultCd": 15,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "dragon",
+      "renderId": "hero.zhaoyun"
+    },
+    "huangzhong": {
+      "name": "黄忠",
+      "chars": ["黄", "忠"],
+      "dmg": 30,
+      "cd": 1,
+      "range": 4.5,
+      "ultCd": 16,
+      "initialUltCooldownRatio": 0.5,
+      "skillId": "rain",
+      "renderId": "hero.huangzhong"
+    }
+  },
+  "skills": {
+    "dragon": {
+      "handlerId": "skill.dragon",
+      "dmg": 90,
+      "effectIds": ["effect.dragon", "effect.ink", "effect.text"],
+      "effectSpeed": 14,
+      "effectLife": 5,
+      "hitDistance": 1.2
+    },
+    "rain": {
+      "handlerId": "skill.rain",
+      "dmg": 55,
+      "effectIds": ["effect.rain", "effect.text"]
+    },
+    "shout": {
+      "handlerId": "skill.shout",
+      "dmg": 20,
+      "stun": 2.5,
+      "effectIds": ["effect.ring", "effect.text"]
+    },
+    "slash": {
+      "handlerId": "skill.slash",
+      "dmg": 130,
+      "range": 3,
+      "effectIds": ["effect.ring", "effect.slash", "effect.text"]
+    },
+    "aura": {
+      "handlerId": "skill.aura",
+      "mult": 1.5,
+      "dur": 8,
+      "effectIds": ["effect.ring", "effect.text"]
+    }
+  }
+}

@@ -44,6 +44,8 @@ export function hostFor(state) {
   return runtimeFor(state)?.host;
 }
 
-export function randomFor(state, stream = 'gameplay', fallback = Math.random) {
+const deterministicFallbackRandom = () => 0.5;
+
+export function randomFor(state, stream = 'gameplay', fallback = deterministicFallbackRandom) {
   return runtimeFor(state)?.random?.[stream] ?? fallback;
 }

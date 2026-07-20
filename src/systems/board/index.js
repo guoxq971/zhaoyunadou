@@ -63,6 +63,47 @@ export const cellAt = (grid, row, column) => (
     : null
 );
 
+export function routeForEntity(state, entity) {
+  const routes = Array.isArray(state.paths) && state.paths.length > 0
+    ? state.paths
+    : Array.isArray(state.path) ? [state.path] : [];
+  return routes[entity?.lane ?? 0] ?? routes[0] ?? [];
+}
+
+export function routeEndProgress(state, entity) {
+  return Math.max(-1, routeForEntity(state, entity).length - 1);
+}
+
+// 规则坐标不叠加 bob/抖动，保证纯表现随机不会改变索敌与命中。
+export function routePosition(state, entity, cellXY) {
+  const route = routeForEntity(state, entity);
+  if (route.length === 0) return { x: 0, y: 0 };
+  if (route.length === 1) return cellXY(route[0].r, route[0].c);
+  const index = Math.max(0, Math.min(Math.floor(entity?.p ?? 0), route.length - 2));
+  const fraction = Math.max(0, Math.min((entity?.p ?? 0) - index, 1));
+  const first = cellXY(route[index].r, route[index].c);
+  const second = cellXY(route[index + 1].r, route[index + 1].c);
+  return {
+    x: first.x + (second.x - first.x) * fraction,
+    y: first.y + (second.y - first.y) * fraction,
+  };
+}
+
+export function openLockedCell(state, row, column, tick = 0) {
+  const cell = cellAt(state.grid, row, column);
+  if (!cell) return { ok: false, reason: 'invalid-target' };
+  if (cell.type !== 'locked') return { ok: false, reason: 'target-not-locked' };
+  cell.type = 'open';
+  return {
+    ok: true,
+    reason: 'none',
+    event: {
+      type: 'board.cell_opened', source: 'board-route', tick,
+      payload: { r: row, c: column },
+    },
+  };
+}
+
 function resolveLocation(state, location) {
   if (location?.zone === 'bench') {
     const index = Number(location.index);

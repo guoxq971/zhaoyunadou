@@ -40,12 +40,14 @@ export function addRing(state, x, y, color, maxR = 60, options = {}) {
 // 火龙：每个演出体只沿指定 lane 推进，伤害仍在 heroes.js 结算。
 export function addDragon(state, lane = 0, options = {}) {
   state.effects.push(effect(EFFECT_IDS.dragon, {
+    entityId: options.entityId,
     lane,
     p: 0,
     speed: options.speed ?? 14,
     life: options.life ?? 5,
     hitDistance: options.hitDistance ?? 1.2,
     t: 0,
+    // 仅供表现/旧测试查看；玩法去重使用 SkillStatus.hitEnemyIds[]。
     hit: new Set(),
   }));
 }
