@@ -1,14 +1,15 @@
 {
-  "runId": "chrome-g1v-final-20260720",
-  "baseUrl": "http://127.0.0.1:8461/?e2e=g1v-final-20260720",
+  "runId": "chrome-modular-foundation-final-20260720",
+  "baseUrl": "http://127.0.0.1:8463/?e2e=modular-foundation-v2-five-stage-final-20260720",
   "storageScopes": [
-    "zyad-e2e-g1v-final-20260720",
-    "zyad-e2e-g1v-defeat-20260720",
-    "zyad-e2e-g1v-merge-20260720",
-    "zyad-e2e-g1v-feedback-20260720"
+    "zyad-e2e-modular-foundation-v2-interaction-final-20260720",
+    "zyad-e2e-modular-foundation-v2-partial-final-20260720",
+    "zyad-e2e-modular-foundation-v2-five-stage-final-20260720",
+    "zyad-e2e-modular-foundation-v2-merge-final-20260720",
+    "zyad-e2e-modular-foundation-v2-defeat-final-20260720"
   ],
-  "sourceFingerprint": "2f53f22d3e1a1d17b7b3ee39c95cc1efdd8b48499c8a9716e5110aa38ee7a152",
-  "captureCount": 31,
+  "sourceFingerprint": "6c46d57941141b8aab4fd994b8fe1b925b8bf7806d2cc073dc03e5d6abd4db43",
+  "captureCount": 27,
   "operations": [
     "双路线入口、方向、转折、终点与交互区域",
     "批量征兵补满唯一空位：1 次、16 馒头",
@@ -25,9 +26,11 @@
     "五星完成结算与五星标题页",
     "零部署战败、replay 结算与独立 battle.retry 重开",
     "青绿合法拖拽目标、换位落印、朱砂非法回弹与批量征兵节奏反馈",
-    "420×760 与 390×844 两种真实 Chrome 视口清晰度"
+    "420×760 与 390×844 两种真实 Chrome 视口清晰度",
+    "新建 Chrome 标签复验后控制台 error/warning 均为 0"
   ],
-  "timeAcceleration": "未调用 __step 或其他调试推进；只通过游戏速度按钮切换到公开的 2 倍速，逻辑循环、渲染帧、输入和结算均由 Chrome 实时时钟运行",
+  "timeAcceleration": "在 Chrome 中通过生产调试句柄 __step(0.025) 加速等待波次；每一步仍调用正式 GameCommand、规则系统、主循环和渲染链路。点击、键盘、拖拽、暂停、重试与结算均通过实际页面输入完成，未使用 mock 玩法实现",
+  "fixturePreparation": "仅合成截图前在隔离的临时浏览器状态中补入一个重复 qiang 字牌，以稳定到达同字同级前置；合成与合成后移动本身均通过实际拖拽、GameCommand 和正式规则执行。该规则另有自动化单元/集成测试，不把夹具准备冒充自然抽取结果",
   "consoleIssues": [],
   "result": "pass"
 }
