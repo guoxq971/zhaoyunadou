@@ -332,7 +332,7 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r * (1 + f.t * 2), 0, 6.29); ctx.fill();
       ctx.globalAlpha = 1;
   },
-  'effect.floating-text': ({ ctx, f, k }) => {
+  'effect.floating-text': ({ ctx, f, k, gamePack }) => {
       ctx.globalAlpha = Math.min(1, k * 2);
       ctx.fillStyle = f.color;
       ctx.font = font(Math.max(15, 15 * f.scale), true, gamePack);
@@ -385,7 +385,7 @@ function drawEffects(ctx, state, gamePack) {
     const k = 1 - f.t / f.life;
     const effectId = f.effectId ?? `effect.${f.kind}`;
     const rendererId = bindings[effectId];
-    EFFECT_RENDERERS.get(rendererId)({ ctx, f, k, state, layout });
+    EFFECT_RENDERERS.get(rendererId)({ ctx, f, k, state, layout, gamePack });
   }
   // 弓箭弹道
   for (const p of state.projectiles) {

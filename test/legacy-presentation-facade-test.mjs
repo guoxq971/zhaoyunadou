@@ -45,6 +45,14 @@ assert.doesNotThrow(() => drawTopBar(context, state));
 assert.doesNotThrow(() => drawBattleSignals(context, state));
 assert.doesNotThrow(() => drawBattleControls(context, state, drag, () => {}));
 
+state.title = false;
+state.effects.push({
+  kind: 'text', effectId: 'effect.text', text: '+1',
+  x: 210, y: 300, t: 0.05, life: 0.8, scale: 1, color: '#9f2f25',
+});
+assert.doesNotThrow(() => render(context, state, drag),
+  '浮字 renderer 必须收到当前 Game Pack，不能依赖未定义的闭包变量');
+
 assert.doesNotThrow(() => themeColors());
 assert.doesNotThrow(() => presentationTokens());
 assert.doesNotThrow(() => assetsFor());
