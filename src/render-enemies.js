@@ -1,7 +1,7 @@
 // 敌军主体按实机采用「贼」字，兵种差异只交给小挂件、尺寸、血条和颜色表达。
 import { font } from './render-theme.js';
-import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { copyText, gamePackFor } from './engine-core/public.js';
+import { copyText } from './engine-core/public.js';
+import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
 
 function drawSpeedAccent(ctx, size) {
   ctx.strokeStyle = '#647648';
@@ -55,7 +55,7 @@ function drawEliteAccent(ctx, size, boss) {
   }
 }
 
-function drawEnemyGlyph(ctx, enemy, type) {
+function drawEnemyGlyph(ctx, enemy, type, gamePack) {
   const boss = enemy.type === 'boss';
   const size = (boss ? 22 : 17) * type.size;
   if (enemy.type === 'fast') drawSpeedAccent(ctx, size);
@@ -67,7 +67,7 @@ function drawEnemyGlyph(ctx, enemy, type) {
   ctx.lineJoin = 'round';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = font(boss ? 42 : Math.round(31 * type.size));
+  ctx.font = font(boss ? 42 : Math.round(31 * type.size), true, gamePack);
   ctx.lineWidth = boss ? 5 : 3;
   ctx.strokeStyle = boss ? '#6f1714' : 'rgba(246,236,215,0.92)';
   ctx.strokeText(type.char, 0, 2);
@@ -76,7 +76,7 @@ function drawEnemyGlyph(ctx, enemy, type) {
   ctx.restore();
 }
 
-function drawEnemyHealth(ctx, enemy, type, x, y) {
+function drawEnemyHealth(ctx, enemy, type, x, y, gamePack) {
   const boss = enemy.type === 'boss';
   const ratio = Math.max(0, Math.min(1, enemy.hp / enemy.maxHp));
   const width = (boss ? 50 : 31) * type.size;
@@ -86,7 +86,7 @@ function drawEnemyHealth(ctx, enemy, type, x, y) {
   ctx.fillStyle = boss ? '#c63b2e' : '#d52f3f';
   ctx.fillRect(x - width / 2 + 1, top + 1, (width - 2) * ratio, boss ? 4 : 2);
 
-  ctx.font = font(boss ? 11 : 9, false);
+  ctx.font = font(boss ? 11 : 9, false, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.lineWidth = 2.5;
@@ -96,7 +96,8 @@ function drawEnemyHealth(ctx, enemy, type, x, y) {
   ctx.fillText(String(Math.max(0, Math.ceil(enemy.hp))), x, top - 1);
 }
 
-export function drawEnemies(ctx, state, gamePack = gamePackFor(state, DEFAULT_GAME_PACK)) {
+export function drawEnemies(ctx, state, gamePack = null) {
+  gamePack = resolveLegacyPresentationGamePack(state, gamePack);
   const config = gamePack.config;
   for (const enemy of state.enemyViews ?? []) {
     const type = config.enemy.types[enemy.type];
@@ -113,7 +114,7 @@ export function drawEnemies(ctx, state, gamePack = gamePackFor(state, DEFAULT_GA
       ctx.shadowColor = `rgba(128,31,23,${0.35 + pulse * 0.3})`;
       ctx.shadowBlur = 9 + pulse * 8;
     }
-    drawEnemyGlyph(ctx, enemy, type);
+    drawEnemyGlyph(ctx, enemy, type, gamePack);
     ctx.shadowColor = 'transparent';
     if (enemy.hitFlash > 0) {
       ctx.globalAlpha = Math.min(0.68, enemy.hitFlash / 0.12 * 0.68);
@@ -124,10 +125,10 @@ export function drawEnemies(ctx, state, gamePack = gamePackFor(state, DEFAULT_GA
     }
     ctx.restore();
 
-    drawEnemyHealth(ctx, enemy, type, x, y);
+    drawEnemyHealth(ctx, enemy, type, x, y, gamePack);
     if (enemy.stun > 0) {
       ctx.fillStyle = '#b8860b';
-      ctx.font = font(13, false);
+      ctx.font = font(13, false, gamePack);
       ctx.textAlign = 'center';
       ctx.fillText(copyText(gamePack, 'battle.status.stunned'), x + 17, y - 22);
     }

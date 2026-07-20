@@ -5,6 +5,8 @@ import {
   PRESENTATION_CUE_API_VERSION,
   PRESENTATION_CUE_PROTOCOL,
   assertDomainEvent,
+  commandRejectedDomainEvent,
+  compareCodePointStrings,
   composeCommandHandlerMaps,
   createDomainEventQueue,
   createPresentationCueQueue,
@@ -17,6 +19,12 @@ import {
   createTelemetryReporter,
   deriveTelemetryFromDomainEvent,
 } from '../src/platform-services/public.js';
+
+assert.deepEqual(
+  ['a_b', 'a-b', 'a.b'].sort(compareCodePointStrings),
+  ['a-b', 'a.b', 'a_b'],
+  '稳定 ID 必须按代码点排序，不依赖 Host locale / ICU',
+);
 
 {
   const handlers = composeCommandHandlerMaps([
@@ -70,6 +78,17 @@ import {
 }
 
 {
+  assert.deepEqual(commandRejectedDomainEvent({
+    tick: 5,
+    commandType: 'unit.drop',
+    reason: 'target-not-open',
+  }), {
+    type: 'command.rejected',
+    source: 'foundation-runtime',
+    tick: 5,
+    payload: { commandType: 'unit.drop', reason: 'target-not-open' },
+  });
+
   const queue = createDomainEventQueue({ limit: 2 });
   const first = queue.publish({
     type: 'economy.recruit_completed', source: 'economy-formation', tick: 7,
@@ -86,6 +105,19 @@ import {
   });
   assert.equal(Object.isFrozen(first.payload), true);
   assert.doesNotThrow(() => JSON.stringify(first));
+  assert.throws(() => assertDomainEvent({ ...first, hostObject: new Date() }),
+    /unexpected field|plain data|serializable/,
+    'DomainEvent envelope 不得夹带平台对象或未声明字段');
+  const hiddenEvent = { ...first };
+  Object.defineProperty(hiddenEvent, 'hostObject', {
+    value: new Date(),
+    enumerable: false,
+  });
+  assert.throws(() => assertDomainEvent(hiddenEvent), /unexpected field|plain data|serializable/,
+    '不可枚举字段不能绕过 DomainEvent envelope 校验');
+  const symbolEvent = { ...first, [Symbol('host-object')]: new Date() };
+  assert.throws(() => assertDomainEvent(symbolEvent), /unexpected field|plain data|serializable/,
+    'Symbol 字段不能绕过 DomainEvent envelope 校验');
   queue.publish({ type: 'board.piece_moved', source: 'board-route', tick: 7, payload: {} });
   queue.publish({ type: 'encounter.wave_started', source: 'stage-encounter', tick: 8, payload: { wave: 1 } });
   assert.equal(queue.dropped, 1);

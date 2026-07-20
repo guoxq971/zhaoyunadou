@@ -1,10 +1,12 @@
-import { eventsFor, gamePackFor } from '../../engine-core/public.js';
+import { gamePackFor } from '../../engine-core/public.js';
+import { boardCellType } from '../board/index.js';
 import { itemAtLocation, itemSignature, unlockHero } from '../economy/index.js';
 import {
+  commitShovelUse,
   consumeShovelFromBench,
+  publishCommittedShovelUse,
   relocateShovel,
   useBrush,
-  useShovel,
 } from './operations.js';
 
 export function createEquipmentCommandHandlers({ game, drag, gamePack, invalid, clearDrag }) {
@@ -45,18 +47,19 @@ export function createEquipmentCommandHandlers({ game, drag, gamePack, invalid, 
         clearDrag();
         return invalid(command, 'source-changed', 'shovel');
       }
-      if (!useShovel(state, target.r, target.c, command.tick)) {
+      const committed = commitShovelUse(state, target.r, target.c, command.tick);
+      if (!committed.ok) {
         clearDrag();
-        return invalid(command, state.grid[target.r]?.[target.c] ? 'target-not-locked' : 'invalid-target', 'shovel');
+        return invalid(command, boardCellType(state, target.r, target.c) === null
+          ? 'invalid-target'
+          : 'target-not-locked', 'shovel');
       }
       const consumed = consumeShovelFromBench(state, slot);
       if (!consumed.ok) throw new Error('[equipment-items] validated shovel disappeared during atomic command');
-      eventsFor(state)?.emit('deploy', state, {
-        result: 'success', reason: 'none', unitId: 'shovel',
-        cell: { r: target.r, c: target.c }, source: source ? 'bench' : 'shovel-mode',
-      });
+      const usageSource = source?.zone === 'bench' ? 'bench' : 'shovel-mode';
+      publishCommittedShovelUse(state, committed, usageSource);
       clearDrag();
-      return { ok: true, reason: 'none', action: 'use', itemId, target };
+      return { ok: true, reason: 'none', action: 'use', itemId, target, source: usageSource };
     },
   };
 }

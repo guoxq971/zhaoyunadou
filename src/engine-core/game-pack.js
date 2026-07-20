@@ -1,3 +1,5 @@
+import { deepFreezeData, immutableData } from './serializable-data.js';
+
 const REQUIRED_MANIFESTS = Object.freeze([
   'game', 'balance', 'levels', 'copy', 'theme', 'assets', 'audio', 'events',
 ]);
@@ -14,7 +16,8 @@ function requireManifests(manifests) {
 // engine-core 只负责组合和版本快照；品类公式由调用方传入的 ruleset compiler 解释。
 export function createGamePack(manifests, { baseUrl = null, compileRuleset } = {}) {
   requireManifests(manifests);
-  const { game, levels } = manifests;
+  const immutableManifests = immutableData(manifests);
+  const { game, levels } = immutableManifests;
   if (!game.id || !game.gameVersion || !game.ruleset?.version || !game.contentVersion) {
     throw new Error('[game-pack] game id and game/ruleset/content versions are required');
   }
@@ -25,7 +28,7 @@ export function createGamePack(manifests, { baseUrl = null, compileRuleset } = {
     throw new TypeError('[game-pack] compileRuleset(manifests) is required');
   }
 
-  const config = compileRuleset(manifests);
+  const config = compileRuleset(immutableManifests);
   if (!config || typeof config !== 'object') {
     throw new TypeError('[game-pack] ruleset compiler must return a config object');
   }
@@ -38,7 +41,7 @@ export function createGamePack(manifests, { baseUrl = null, compileRuleset } = {
       contentVersion: game.contentVersion,
       presentationVersion: game.presentationVersion,
     }),
-    manifests: Object.freeze({ ...manifests }),
-    config: Object.freeze(config),
+    manifests: immutableManifests,
+    config: deepFreezeData(config),
   });
 }

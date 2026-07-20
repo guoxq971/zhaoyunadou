@@ -6,6 +6,7 @@ import { createGameRuntime } from '../src/runtime.js';
 import { createLocalEventCollector } from '../src/platform-services/local-event-collector.js';
 import { createLocalCommandFeedback } from '../src/presentation-pack/local-command-feedback.js';
 import { updateEffects } from '../src/effects.js';
+import { createMergeDefenseCommandHandlers } from '../src/rulesets/merge-defense/player-command-dispatcher.js';
 
 {
   const state = createGame();
@@ -26,6 +27,27 @@ import { updateEffects } from '../src/effects.js';
   assert.equal(state.mantou, 24);
   assert.equal(state.recruitCount, 1);
   assert.equal(state.stats.recruits, 1);
+}
+
+{
+  const collector = createLocalEventCollector();
+  const runtime = createGameRuntime(DEFAULT_GAME_PACK, { eventSink: collector, now: () => 0 });
+  const state = createGame(0, 0, DEFAULT_GAME_PACK, runtime);
+  state.title = false;
+  state.bench = state.bench.map((item) => item ?? { kind: 'troop', type: 'qi', level: 1 });
+  const handlers = createMergeDefenseCommandHandlers({
+    game: { state }, drag: {}, gamePack: DEFAULT_GAME_PACK,
+  });
+  const result = handlers['battle.batch_recruit']({
+    type: 'battle.batch_recruit', tick: 4, payload: {},
+  });
+  assert.equal(result.reason, 'bench-full');
+  assert.deepEqual(
+    collector.getEvents().filter(({ eventId }) => eventId === 'invalid_action')
+      .map(({ actionId, reason }) => ({ actionId, reason })),
+    [{ actionId: 'batch-recruit', reason: 'bench-full' }],
+    '批量征兵前置失败必须经 command.rejected 派生稳定 invalid_action',
+  );
 }
 
 {

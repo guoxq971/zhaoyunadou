@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { attemptRecruit, canStartDrag, restoreDrag } from '../src/actions.js';
+import {
+  attemptBatchRecruit,
+  attemptRecruit,
+  canStartDrag,
+  restoreDrag,
+} from '../src/actions.js';
 import { createGame } from '../src/state.js';
 import { updateLuoyangShovel } from '../src/field-tools.js';
 
@@ -47,6 +52,47 @@ import { updateLuoyangShovel } from '../src/field-tools.js';
   assert.equal(state.mantou, 24);
   assert.equal(state.recruitCount, 1);
   assert.equal(state.stats.recruits, 1);
+}
+
+{
+  const state = createGame();
+  state.recruitQueue = [];
+  const originalRandom = Math.random;
+  let randomCalls = 0;
+  Math.random = () => {
+    randomCalls++;
+    return 0;
+  };
+  try {
+    const result = attemptRecruit(state);
+    assert.equal(result.ok, true, '旧单次征兵省略 random 时仍可使用 Math.random');
+    assert.equal(result.got.type, 'dao');
+    assert.equal(randomCalls, 1);
+  } finally {
+    Math.random = originalRandom;
+  }
+}
+
+{
+  const state = createGame();
+  state.recruitQueue = [];
+  state.bench.fill(null);
+  state.mantou = 10_000;
+  const originalRandom = Math.random;
+  let randomCalls = 0;
+  Math.random = () => {
+    randomCalls++;
+    return 0;
+  };
+  try {
+    const result = attemptBatchRecruit(state);
+    assert.equal(result.ok, true, '旧批量征兵省略 random 时仍可使用 Math.random');
+    assert.equal(result.filledCount, state.bench.length);
+    assert.equal(randomCalls, state.bench.length);
+    assert.ok(state.bench.every((piece) => piece?.type === 'dao'));
+  } finally {
+    Math.random = originalRandom;
+  }
 }
 
 {

@@ -1,5 +1,5 @@
 import { gamePackFor } from '../../engine-core/public.js';
-import { cellAt } from '../board/index.js';
+import { boardPieceAt, cellAt, listBoardOccupants } from '../board/index.js';
 
 const configFrom = (value) => {
   const config = value?.config ?? gamePackFor(value)?.config;
@@ -87,11 +87,30 @@ export function detectHero(grid, row, column, gamePack) {
   return null;
 }
 
-export function ownedFragChars(state) {
-  const chars = [];
-  for (const row of state.grid) for (const cell of row) {
-    if (cell.unit?.kind === 'frag') chars.push(cell.unit.char);
+export function detectHeroOnBoard(state, row, column, gamePack) {
+  const config = configFrom(gamePack);
+  const piece = boardPieceAt(state, row, column);
+  if (!piece || piece.kind !== 'frag') return null;
+  for (const [key, hero] of Object.entries(config.heroes)) {
+    const [first, second] = hero.chars;
+    if (piece.char === first) {
+      const right = boardPieceAt(state, row, column + 1);
+      if (right?.kind === 'frag' && right.char === second && (right.level ?? 1) === (piece.level ?? 1)) {
+        return { key, r: row, c: column, level: piece.level ?? 1 };
+      }
+    }
+    if (piece.char === second) {
+      const left = boardPieceAt(state, row, column - 1);
+      if (left?.kind === 'frag' && left.char === first && (left.level ?? 1) === (piece.level ?? 1)) {
+        return { key, r: row, c: column - 1, level: piece.level ?? 1 };
+      }
+    }
   }
+  return null;
+}
+
+export function ownedFragChars(state) {
+  const chars = listBoardOccupants(state, { kind: 'frag' }).map(({ piece }) => piece.char);
   for (const piece of state.bench) if (piece?.kind === 'frag') chars.push(piece.char);
   return chars;
 }

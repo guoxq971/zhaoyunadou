@@ -96,7 +96,9 @@ export function createFixedRouteCampaignCommandHandlers({
     },
     'session.quit'(command) {
       if (stateNow().title) return reject(command, 'not-in-battle');
-      matchMode.quitToTitle(command.payload.reason ?? 'player-quit');
+      if (!matchMode.quitToTitle(command.payload.reason ?? 'player-quit')) {
+        return reject(command, 'quit-rejected');
+      }
       return { ok: true, reason: 'none', title: true };
     },
   });

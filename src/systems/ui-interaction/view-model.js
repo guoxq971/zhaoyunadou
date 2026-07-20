@@ -1,12 +1,32 @@
-function readonlyRecord(value) {
-  return value && typeof value === 'object' ? Object.freeze({ ...value }) : value ?? null;
+function readonlySnapshot(value, seen = new WeakMap()) {
+  if (value === null || typeof value !== 'object') return value ?? null;
+  if (seen.has(value)) return seen.get(value);
+  if (value instanceof Set) {
+    const copy = [];
+    seen.set(value, copy);
+    copy.push(...[...value].map((entry) => readonlySnapshot(entry, seen)));
+    return Object.freeze(copy);
+  }
+  if (Array.isArray(value)) {
+    const copy = [];
+    seen.set(value, copy);
+    copy.push(...value.map((entry) => readonlySnapshot(entry, seen)));
+    return Object.freeze(copy);
+  }
+  const copy = {};
+  seen.set(value, copy);
+  // Piece 的稳定身份字段为 non-enumerable；ViewModel 仍需保留它们用于表现反馈与调试。
+  for (const key of Object.getOwnPropertyNames(value)) {
+    copy[key] = readonlySnapshot(value[key], seen);
+  }
+  return Object.freeze(copy);
 }
 
 function interactionSnapshot(interaction = {}) {
   return Object.freeze({
-    item: readonlyRecord(interaction.item),
+    item: readonlySnapshot(interaction.item),
     mode: interaction.mode ?? null,
-    source: readonlyRecord(interaction.source),
+    source: readonlySnapshot(interaction.source),
     expectedSource: interaction.expectedSource ?? null,
     x: Number(interaction.x) || 0,
     y: Number(interaction.y) || 0,
@@ -14,9 +34,9 @@ function interactionSnapshot(interaction = {}) {
     index: interaction.index ?? null,
     r: interaction.r ?? null,
     c: interaction.c ?? null,
-    hover: readonlyRecord(interaction.hover),
-    lastCommand: readonlyRecord(interaction.lastCommand),
-    lastRecruitBatch: readonlyRecord(interaction.lastRecruitBatch),
+    hover: readonlySnapshot(interaction.hover),
+    lastCommand: readonlySnapshot(interaction.lastCommand),
+    lastRecruitBatch: readonlySnapshot(interaction.lastRecruitBatch),
   });
 }
 
@@ -66,13 +86,28 @@ function interactionTargets(state, interaction, previewTransfer) {
 export function createGameViewModel(state, interaction, {
   stageCount = 0,
   benchSize = state?.bench?.length ?? 0,
+  highestUnlockedStageIndex = Math.min(
+    Math.max(0, Number(state?.clearedStars) || 0),
+    Math.max(0, Number(stageCount) - 1),
+  ),
   previewTransfer = null,
   recruitPreview = null,
   enemyPosition = null,
+  enemyStatus = null,
+  presentationFeedback = null,
 } = {}) {
   if (!state || typeof state !== 'object') throw new TypeError('[ui-view-model] state is required');
   const screen = state.title ? 'title' : state.over ? 'result' : 'battle';
   const interactionView = interactionSnapshot(interaction);
+  const enemyViews = Object.freeze((state.enemies ?? []).map((enemy) => Object.freeze({
+    ...readonlySnapshot(enemy),
+    bob: presentationFeedback?.enemyBobPhases?.[enemy.enemyId] ?? 0,
+    hitFlash: presentationFeedback?.enemyHitFlashes?.[enemy.enemyId] ?? 0,
+    stun: typeof enemyStatus === 'function' ? enemyStatus(enemy, 'stun') : 0,
+    position: readonlySnapshot(typeof enemyPosition === 'function'
+      ? enemyPosition(enemy)
+      : { x: 0, y: 0 }),
+  })));
   return Object.freeze({
     screen,
     title: Boolean(state.title),
@@ -83,37 +118,34 @@ export function createGameViewModel(state, interaction, {
     phase: state.phase ?? null,
     stageIndex: Number.isInteger(state.stageIndex) ? state.stageIndex : 0,
     stageCount: Math.max(0, Number(stageCount) || 0),
+    highestUnlockedStageIndex: Math.max(0, Number(highestUnlockedStageIndex) || 0),
     benchSize: Math.max(0, Number(benchSize) || 0),
     interaction: interactionView,
     interactionTargets: interactionTargets(state, interactionView, previewTransfer),
-    recruitPreview: recruitPreview ? Object.freeze({ ...recruitPreview }) : null,
-    // Renderer 仅读的浅视图；保留引用避免每帧深拷贝棋盘。
-    bench: state.bench,
+    recruitPreview: readonlySnapshot(recruitPreview),
+    // ViewModel 是表现帧快照；不把可写玩法实体泄漏给 Renderer 或输入映射。
+    bench: readonlySnapshot(state.bench ?? []),
     brushes: state.brushes,
     clearedStars: state.clearedStars,
-    effects: state.effects,
-    enemies: state.enemies,
-    enemyViews: Object.freeze((state.enemies ?? []).map((enemy) => Object.freeze({
-      ...enemy,
-      position: Object.freeze(typeof enemyPosition === 'function'
-        ? enemyPosition(enemy)
-        : { x: 0, y: 0 }),
-    }))),
-    grid: state.grid,
-    heroes: state.heroes,
+    effects: readonlySnapshot(state.effects ?? []),
+    enemies: enemyViews,
+    enemyViews,
+    grid: readonlySnapshot(state.grid ?? []),
+    pieceHitFlashes: readonlySnapshot(presentationFeedback?.pieceHitFlashes ?? {}),
+    heroes: readonlySnapshot(state.heroes ?? []),
     lives: state.lives,
-    luoyang: state.luoyang,
+    luoyang: readonlySnapshot(state.luoyang),
     mantou: state.mantou,
-    path: state.path,
-    paths: state.paths,
+    path: readonlySnapshot(state.path ?? []),
+    paths: readonlySnapshot(state.paths ?? []),
     phaseT: state.phaseT,
-    projectiles: state.projectiles,
+    projectiles: readonlySnapshot(state.projectiles ?? []),
     recruitCount: state.recruitCount,
     resetConfirmUntil: state.resetConfirmUntil,
     resetResult: state.resetResult,
     saveWarning: state.saveWarning,
-    stage: state.stage,
-    stats: state.stats,
+    stage: readonlySnapshot(state.stage),
+    stats: readonlySnapshot(state.stats ?? {}),
     wave: state.wave,
   });
 }

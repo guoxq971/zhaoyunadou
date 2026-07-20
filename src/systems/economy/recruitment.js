@@ -1,10 +1,10 @@
 import {
-  eventsFor,
   gamePackFor,
   publishDomainEventFor,
   runtimeFor,
 } from '../../engine-core/public.js';
 import { ensurePieceIdentity } from '../piece/index.js';
+import { restoreBoardPiece } from '../board/index.js';
 import { ownedFragChars, recruitCost, rollGacha } from './rules.js';
 
 const tickFor = (state) => runtimeFor(state)?.currentTick?.() ?? 0;
@@ -18,16 +18,12 @@ function publish(state, type, payload) {
   });
 }
 
-export function attemptRecruit(state, random, drag = null) {
+export function attemptRecruit(state, random, drag = null, { onItemRecruited = null } = {}) {
   const draw = random ?? (() => { throw new TypeError('[economy] deterministic random source is required'); });
   const gamePack = gamePackFor(state);
-  const telemetry = eventsFor(state);
   const cost = recruitCost(state.recruitCount, gamePack);
-  telemetry?.emit('recruit_attempt', state, { result: 'attempted', reason: 'none', cost });
   publish(state, 'economy.recruit_attempted', { cost, recruitIndex: state.recruitCount });
   const failed = (reason) => {
-    telemetry?.emit('recruit_result', state, { result: 'failure', reason, cost });
-    telemetry?.emit('invalid_action', state, { result: 'failure', reason, actionId: 'recruit' });
     publish(state, 'economy.recruit_completed', {
       ok: false, reason, cost, recruitIndex: state.recruitCount,
     });
@@ -47,26 +43,21 @@ export function attemptRecruit(state, random, drag = null) {
   state.recruitCount++;
   state.stats.recruits++;
   if (queuedChar) state.recruitQueue.shift();
-  if (piece.kind === 'shovel') state.shovels++;
   state.bench[slot] = piece;
+  if (typeof onItemRecruited === 'function') onItemRecruited(state, piece);
   const itemId = piece.type ?? piece.char ?? 'shovel';
-  telemetry?.emit('recruit_result', state, {
-    result: 'success', reason: 'none', cost, itemKind: piece.kind, itemId, slot,
-  });
   publish(state, 'economy.recruit_completed', {
     ok: true, reason: 'none', cost, itemKind: piece.kind, itemId, slot,
   });
   return { ok: true, got: piece, slot, cost };
 }
 
-export function attemptBatchRecruit(state, random, drag = null) {
+export function attemptBatchRecruit(state, random, drag = null, options = {}) {
   const gamePack = gamePackFor(state);
-  const telemetry = eventsFor(state);
   const results = [];
   let totalCost = 0;
   const failWithoutDraw = (reason) => {
     const nextCost = recruitCost(state.recruitCount, gamePack);
-    telemetry?.emit('invalid_action', state, { result: 'failure', reason, actionId: 'batch-recruit' });
     return {
       ok: false, reason, stopReason: reason,
       filledCount: 0, totalCost: 0, nextCost, results,
@@ -81,7 +72,7 @@ export function attemptBatchRecruit(state, random, drag = null) {
   for (let index = 0; index < capacity; index++) {
     if (!state.bench.some((item) => item === null)) break;
     if (state.mantou < recruitCost(state.recruitCount, gamePack)) break;
-    const result = attemptRecruit(state, random, null);
+    const result = attemptRecruit(state, random, null, options);
     if (!result.ok) break;
     results.push(result);
     totalCost += result.cost;
@@ -111,10 +102,11 @@ export function restoreDrag(state, drag) {
     state.bench[drag.index] = item;
     return { ok: true, destination: 'bench', index: drag.index };
   }
-  const origin = drag.from === 'board' ? state.grid[drag.r]?.[drag.c] : null;
-  if (origin && !origin.unit) {
-    origin.unit = item;
-    return { ok: true, destination: 'board', r: drag.r, c: drag.c };
+  if (drag.from === 'board') {
+    const restored = restoreBoardPiece(state, { r: drag.r, c: drag.c }, item);
+    if (restored.ok) {
+      return { ok: true, destination: 'board', r: restored.r, c: restored.c };
+    }
   }
   const fallback = state.bench.findIndex((entry) => entry === null);
   if (fallback >= 0) {

@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { computeCanvasFit } from '../src/canvas-fit.js';
 import { createSafeStorage, createScopedStorage, e2eStorageNamespace } from '../src/storage.js';
 
+const canvasFitSource = await readFile(new URL('../src/canvas-fit.js', import.meta.url), 'utf8');
+assert.doesNotMatch(canvasFitSource, /from ['"]\.\/config\.js['"]/, 'Platform 适屏不得依赖具体游戏 CONFIG');
+
 {
-  const fit = computeCanvasFit(390, 844, 3);
+  const fit = computeCanvasFit(390, 844, 3, 420, 760);
   assert.equal(fit.cssWidth, 390);
   assert.equal(fit.cssHeight, 706);
   assert.equal(fit.pixelWidth, 1170);
@@ -18,12 +22,18 @@ assert.match(e2eStorageNamespace('?e2e=关卡选择'), /^zyad-e2e-run-[0-9a-f]+$
 assert.doesNotThrow(() => e2eStorageNamespace('?%E0%A4%A=x'), '损坏查询参数不得阻断 Web Host 构造');
 
 {
-  const fit = computeCanvasFit(1916, 808, 1);
+  const fit = computeCanvasFit(1916, 808, 1, 420, 760);
   assert.equal(fit.cssWidth, 420, '桌面端不放大，保持参考图原生比例与清晰线条');
   assert.equal(fit.cssHeight, 760);
   assert.equal(fit.pixelWidth, 420);
   assert.equal(fit.pixelHeight, 760);
 }
+
+assert.deepEqual(
+  computeCanvasFit(390, 844, 3),
+  computeCanvasFit(390, 844, 3, 420, 760),
+  '旧 computeCanvasFit 三参数签名必须继续使用 420×760 兼容尺寸',
+);
 
 {
   const storage = createSafeStorage({

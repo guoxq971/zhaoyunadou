@@ -16,6 +16,7 @@ function harness(stageIndex = 0) {
   const events = [];
   const spawns = [];
   const ports = {
+    getStage: () => state.stage,
     getLaneCount: () => state.paths.length,
     getElapsedTime: () => state.time,
     hasActiveEnemies: () => spawns.some((enemy) => !enemy.defeated),
@@ -128,15 +129,33 @@ function harness(stageIndex = 0) {
 {
   const { state, events, ports } = harness();
   state.title = false;
-  state.lives = 1;
+  state.lives = 2;
   const consumed = consumeStageEncounterDomainEvents(state, [{
     type: 'combat.enemy_leaked',
     tick: 31,
-    payload: { enemyId: 'normal', laneId: '0' },
+    payload: { enemyId: 'enemy-1', enemyType: 'normal', wave: 1, lane: 0 },
+  }, {
+    type: 'combat.enemy_leaked',
+    tick: 31,
+    payload: { enemyId: 'enemy-2', enemyType: 'fast', wave: 1, lane: 1 },
   }], ports);
-  assert.deepEqual(consumed, { consumed: 1, completed: true, result: 'defeat' });
+  assert.deepEqual(consumed, { consumed: 2, completed: true, result: 'defeat' });
   assert.equal(state.lives, 0);
   assert.equal(state.over, false, 'Encounter 仍不直写 Match 切片');
+  assert.deepEqual(
+    events.filter(({ type }) => type === 'encounter.enemy_leak_resolved').map(({ payload }) => payload),
+    [
+      {
+        enemyId: 'enemy-1', enemyType: 'normal', wave: 1, lane: 0,
+        livesBefore: 2, livesRemaining: 1,
+      },
+      {
+        enemyId: 'enemy-2', enemyType: 'fast', wave: 1, lane: 1,
+        livesBefore: 1, livesRemaining: 0,
+      },
+    ],
+    '同 tick 多漏怪必须按 Encounter 提交顺序记录精确生命变化',
+  );
   assert.equal(events.at(-1).type, 'encounter.completed');
   assert.deepEqual(events.at(-1).payload, {
     result: 'defeat', reason: 'lives-depleted', wave: 0, livesRemaining: 0,
@@ -146,10 +165,14 @@ function harness(stageIndex = 0) {
 {
   const { state, ports } = harness();
   state.title = true;
-  assert.deepEqual(requestWaveStart(state, 40, ports), { ok: false, reason: 'wave-not-ready' });
+  assert.deepEqual(requestWaveStart(state, 40, {
+    canStartWave: (current) => !current.title && !current.over,
+  }), { ok: false, reason: 'wave-not-ready' });
   state.title = false;
   state.over = true;
-  assert.deepEqual(requestWaveStart(state, 41, ports), { ok: false, reason: 'wave-not-ready' });
+  assert.deepEqual(requestWaveStart(state, 41, {
+    canStartWave: (current) => !current.title && !current.over,
+  }), { ok: false, reason: 'wave-not-ready' });
 }
 
 console.log('✓ Stage/Encounter 波次、Boss、敌军生成端口与胜负事件边界');

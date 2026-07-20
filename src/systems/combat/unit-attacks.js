@@ -1,4 +1,5 @@
 import { troopDamage } from '../attribute/index.js';
+import { listBoardOccupants } from '../board/index.js';
 import { enemyGameplayXY } from './enemy-movement.js';
 import { activeEnemyById, damageEnemy } from './damage.js';
 import { attackClockId, combatStateFor, nextProjectileId } from './combat-state.js';
@@ -31,16 +32,14 @@ export function updateUnits(state, dt, cellXY, {
   if (!Number.isFinite(dt) || dt < 0) throw new RangeError('[combat] dt must be non-negative');
   const combat = combatStateFor(state);
   let attacks = 0;
+  const started = [];
 
-  for (let row = 0; row < state.grid.length; row++) {
-    for (let column = 0; column < state.grid[row].length; column++) {
-      const unit = state.grid[row][column].unit;
-      if (!unit || unit.kind !== 'troop') continue;
+  for (const { row, column, piece: unit } of listBoardOccupants(state, { kind: 'troop' })) {
       const rules = config.troops[unit.type];
       if (!rules || rules.behaviorId === 'unit.producer') continue;
 
       const clockId = attackClockId(unit, row, column);
-      const inheritedCooldown = Number.isFinite(unit.cd) ? unit.cd : 0;
+      const inheritedCooldown = Number.isFinite(unit.cooldown) ? unit.cooldown : 0;
       const cooldown = (combat.attackCooldowns[clockId] ?? inheritedCooldown) - dt;
       combat.attackCooldowns[clockId] = cooldown;
       if (cooldown > 0) continue;
@@ -51,6 +50,7 @@ export function updateUnits(state, dt, cellXY, {
       });
       if (!target) continue;
       combat.attackCooldowns[clockId] = rules.cd;
+      started.push({ attackerId: clockId });
       const damage = troopDamage(rules.dmg, unit.level ?? 1, config.levelMult, modifiers, state);
       if (rules.behaviorId === 'unit.projectile' || rules.projectile) {
         state.projectiles.push({
@@ -70,9 +70,8 @@ export function updateUnits(state, dt, cellXY, {
         });
       }
       attacks++;
-    }
   }
-  return { attacks };
+  return { attacks, started };
 }
 
 function projectileTarget(state, projectile) {

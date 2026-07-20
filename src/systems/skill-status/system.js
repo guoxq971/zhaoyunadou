@@ -11,10 +11,10 @@ const finite = (value, field) => {
 const safeTick = (tick) => (Number.isInteger(tick) && tick >= 0 ? tick : 0);
 const skillsFor = (config) => config?.skills ?? config?.ults ?? {};
 
-function enemyId(combat, enemy) {
-  const id = combat.idOf(enemy);
+function enemyId(enemy) {
+  const id = enemy?.enemyId;
   if (typeof id !== 'string' || id.length === 0) {
-    throw new TypeError('[skill-status] combat.idOf must return a non-empty string');
+    throw new TypeError('[skill-status] enemy view must expose a non-empty enemyId');
   }
   return id;
 }
@@ -66,6 +66,10 @@ export function createSkillStatusSystem({
     ));
     if (status) {
       status.expiresAt = Math.max(status.expiresAt, expiresAt);
+      status.remaining = Math.max(
+        Number.isFinite(status.remaining) ? status.remaining : 0,
+        duration,
+      );
       status.sourceId = sourceId;
     } else {
       status = {
@@ -75,6 +79,7 @@ export function createSkillStatusSystem({
         sourceId,
         appliedAt: time,
         expiresAt,
+        remaining: duration,
       };
       skillState.statuses.push(status);
     }
@@ -98,18 +103,18 @@ export function createSkillStatusSystem({
     },
     'skill.rain': ({ world, skill, cellXY, tick = 0, hero }) => {
       cue('skill.impact_feedback', tick, { skillId: 'rain', effectId: 'effect.rain' });
-      for (const enemy of combat.listEnemies(world)) {
-        combat.damage(world, enemy, skill.dmg, {
+      for (const enemy of combat.listEnemyViews(world)) {
+        combat.damageById(world, enemyId(enemy), skill.dmg, {
           cellXY, source: `hero-${hero.key}-rain`, attackKind: 'skill', skillId: 'rain',
         });
       }
     },
     'skill.shout': ({ world, skillState, skill, cellXY, cx, cy, time, tick = 0, hero }) => {
       cue('skill.impact_feedback', tick, {
-        skillId: 'shout', effectId: 'effect.ring', x: cx, y: cy,
+        skillId: 'shout', effectId: 'effect.ring', x: cx, y: cy, radius: 240,
       });
-      for (const enemy of combat.listEnemies(world)) {
-        const targetId = enemyId(combat, enemy);
+      for (const enemy of combat.listEnemyViews(world)) {
+        const targetId = enemyId(enemy);
         applyStatus(skillState, {
           targetId,
           statusId: 'stun',
@@ -118,7 +123,7 @@ export function createSkillStatusSystem({
           tick,
           sourceId: `hero-${hero.key}`,
         });
-        combat.damage(world, enemy, skill.dmg, {
+        combat.damageById(world, targetId, skill.dmg, {
           cellXY, source: `hero-${hero.key}-shout`, attackKind: 'skill', skillId: 'shout',
         });
       }
@@ -128,14 +133,15 @@ export function createSkillStatusSystem({
       cue('skill.impact_feedback', tick, {
         skillId: 'slash', effectId: 'effect.ring', x: cx, y: cy, radius,
       });
-      for (const enemy of combat.listEnemies(world)) {
-        const position = combat.positionOf(world, enemy, cellXY);
+      for (const enemy of combat.listEnemyViews(world)) {
+        const targetId = enemyId(enemy);
+        const position = combat.positionOf(world, targetId, cellXY);
         if (Math.hypot(position.x - cx, position.y - cy) > radius) continue;
         cue('skill.impact_feedback', tick, {
           skillId: 'slash', effectId: 'effect.slash',
-          enemyId: enemyId(combat, enemy), x: position.x, y: position.y,
+          enemyId: targetId, x: position.x, y: position.y,
         });
-        combat.damage(world, enemy, skill.dmg, {
+        combat.damageById(world, targetId, skill.dmg, {
           cellXY, source: `hero-${hero.key}-slash`, attackKind: 'skill', skillId: 'slash',
         });
       }
@@ -224,31 +230,30 @@ export function createSkillStatusSystem({
       // 与旧循环一致：每名英雄先结算平 A，再判断本人的大招。
       hero.cd -= dt;
       if (hero.cd <= 0) {
-        const target = combat.findTarget(world, {
+        const target = combat.findTargetView(world, {
           x: cx, y: cy, rangeCells: heroConfig.range, cellXY,
         });
         if (target) {
           hero.cd = heroConfig.cd;
-          hero.flash = 0.15;
-          const targetId = enemyId(combat, target.enemy);
+          const targetId = enemyId(target);
           cue('skill.impact_feedback', tick, {
             skillId: 'basic-attack', effectId: 'effect.slash', heroId: hero.key,
             enemyId: targetId, x: target.x, y: target.y,
+            angle: Math.atan2(target.y - cy, target.x - cx),
+            duration: Number(Math.max(0, 0.15 - dt).toFixed(6)),
           });
           const amount = resolveDamage({
             base: heroConfig.dmg,
             modifiers: damageModifiers(skillState, time),
             world,
           });
-          combat.damage(world, target.enemy, amount, {
+          combat.damageById(world, targetId, amount, {
             cellXY, source: `hero-${hero.key}-basic`, attackKind: 'hero-basic', heroId: hero.key,
           });
         }
       }
-      if (hero.flash > 0) hero.flash -= dt;
-
       hero.ultCd -= dt;
-      if (hero.ultCd <= 0 && combat.listEnemies(world).length > 0) {
+      if (hero.ultCd <= 0 && combat.listEnemyViews(world).length > 0) {
         hero.ultCd = heroConfig.ultCd;
         castSkill({
           world, skillState, config, hero, heroConfig, cx, cy, cellXY,
@@ -261,19 +266,19 @@ export function createSkillStatusSystem({
   function resolveDragonHits({ world, skillState, cellXY, tick = 0 }) {
     for (const dragon of skillState.dragons) {
       const alreadyHit = new Set(dragon.hitEnemyIds);
-      for (const enemy of combat.listEnemies(world)) {
-        if (combat.laneOf(enemy) !== dragon.lane) continue;
-        const id = enemyId(combat, enemy);
+      for (const enemy of combat.listEnemyViews(world)) {
+        if (enemy.lane !== dragon.lane) continue;
+        const id = enemyId(enemy);
         if (alreadyHit.has(id)) continue;
-        if (Math.abs(combat.progressOf(enemy) - dragon.p) >= dragon.hitDistance) continue;
+        if (Math.abs(enemy.progress - dragon.p) >= dragon.hitDistance) continue;
         dragon.hitEnemyIds.push(id);
         alreadyHit.add(id);
-        const position = combat.positionOf(world, enemy, cellXY);
+        const position = combat.positionOf(world, id, cellXY);
         cue('skill.impact_feedback', tick, {
           skillId: dragon.skillId, effectId: 'effect.ink', entityId: dragon.id,
           enemyId: id, x: position.x, y: position.y,
         });
-        combat.damage(world, enemy, dragon.damage, {
+        combat.damageById(world, id, dragon.damage, {
           cellXY, source: `skill-dragon-${dragon.id}`,
           attackKind: 'skill', skillId: dragon.skillId,
         });
@@ -305,14 +310,20 @@ export function createSkillStatusSystem({
     const status = skillState.statuses.find((entry) => (
       entry.targetId === targetId && entry.statusId === statusId
     ));
-    return status ? Math.max(0, status.expiresAt - time) : 0;
+    if (!status) return 0;
+    return Math.max(0, Number.isFinite(status.remaining)
+      ? status.remaining
+      : status.expiresAt - time);
   }
 
   function updateStatuses({ skillState, time, tick = 0 }) {
     finite(time, 'status time');
     for (let index = skillState.statuses.length - 1; index >= 0; index--) {
       const status = skillState.statuses[index];
-      if (status.expiresAt > time) continue;
+      const expired = Number.isFinite(status.remaining)
+        ? status.remaining <= 0
+        : status.expiresAt <= time;
+      if (!expired) continue;
       skillState.statuses.splice(index, 1);
       event('status.expired', tick, {
         statusId: status.statusId,

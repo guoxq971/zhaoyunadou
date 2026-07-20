@@ -11,7 +11,10 @@ import {
   createReplayEnvelope,
   decodeSaveEnvelope,
   encodeSaveEnvelope,
+  applyLoadedProfileProgress,
+  applySettledProfileProgress,
 } from '../src/systems/progress-save/index.js';
+import { createGame } from '../src/state.js';
 
 const IDENTITY = Object.freeze({
   gameId: 'zhaoyun-adou',
@@ -58,6 +61,16 @@ assert.equal(DEFAULT_PROFILE_STORAGE_KEY, 'zyad_profile_progress');
 assert.equal(LEGACY_PROGRESS_STORAGE_KEY, 'zyad_cleared_stars');
 assert.equal(LEGACY_BEST_WAVE_STORAGE_KEY, 'zyad_best');
 assert.deepEqual(Object.values(SAVE_KINDS), ['profile-progress', 'match-snapshot', 'replay']);
+
+{
+  const state = createGame();
+  assert.deepEqual(applyLoadedProfileProgress(state, {
+    profile: { clearedStars: 3, bestWave: 9 }, degraded: true,
+  }), { clearedStars: 3, saveWarning: true });
+  assert.deepEqual(applySettledProfileProgress(state, {
+    profile: { clearedStars: 4, bestWave: 12 }, degraded: false,
+  }), { clearedStars: 4, saveWarning: false, saved: true });
+}
 
 {
   const storage = new MemoryStorage({
@@ -163,6 +176,56 @@ assert.deepEqual(Object.values(SAVE_KINDS), ['profile-progress', 'match-snapshot
     LEGACY_PROGRESS_STORAGE_KEY,
     LEGACY_BEST_WAVE_STORAGE_KEY,
   ], '部分写失败不得短路，应尽量保留可用兼容副本');
+}
+
+{
+  const oldEnvelope = createProfileProgressEnvelope(
+    { clearedStars: 1, bestWave: 5 },
+    { identity: IDENTITY, revision: 1 },
+  );
+  const storage = new MemoryStorage({
+    [DEFAULT_PROFILE_STORAGE_KEY]: encodeSaveEnvelope(oldEnvelope),
+    [LEGACY_PROGRESS_STORAGE_KEY]: '1',
+    [LEGACY_BEST_WAVE_STORAGE_KEY]: '5',
+  });
+  const originalSet = storage.setItem.bind(storage);
+  storage.setItem = (key, value) => (
+    key === DEFAULT_PROFILE_STORAGE_KEY ? false : originalSet(key, value)
+  );
+  const repository = repositoryFor(storage);
+  const settled = repository.settleMatchResult({ stageIndex: 1, win: true, bestWave: 8 });
+  assert.equal(settled.persisted, false);
+  assert.equal(storage.values.has(DEFAULT_PROFILE_STORAGE_KEY), false,
+    'Envelope 写失败后必须使旧 Envelope 失效，不得在下次启动覆盖新 Legacy 进度');
+  const reloaded = repository.loadProfileProgress();
+  assert.deepEqual(reloaded.profile, { clearedStars: 2, bestWave: 8 });
+  assert.equal(reloaded.source, 'legacy');
+}
+
+{
+  const oldEnvelope = createProfileProgressEnvelope(
+    { clearedStars: 1, bestWave: 5 },
+    { identity: IDENTITY, revision: 1 },
+  );
+  const storage = new MemoryStorage({
+    [DEFAULT_PROFILE_STORAGE_KEY]: encodeSaveEnvelope(oldEnvelope),
+    [LEGACY_PROGRESS_STORAGE_KEY]: '1',
+    [LEGACY_BEST_WAVE_STORAGE_KEY]: '5',
+  });
+  const originalSet = storage.setItem.bind(storage);
+  storage.setItem = (key, value) => (
+    key === DEFAULT_PROFILE_STORAGE_KEY ? false : originalSet(key, value)
+  );
+  storage.removeItem = (key) => (
+    key === DEFAULT_PROFILE_STORAGE_KEY ? false : MemoryStorage.prototype.removeItem.call(storage, key)
+  );
+  repositoryFor(storage).settleMatchResult({ stageIndex: 1, win: true, bestWave: 8 });
+  const reloaded = repositoryFor(storage).loadProfileProgress();
+  assert.deepEqual(reloaded.profile, { clearedStars: 2, bestWave: 8 },
+    'Envelope 既不可写也不可删时，重启必须单调合并已成功写入的 Legacy 新进度');
+  assert.equal(reloaded.source, 'reconciled');
+  assert.equal(reloaded.degraded, true);
+  assert.equal(reloaded.reason, 'storage-diverged');
 }
 
 {

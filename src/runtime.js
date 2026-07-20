@@ -1,20 +1,24 @@
 // Game Pack、ruleset 注册表与平台适配器只在 composition root 连接。
 import { DEFAULT_GAME_PACK } from './game-pack.js';
 import { createDomainEventQueue, createPresentationCueQueue } from './engine-core/public.js';
-import { createDomainTelemetryBridge, createTelemetryReporter } from './platform-services/public.js';
-import { SKILL_REGISTRY } from './rulesets/merge-defense/skill-registry.js';
-import { ITEM_REGISTRY } from './rulesets/merge-defense/item-registry.js';
-import { EFFECT_LIFECYCLE_REGISTRY } from './rulesets/merge-defense/effect-registry.js';
 import {
+  createDomainTelemetryBridge,
+  createSafeTelemetryReporter,
+  createTelemetryReporter,
+} from './platform-services/public.js';
+import {
+  EFFECT_LIFECYCLE_REGISTRY,
   ENEMY_PRESENTATION_REGISTRY,
   EFFECT_PRESENTATION_REGISTRY,
   ITEM_PRESENTATION_REGISTRY,
   SCENE_PRESENTATION_REGISTRY,
   TROOP_PRESENTATION_REGISTRY,
   WEAPON_PRESENTATION_REGISTRY,
+  createAudioCueRegistry,
   createHeroPresentationRegistry,
-} from './presentation-pack/presentation-registry.js';
-import { createAudioCueRegistry } from './presentation-pack/audio-cue-registry.js';
+} from './systems/skin-presentation/index.js';
+import { SKILL_HANDLER_REGISTRY as SKILL_REGISTRY } from './systems/skill-status/index.js';
+import { ITEM_REGISTRY } from './systems/equipment-items/index.js';
 import { snapshotMergeDefenseState } from './rulesets/merge-defense/event-snapshot.js';
 import { createMergeDefenseDomainEventDispatcher } from './rulesets/merge-defense/domain-event-router.js';
 
@@ -78,7 +82,7 @@ export function createGameRuntime(
   { eventSink = null, events = null, now, sessionId, onEventSinkError, host = null, random = null } = {},
 ) {
   assertRuntimeBindings(gamePack);
-  const telemetry = events ?? createTelemetryReporter({
+  const reporter = events ?? createTelemetryReporter({
     manifest: gamePack.manifests.events,
     versions: gamePack.versions,
     sink: eventSink,
@@ -87,6 +91,7 @@ export function createGameRuntime(
     snapshotState: snapshotMergeDefenseState,
     onSinkError: onEventSinkError,
   });
+  const telemetry = createSafeTelemetryReporter(reporter, onEventSinkError);
   const domainEvents = createDomainEventQueue();
   const presentationCues = createPresentationCueQueue();
   const telemetryBridge = createDomainTelemetryBridge({ reporter: telemetry, onError: onEventSinkError });

@@ -2,6 +2,28 @@ import { getStateSlice } from '../../engine-core/public.js';
 import { createEnemySpawnDefinition, pickEnemyType } from './rules.js';
 
 const noPublish = () => null;
+export const createStageEncounterStateSlice = ({ config, stage } = {}) => {
+  if (!config || !stage) throw new TypeError('[stage-encounter] config and active stage are required');
+  return {
+    lives: config.startLives,
+    waveTarget: stage.waveCount,
+    wave: 0,
+    phase: 'break',
+    phaseT: null,
+    spawnLeft: 0,
+    spawnTotal: 0,
+    spawnT: 0,
+    nextEnemySequence: 0,
+    completed: false,
+    result: null,
+  };
+};
+
+export function nextEncounterEnemyId(state) {
+  const encounter = getStateSlice(state, 'encounter');
+  encounter.nextEnemySequence = (encounter.nextEnemySequence ?? 0) + 1;
+  return `enemy-${encounter.nextEnemySequence}`;
+}
 const tickOf = (tick) => {
   const value = Number(tick ?? 0);
   if (!Number.isInteger(value) || value < 0) {
@@ -14,9 +36,11 @@ function contextFor(state, gamePack, ports = {}) {
   if (!gamePack?.config?.waves || !gamePack?.config?.enemy) {
     throw new TypeError('[stage-encounter] a compiled Game Pack is required');
   }
+  const stage = ports.getStage?.(state);
+  if (!stage) throw new TypeError('[stage-encounter] getStage port must return the active stage');
   return {
     encounter: getStateSlice(state, 'encounter'),
-    stage: ports.getStage?.(state) ?? state.stage,
+    stage,
     waves: gamePack.config.waves,
     publish: ports.publishDomainEvent ?? noPublish,
   };
@@ -46,9 +70,9 @@ function completeEncounter(state, context, result, reason, tick) {
 }
 
 // 命令只改 Encounter 计时状态，真正开波仍在确定性 tick 内发生。
-export function requestWaveStart(state, tick = 0) {
+export function requestWaveStart(state, tick = 0, { canStartWave = () => true } = {}) {
   const encounter = getStateSlice(state, 'encounter');
-  if (state.title || state.over || encounter.completed || encounter.phase !== 'break') {
+  if (!canStartWave(state) || encounter.completed || encounter.phase !== 'break') {
     return { ok: false, reason: 'wave-not-ready' };
   }
   tickOf(tick);
@@ -80,7 +104,6 @@ function spawnNextEnemy(state, gamePack, context, ports, tick) {
   const index = total - encounter.spawnLeft;
   const laneCount = ports.getLaneCount?.(state) ?? 1;
   const type = pickEnemyType({ ...stage, waveTarget: encounter.waveTarget }, encounter.wave, index, total);
-  encounter.nextEnemySequence = (encounter.nextEnemySequence ?? 0) + 1;
   const enemy = createEnemySpawnDefinition({
     gamePack,
     stage,
@@ -88,8 +111,8 @@ function spawnNextEnemy(state, gamePack, context, ports, tick) {
     type,
     index,
     laneCount,
-    spawnedAt: ports.getElapsedTime?.(state) ?? state.time ?? 0,
-    enemyId: `enemy-${encounter.nextEnemySequence}`,
+    spawnedAt: ports.getElapsedTime?.(state) ?? 0,
+    enemyId: nextEncounterEnemyId(state),
   });
   let accepted;
   try { accepted = ports.acceptEnemySpawn(state, enemy); }
@@ -172,7 +195,16 @@ export function consumeStageEncounterDomainEvents(state, events, ports = {}) {
     }
     if (event?.type !== 'combat.enemy_leaked') continue;
     consumed++;
+    const livesBefore = encounter.lives;
     encounter.lives = Math.max(0, encounter.lives - 1);
+    publish(state, publishContext, 'encounter.enemy_leak_resolved', event.tick ?? 0, {
+      enemyId: event.payload.enemyId,
+      enemyType: event.payload.enemyType,
+      wave: event.payload.wave,
+      lane: event.payload.lane,
+      livesBefore,
+      livesRemaining: encounter.lives,
+    });
     if (encounter.lives === 0 && !encounter.completed) {
       completed = completeEncounter(
         state,
@@ -190,13 +222,17 @@ export function consumeStageEncounterDomainEvents(state, events, ports = {}) {
   };
 }
 
-export function createStageEncounterCommandHandlers({ getState, invalid = null } = {}) {
+export function createStageEncounterCommandHandlers({
+  getState,
+  canStartWave = () => true,
+  invalid = null,
+} = {}) {
   if (typeof getState !== 'function') {
     throw new TypeError('[stage-encounter] getState is required');
   }
   return Object.freeze({
     'battle.start_wave': (command) => {
-      const result = requestWaveStart(getState(), command?.tick ?? 0);
+      const result = requestWaveStart(getState(), command?.tick ?? 0, { canStartWave });
       return !result.ok && typeof invalid === 'function'
         ? invalid(command, result.reason)
         : result;

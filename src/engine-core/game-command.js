@@ -1,38 +1,26 @@
+import {
+  assertSerializableData,
+  cloneSerializableData,
+  deepFreezeData,
+} from './serializable-data.js';
+
 export const GAME_COMMAND_API_VERSION = '1.0.0';
 
 const TYPE_PATTERN = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/;
-
-function assertSerializable(value, seen = new Set()) {
-  if (value === null || ['string', 'boolean'].includes(typeof value)) return;
-  if (typeof value === 'number' && Number.isFinite(value)) return;
-  if (Array.isArray(value)) {
-    if (seen.has(value)) throw new TypeError('[game-command] payload must be serializable');
-    seen.add(value);
-    value.forEach((entry) => assertSerializable(entry, seen));
-    seen.delete(value);
-    return;
-  }
-  if (typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) {
-    throw new TypeError('[game-command] payload must be serializable plain data');
-  }
-  if (seen.has(value)) throw new TypeError('[game-command] payload must be serializable');
-  seen.add(value);
-  Object.values(value).forEach((entry) => assertSerializable(entry, seen));
-  seen.delete(value);
-}
-
-function deepFreeze(value) {
-  if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
-  Object.values(value).forEach(deepFreeze);
-  return Object.freeze(value);
-}
-
-function cloneData(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+const GAME_COMMAND_FIELDS = new Set([
+  'apiVersion', 'type', 'actorId', 'side', 'sequence', 'tick', 'time', 'payload',
+]);
 
 export function assertGameCommand(command) {
-  if (!command || typeof command !== 'object') throw new TypeError('[game-command] command is required');
+  if (!command || typeof command !== 'object' || Array.isArray(command)
+    || Object.getPrototypeOf(command) !== Object.prototype) {
+    throw new TypeError('[game-command] command must be serializable plain data');
+  }
+  const unexpected = Reflect.ownKeys(command).filter((field) => !GAME_COMMAND_FIELDS.has(field));
+  if (unexpected.length > 0) {
+    throw new TypeError(`[game-command] unexpected field(s): ${unexpected.map(String).join(', ')}`);
+  }
+  assertSerializableData(command);
   if (command.apiVersion !== GAME_COMMAND_API_VERSION) throw new TypeError('[game-command] unsupported apiVersion');
   for (const field of ['type', 'actorId', 'side']) {
     if (typeof command[field] !== 'string' || !TYPE_PATTERN.test(command[field])) {
@@ -47,7 +35,6 @@ export function assertGameCommand(command) {
   if (!Number.isFinite(command.time) || command.time < 0) {
     throw new TypeError('[game-command] time must be a non-negative finite number');
   }
-  assertSerializable(command.payload);
   return command;
 }
 
@@ -61,7 +48,7 @@ export function createCommandFactory({
   let sequence = initialSequence;
   return Object.freeze({
     create(type, payload = {}) {
-      assertSerializable(payload);
+      assertSerializableData(payload);
       const command = {
         apiVersion: GAME_COMMAND_API_VERSION,
         type,
@@ -70,10 +57,10 @@ export function createCommandFactory({
         sequence: ++sequence,
         tick: Number(getTick()),
         time: Number(getTime()),
-        payload: cloneData(payload),
+        payload: cloneSerializableData(payload),
       };
       assertGameCommand(command);
-      return deepFreeze(command);
+      return deepFreezeData(command);
     },
     get sequence() { return sequence; },
   });
@@ -100,15 +87,16 @@ export function createCommandLog({ limit = 256, header = {} } = {}) {
   if (!Number.isInteger(limit) || limit < 1) throw new TypeError('[game-command] log limit must be positive');
   const entries = [];
   let dropped = 0;
-  assertSerializable(header);
+  assertSerializableData(header);
+  const logHeader = deepFreezeData(cloneSerializableData(header));
   return Object.freeze({
     record(entry) {
-      assertSerializable(entry);
-      entries.push(deepFreeze(cloneData(entry)));
+      assertSerializableData(entry);
+      entries.push(deepFreezeData(cloneSerializableData(entry)));
       while (entries.length > limit) { entries.shift(); dropped++; }
     },
-    getEntries() { return Object.freeze(entries.map((entry) => deepFreeze(cloneData(entry)))); },
-    get header() { return deepFreeze(cloneData(header)); },
+    getEntries() { return Object.freeze(entries.map((entry) => deepFreezeData(cloneSerializableData(entry)))); },
+    get header() { return deepFreezeData(cloneSerializableData(logHeader)); },
     get size() { return entries.length; },
     get dropped() { return dropped; },
     clear() { entries.length = 0; dropped = 0; },
@@ -173,7 +161,7 @@ export function createCommandDispatcher({
         }
       }
     }
-    assertSerializable(result);
+    assertSerializableData(result);
     const stateHash = hashCommandState(getStateSummary());
     commandLog?.record({ command, result, beforeHash, stateHash });
     return result;

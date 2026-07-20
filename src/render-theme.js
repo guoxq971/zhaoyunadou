@@ -1,10 +1,12 @@
 // 水墨视觉令牌与素材回退。素材只负责氛围，交互状态仍由 Canvas 绘制。
-import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { createAssetLoader } from './engine-core/assets.js';
+import { createAssetLoader } from './engine-core/public.js';
+import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
 
-const THEME = DEFAULT_GAME_PACK.manifests.theme;
-export const KAI = THEME.fontFamily;
-export const font = (px, bold = true) => `${bold ? 'bold ' : ''}${px}px ${KAI}`;
+// 默认串与首个主题完全一致；其他 Skin 可只替换 Manifest 字体而不改 Renderer。
+export const KAI = '"Kaiti SC","STKaiti",KaiTi,"KaiTi SC",serif';
+export const font = (px, bold = true, gamePack = null) => (
+  `${bold ? 'bold ' : ''}${px}px ${gamePack?.manifests?.theme?.fontFamily ?? KAI}`
+);
 
 const PRESENTATION_FALLBACK = Object.freeze({
   backdrop: Object.freeze({
@@ -43,12 +45,14 @@ const PRESENTATION_FALLBACK = Object.freeze({
 
 const presentationTokenCache = new WeakMap();
 
-export function themeColors(gamePack = DEFAULT_GAME_PACK) {
+export function themeColors(gamePack = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   return gamePack.manifests.theme.colors;
 }
 
 // 令牌可选是为了兼容尚未升级的内容包；默认包由 Schema 强制提供完整值。
-export function presentationTokens(gamePack = DEFAULT_GAME_PACK) {
+export function presentationTokens(gamePack = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   if (presentationTokenCache.has(gamePack)) return presentationTokenCache.get(gamePack);
   const tokens = gamePack.manifests.theme.presentation ?? {};
   const resolved = Object.freeze({
@@ -77,7 +81,8 @@ function assetCache(host) {
 }
 
 // 每个 Game Pack 独立持有素材加载器，避免第二内容包误用默认游戏的图片缓存。
-export function assetsFor(gamePack = DEFAULT_GAME_PACK, host = null) {
+export function assetsFor(gamePack = null, host = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   const presentationAssets = assetCache(host);
   if (presentationAssets.has(gamePack)) return presentationAssets.get(gamePack);
   const loader = createAssetLoader({
@@ -97,7 +102,8 @@ export function assetsFor(gamePack = DEFAULT_GAME_PACK, host = null) {
 }
 
 // Jiekou 产物是 4×3 等分透明精灵表；集中裁切避免各渲染模块重复魔数。
-export function drawToolAtlasIcon(ctx, slotId, x, y, width, height = width, gamePack = DEFAULT_GAME_PACK, host = null) {
+export function drawToolAtlasIcon(ctx, slotId, x, y, width, height = width, gamePack = null, host = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   const { toolIconAtlas: atlas } = assetsFor(gamePack, host);
   if (atlas.status !== 'ready') return false;
   const atlasSpec = gamePack.manifests.theme.toolAtlas ?? {};
@@ -121,7 +127,8 @@ export function drawToolAtlasIcon(ctx, slotId, x, y, width, height = width, game
   return true;
 }
 
-export function getAssetStatus(gamePack = DEFAULT_GAME_PACK, host = null) {
+export function getAssetStatus(gamePack = null, host = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   const bundle = assetsFor(gamePack, host);
   return bundle.loader.status([
     bundle.battleArt.definition.id,
@@ -140,7 +147,8 @@ export function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-export function drawButton(ctx, rect, label, sub, { active = true, seal = false } = {}, gamePack = DEFAULT_GAME_PACK) {
+export function drawButton(ctx, rect, label, sub, { active = true, seal = false } = {}, gamePack = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
   ctx.save();
@@ -159,17 +167,18 @@ export function drawButton(ctx, rect, label, sub, { active = true, seal = false 
   roundRect(ctx, rect.x + 4, rect.y + 4, rect.w - 8, rect.h - 8, 7); ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.fillStyle = active ? seal ? colors.paperLight : colors.inkStrong : colors.disabledInk;
-  ctx.font = font(sub ? rect.h * 0.4 : rect.h * 0.45);
+  ctx.font = font(sub ? rect.h * 0.4 : rect.h * 0.45, true, gamePack);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h * (sub ? 0.32 : 0.5));
   if (sub) {
-    ctx.font = font(rect.h * 0.26, false);
+    ctx.font = font(rect.h * 0.26, false, gamePack);
     ctx.fillText(sub, rect.x + rect.w / 2, rect.y + rect.h * 0.72);
   }
   ctx.restore();
 }
 
-export function drawStars(ctx, completed, y, size = 24, gamePack = DEFAULT_GAME_PACK) {
+export function drawStars(ctx, completed, y, size = 24, gamePack = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   const config = gamePack.config;
   const theme = gamePack.manifests.theme;
   const total = config.campaign.stages.length;
@@ -216,7 +225,8 @@ function paintPaper(paper, width, height, theme) {
   }
 }
 
-export function drawPaper(ctx, gamePack = DEFAULT_GAME_PACK, host = null) {
+export function drawPaper(ctx, gamePack = null, host = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   const config = gamePack.config;
   const theme = gamePack.manifests.theme;
   const caches = paperCache(host);
@@ -233,7 +243,8 @@ export function drawPaper(ctx, gamePack = DEFAULT_GAME_PACK, host = null) {
   else paintPaper(ctx, config.canvas.w, config.canvas.h, theme);
 }
 
-export function drawBattleBackdrop(ctx, gamePack = DEFAULT_GAME_PACK, host = null) {
+export function drawBattleBackdrop(ctx, gamePack = null, host = null) {
+  gamePack = resolveLegacyPresentationGamePack(null, gamePack);
   const config = gamePack.config;
   const tokens = presentationTokens(gamePack);
   const { battleArt: art } = assetsFor(gamePack, host);

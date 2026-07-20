@@ -8,6 +8,7 @@ import { detectHero, unlockHero } from '../src/logic.js';
 import { updateHeroes } from '../src/heroes.js';
 import { updateEnemies, updateWaves } from '../src/enemies.js';
 import { cellXY } from '../src/ui-layout.js';
+import { createEquipmentCommandHandlers } from '../src/systems/equipment-items/index.js';
 
 const collector = createLocalEventCollector();
 const runtime = createGameRuntime(DEFAULT_GAME_PACK, {
@@ -16,6 +17,111 @@ const runtime = createGameRuntime(DEFAULT_GAME_PACK, {
   now: () => 1_000,
 });
 const game = createGameController(0, () => {}, () => true, DEFAULT_GAME_PACK, runtime);
+
+{
+  const shovelCollector = createLocalEventCollector();
+  const shovelRuntime = createGameRuntime(DEFAULT_GAME_PACK, {
+    eventSink: shovelCollector,
+    sessionId: 'shovel-atomic-test',
+    now: () => 1_000,
+  });
+  const shovelGame = createGameController(0, () => {}, () => true, DEFAULT_GAME_PACK, shovelRuntime);
+  shovelGame.startCurrentStage();
+  const locked = shovelGame.state.grid
+    .flatMap((row, r) => row.map((cell, c) => ({ cell, r, c })))
+    .find(({ cell }) => cell.type === 'locked');
+  const handlers = createEquipmentCommandHandlers({
+    game: shovelGame,
+    drag: {},
+    gamePack: DEFAULT_GAME_PACK,
+    invalid: (_command, reason) => ({ ok: false, reason }),
+    clearDrag: () => {},
+  });
+  const result = handlers['item.use']({
+    type: 'item.use', tick: 4,
+    payload: {
+      itemId: 'shovel', source: { zone: 'bench', index: 3 },
+      target: { zone: 'grid', r: locked.r, c: locked.c },
+    },
+  });
+  assert.equal(result.ok, true);
+  const deploy = shovelCollector.getEvents().find(({ eventId }) => eventId === 'deploy');
+  assert.equal(deploy.source, 'bench');
+  assert.equal(deploy.resourceSnapshot.benchUsed, 3,
+    '铲地 Telemetry 必须在开格、扣库存与移除营栏铲子全部提交后采样');
+}
+
+{
+  const modeCollector = createLocalEventCollector();
+  const modeRuntime = createGameRuntime(DEFAULT_GAME_PACK, {
+    eventSink: modeCollector,
+    sessionId: 'shovel-mode-source-test',
+    now: () => 1_000,
+  });
+  const modeGame = createGameController(0, () => {}, () => true, DEFAULT_GAME_PACK, modeRuntime);
+  modeGame.startCurrentStage();
+  const locked = modeGame.state.grid
+    .flatMap((row, r) => row.map((cell, c) => ({ cell, r, c })))
+    .find(({ cell }) => cell.type === 'locked');
+  const handlers = createEquipmentCommandHandlers({
+    game: modeGame,
+    drag: { mode: 'shovel' },
+    gamePack: DEFAULT_GAME_PACK,
+    invalid: (_command, reason) => ({ ok: false, reason }),
+    clearDrag: () => {},
+  });
+  assert.equal(handlers['item.use']({
+    type: 'item.use', tick: 4,
+    payload: { itemId: 'shovel', target: { zone: 'grid', r: locked.r, c: locked.c } },
+  }).ok, true);
+  assert.equal(modeCollector.getEvents().find(({ eventId }) => eventId === 'deploy').source, 'shovel-mode');
+}
+
+{
+  const leakCollector = createLocalEventCollector();
+  const leakRuntime = createGameRuntime(DEFAULT_GAME_PACK, {
+    eventSink: leakCollector,
+    sessionId: 'double-leak-test',
+    now: () => 1_000,
+  });
+  const leakGame = createGameController(0, () => {}, () => true, DEFAULT_GAME_PACK, leakRuntime);
+  leakGame.state.lives = 4;
+  for (const [enemyId, enemyType, lane] of [
+    ['enemy-1', 'normal', 0],
+    ['enemy-2', 'fast', 1],
+  ]) {
+    leakRuntime.publishDomainEvent({
+      type: 'combat.enemy_leaked', source: 'combat', tick: 5,
+      payload: { enemyId, enemyType, wave: 1, lane },
+    }, leakGame.state);
+  }
+  assert.equal(
+    leakCollector.getEvents().filter(({ eventId }) => eventId === 'enemy_leak').length,
+    0,
+    '扣命前不得把 Combat 事实冒充为已结算 Telemetry',
+  );
+  leakRuntime.pumpDomainEvents(leakGame.state);
+  assert.deepEqual(
+    leakCollector.getEvents()
+      .filter(({ eventId }) => eventId === 'enemy_leak')
+      .map(({ livesBefore, livesRemaining }) => [livesBefore, livesRemaining]),
+    [[4, 3], [3, 2]],
+    '同 tick 漏怪应有递减的可审计生命账本',
+  );
+}
+
+{
+  const isolatedRuntime = createGameRuntime(DEFAULT_GAME_PACK, {
+    events: { emit() { throw new Error('telemetry-down'); } },
+  });
+  const isolatedGame = createGameController(0, () => {}, () => true, DEFAULT_GAME_PACK, isolatedRuntime);
+  isolatedGame.startCurrentStage();
+  assert.equal(isolatedRuntime.events.emit('session_start', isolatedGame.state, {}), false,
+    '可替换 Telemetry reporter 抛错时必须降级为 false');
+  assert.doesNotThrow(() => attemptRecruit(isolatedGame.state, () => 0),
+    'Telemetry Adapter 抛错不得中断征兵规则');
+  assert.equal(isolatedGame.state.recruitCount, 1);
+}
 
 const rejected = runtime.publishDomainEvent({
   type: 'command.rejected',
@@ -68,8 +174,12 @@ assert.equal(collector.getEvents().at(-1).eventId, 'wave_start');
 state.enemies.length = 0;
 state.spawnLeft = 0;
 state.phase = 'wave';
+const mantouBeforeWaveReward = state.mantou;
 updateWaves(state, 0.01);
 assert.equal(collector.getEvents().at(-1).eventId, 'wave_end');
+assert.ok(state.mantou > mantouBeforeWaveReward);
+assert.equal(collector.getEvents().at(-1).resourceSnapshot.mantou, state.mantou,
+  'wave_end 必须在 Economy 奖励入账后采集资源快照');
 
 state.over = false;
 state.win = false;

@@ -1,15 +1,17 @@
 // 兼容门面：Encounter 拥有波次，Combat 拥有移动/伤害；本文件仅保留旧 API 和表现适配。
 import { CONFIG } from './config.js';
-import { gamePackFor, getStateSlice, randomFor, runtimeFor } from './engine-core/public.js';
+import { gamePackFor, randomFor, runtimeFor } from './engine-core/public.js';
 import { routeForEntity } from './systems/board/index.js';
 import {
   acceptEnemySpawn,
+  assignEnemyIdentity,
   damageEnemy as resolveDamage,
   enemyGameplayXY,
   updateEnemies as moveEnemies,
 } from './systems/combat/index.js';
 import {
   createEnemySpawnDefinition,
+  nextEncounterEnemyId,
   updateStageEncounter,
 } from './systems/stage-encounter/index.js';
 import {
@@ -19,11 +21,14 @@ import {
   pumpSystemDomainEvents,
 } from './rulesets/merge-defense/domain-event-runtime.js';
 import {
+  advanceEnemyPresentationFeedback,
   consumePresentationCues,
+  enemyBobPhase,
   PRESENTATION_CUE_TYPES,
+  setEnemyBobPhase,
 } from './systems/skin-presentation/index.js';
+import { consumeStatusTickForState } from './systems/skill-status/index.js';
 
-const configFor = (state) => gamePackFor(state)?.config ?? CONFIG;
 const packFor = (state) => gamePackFor(state) ?? { config: CONFIG };
 const tickFor = (state) => runtimeFor(state)?.currentTick?.() ?? 0;
 
@@ -37,19 +42,10 @@ function flushPresentation(state, gamePack) {
 
 export function ensureEnemyIdentity(state, enemy) {
   if (enemy.enemyId) return enemy.enemyId;
-  const encounter = getStateSlice(state, 'encounter');
-  encounter.nextEnemySequence = (encounter.nextEnemySequence ?? 0) + 1;
-  Object.defineProperty(enemy, 'enemyId', {
-    value: `enemy-${encounter.nextEnemySequence}`,
-    writable: true,
-    configurable: true,
-  });
-  return enemy.enemyId;
+  return assignEnemyIdentity(enemy, nextEncounterEnemyId(state));
 }
 
 export function spawnEnemy(state, type, index = state.enemies.length) {
-  const encounter = getStateSlice(state, 'encounter');
-  encounter.nextEnemySequence = (encounter.nextEnemySequence ?? 0) + 1;
   const definition = createEnemySpawnDefinition({
     gamePack: packFor(state),
     stage: state.stage,
@@ -58,19 +54,21 @@ export function spawnEnemy(state, type, index = state.enemies.length) {
     index,
     laneCount: Math.max(1, state.paths?.length ?? 1),
     spawnedAt: state.time,
-    enemyId: `enemy-${encounter.nextEnemySequence}`,
+    enemyId: nextEncounterEnemyId(state),
+    allowZeroWave: state.wave === 0,
   });
   const enemy = acceptEnemySpawn(state, definition);
-  enemy.bob = randomFor(state, 'presentation')() * Math.PI * 2;
+  setEnemyBobPhase(state, enemy.enemyId, randomFor(state, 'presentation')() * 6.28);
   return enemy;
 }
 
 export function updateWaves(state, dt) {
   const gamePack = packFor(state);
   const result = updateStageEncounter(state, dt, gamePack, {
+    getStage: () => state.stage,
     acceptEnemySpawn(_state, definition) {
       const enemy = acceptEnemySpawn(state, definition);
-      enemy.bob = randomFor(state, 'presentation')() * Math.PI * 2;
+      setEnemyBobPhase(state, enemy.enemyId, randomFor(state, 'presentation')() * 6.28);
       return enemy;
     },
     getLaneCount: () => Math.max(1, state.paths?.length ?? 1),
@@ -94,18 +92,28 @@ export function updateWaves(state, dt) {
 export function updateEnemies(state, dt, cellXY) {
   for (const enemy of state.enemies) {
     ensureEnemyIdentity(state, enemy);
-    if (enemy.hitFlash > 0) enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
-    enemy.bob = (enemy.bob ?? 0) + dt * 8;
   }
+  // 保持候选基座时序：眩晕整 tick 同时冻结移动与浮动，其余敌人在同 tick 推进。
+  const activeEnemyIds = state.enemies.map(({ enemyId }) => enemyId);
+  const blockedEnemyIds = new Set();
+  for (const enemy of state.enemies) {
+    if (consumeStatusTickForState(
+      state,
+      enemy.enemyId,
+      'stun',
+      dt,
+      state.time - dt,
+    )) blockedEnemyIds.add(enemy.enemyId);
+  }
+  const movingEnemyIds = activeEnemyIds.filter((enemyId) => !blockedEnemyIds.has(enemyId));
+  advanceEnemyPresentationFeedback(state, dt, activeEnemyIds, movingEnemyIds);
   const enemiesById = new Map(state.enemies.map((enemy) => [enemy.enemyId, enemy]));
   const gamePack = packFor(state);
   const result = moveEnemies(state, dt, cellXY, {
     tick: tickFor(state),
     publish: (definition) => publishSystemDomainEvent(state, definition, gamePack),
     isMovementBlocked(_state, enemy) {
-      if (!(enemy.stun > 0)) return false;
-      enemy.stun -= dt;
-      return true;
+      return blockedEnemyIds.has(enemy.enemyId);
     },
   });
   for (const event of result.leaked) {
@@ -129,7 +137,7 @@ export { enemyGameplayXY };
 
 export function enemyXY(state, enemy, cellXY) {
   const point = enemyGameplayXY(state, enemy, cellXY);
-  return { x: point.x, y: point.y + Math.sin(enemy.bob ?? 0) * 2 };
+  return { x: point.x, y: point.y + Math.sin(enemyBobPhase(state, enemy)) * 2 };
 }
 
 export function damageEnemy(state, enemy, damage, cellXY, metadata = {}) {

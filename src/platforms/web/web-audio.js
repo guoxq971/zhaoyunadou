@@ -1,7 +1,28 @@
-import { createAudioCueRegistry } from '../../presentation-pack/audio-cue-registry.js';
+function createRawManifestCueSource(audioManifest) {
+  const source = audioManifest?.cues ?? {};
+  const entries = Array.isArray(source)
+    ? source.map((cue) => [cue.id, cue])
+    : Object.entries(source);
+  const cues = new Map(entries);
+  return Object.freeze({
+    has(cueId) { return cues.has(cueId); },
+    get(cueId) { return cues.get(cueId); },
+  });
+}
 
-export function createWebAudioAdapter(scope, audioManifest) {
-  const cues = createAudioCueRegistry(audioManifest);
+function normalizeCueSource(source) {
+  if (typeof source?.has === 'function' && typeof source?.get === 'function') {
+    // Host 只持有只读查询窄口，不依赖表现系统的 Registry 实现。
+    return Object.freeze({
+      has(cueId) { return source.has(cueId); },
+      get(cueId) { return source.get(cueId); },
+    });
+  }
+  return createRawManifestCueSource(source);
+}
+
+export function createWebAudioAdapter(scope, cueSource) {
+  const cues = normalizeCueSource(cueSource);
   let context = null;
   let master = null;
   let volume = 1;

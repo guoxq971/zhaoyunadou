@@ -29,7 +29,8 @@ export function createInteractionCommandHandlers({
       if (!source.movable && !source.draggableTool) {
         return invalid(command, 'source-not-movable');
       }
-      interaction.item = source.item;
+      // 查询结果即使来自错误实现，也只能作为不可写快照进入 UI 临时态。
+      interaction.item = Object.freeze({ ...source.item });
       interaction.source = command.payload.source;
       interaction.expectedSource = source.signature;
       Object.assign(interaction, sourceFields(command.payload.source));

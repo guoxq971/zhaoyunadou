@@ -1,6 +1,14 @@
-import { getStateSlice } from '../../engine-core/public.js';
+import { compareCodePointStrings, getStateSlice } from '../../engine-core/public.js';
 
 const legacySlices = new WeakMap();
+
+export const createCombatStateSlice = () => ({
+  enemies: [],
+  projectiles: [],
+  attackCooldowns: {},
+  nextProjectileSequence: 0,
+  stats: { kills: 0 },
+});
 
 // Combat 的攻击冷却和投射物序列不回写 Piece；手写旧状态仅用 WeakMap 兼容。
 export function combatStateFor(state) {
@@ -31,7 +39,7 @@ export function snapshotCombatRuntimeState(state) {
   return {
     attackCooldowns: Object.fromEntries(
       Object.entries(slice.attackCooldowns)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareCodePointStrings(left, right))
         .map(([id, cooldown]) => [id, Number(cooldown.toFixed(6))]),
     ),
     nextProjectileSequence: slice.nextProjectileSequence,

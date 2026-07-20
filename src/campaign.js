@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
-import { gamePackFor } from './engine-core/runtime-context.js';
+import { gamePackFor } from './engine-core/public.js';
+import { applySettledProfileProgress } from './systems/progress-save/index.js';
 
 export const CAMPAIGN_STORAGE_KEY = CONFIG.campaign.storageKey;
 export const BEST_WAVE_STORAGE_KEY = 'zyad_best';
@@ -74,9 +75,10 @@ export function settleResult(state, storage) {
     try { savedPersistently = storage.setItem(storageKey, String(next)) !== false; }
     catch { savedPersistently = false; }
   }
-  state.clearedStars = next;
-  state.saveWarning = !savedPersistently || storage?.persistent === false;
-  state.saved = true;
+  applySettledProfileProgress(state, {
+    profile: { clearedStars: next },
+    degraded: !savedPersistently || storage?.persistent === false,
+  });
   return next;
 }
 

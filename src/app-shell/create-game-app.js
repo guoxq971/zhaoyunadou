@@ -1,12 +1,23 @@
-import { createGameClock } from '../game-clock.js';
 import { createGameController } from '../game-controller.js';
 import { advanceBattle } from '../game-loop.js';
 import { createLocalGameControl } from '../input.js';
-import { assertHostContract, createLocalEventCollector } from '../platform-services/public.js';
+import {
+  createGameClock,
+  createRandomStreams,
+  immutableData,
+} from '../engine-core/public.js';
+import {
+  assertHostContract,
+  createLocalEventCollector,
+  createSafeStorage,
+  createScopedStorage,
+} from '../platform-services/public.js';
 import { createGameRuntime } from '../runtime.js';
-import { createSafeStorage, createScopedStorage } from '../storage.js';
-import { createRandomStreams } from '../engine-core/random.js';
-import { createProgressSave } from '../systems/progress-save/index.js';
+import {
+  applyLoadedProfileProgress,
+  applySettledProfileProgress,
+  createProgressSave,
+} from '../systems/progress-save/index.js';
 import {
   createSafeAudioAdapter,
   releasePresentationResources,
@@ -18,13 +29,14 @@ import {
   resetInteractionState,
 } from '../systems/ui-interaction/index.js';
 import { createMergeDefenseViewModel } from '../rulesets/merge-defense/view-model.js';
+import { snapshotMergeDefenseCommandState } from '../rulesets/merge-defense/command-state.js';
 import { createGameStatusSynchronizer } from './game-status.js';
 
 function resetDragState(drag) {
   resetInteractionState(drag);
 }
 
-function cloneState(state) {
+function legacyStateSnapshot(state) {
   return JSON.parse(JSON.stringify(state, (_key, value) => (
     value instanceof Set ? [...value] : value
   )));
@@ -57,6 +69,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
   let destroyed = false;
   let appPaused = false;
   let sessionEnded = false;
+  let destroyCompletion = Promise.resolve(false);
 
   function addTeardown(dispose, source) {
     if (typeof dispose !== 'function') throw new TypeError(`[app] ${source} must return an unsubscribe function`);
@@ -111,9 +124,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
         win: state.win,
         bestWave: reached,
       });
-      state.clearedStars = settled.profile.clearedStars;
-      state.saveWarning = settled.degraded;
-      state.saved = true;
+      applySettledProfileProgress(state, settled);
     }
     runtime.pumpDomainEvents(state);
     syncStatus(state);
@@ -122,7 +133,9 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
   function draw() {
     if (!started || destroyed || !game) return;
     try {
-      const viewModel = createMergeDefenseViewModel(game.state, drag, gamePack);
+      const viewModel = createMergeDefenseViewModel(game.state, drag, gamePack, {
+        highestUnlockedStageIndex: game.highestUnlockedStageIndex,
+      });
       renderGame(host.surface.getContext(), viewModel, viewModel.interaction, gamePack, host);
     }
     catch (error) { reportAdapterError(error, 'render'); }
@@ -178,6 +191,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
       const initialProgress = loadedProgress.profile.clearedStars;
       runtime = createGameRuntime(gamePack, {
         eventSink,
+        events: services.events,
         host,
         random,
         onEventSinkError: reportAdapterError,
@@ -190,7 +204,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
         runtime,
         advanceBattle,
       );
-      game.state.saveWarning = loadedProgress.degraded;
+      applyLoadedProfileProgress(game.state, loadedProgress);
       clock = createGameClock(() => host.scheduler.now());
       localControl = createLocalGameControl({
         inputSource: host.input,
@@ -209,8 +223,8 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
         host.surface.subscribeViewport(() => host.surface.fit(config.canvas.w, config.canvas.h)),
         'surface.subscribeViewport()',
       );
-      if (!localControl.start()) throw new Error('[app] LocalPlayerController failed to start');
       addTeardown(localControl.destroy, 'LocalPlayerController.destroy()');
+      if (!localControl.start()) throw new Error('[app] LocalPlayerController failed to start');
       addTeardown(host.lifecycle.subscribe(onLifecycle), 'lifecycle.subscribe()');
       started = true;
       syncStatus(game.state, true);
@@ -240,7 +254,8 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
       try { dispose(); } catch (error) { reportAdapterError(error, 'dispose'); }
     }
     try { host.scheduler.cancelAll(); } catch (error) { reportAdapterError(error, 'scheduler.cancelAll'); }
-    safeAudio.destroy();
+    const audioDestroy = safeAudio.destroy();
+    destroyCompletion = Promise.resolve(audioDestroy).then(() => true);
     try { host.assets.destroy(); } catch (error) { reportAdapterError(error, 'assets.destroy'); }
     try { releasePresentationResources(host); } catch (error) { reportAdapterError(error, 'presentation.release'); }
     try { host.debug?.clear?.(); } catch (error) { reportAdapterError(error, 'debug.clear'); }
@@ -250,13 +265,34 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     return true;
   }
 
+  // 保留 destroy() 的布尔兼容签名；需要等待原生音频异步关闭的 Host 可等待此契约。
+  function whenDestroyed() {
+    return destroyCompletion;
+  }
+
   function getStateSnapshot() {
-    return game ? cloneState(game.state) : null;
+    if (!game) return null;
+    // 保持当前 flat V2 诊断投影；确定性私有切片只在显式命名空间追加，不冒充旧 Save ABI。
+    return immutableData({
+      ...legacyStateSnapshot(game.state),
+      runtimeSlices: {
+        apiVersion: '1.0.0',
+        commandState: snapshotMergeDefenseCommandState(game.state),
+      },
+    });
   }
 
   function getCommandLogSnapshot() {
     return commandLog ? commandLog.getEntries() : Object.freeze([]);
   }
 
-  return Object.freeze({ start, pause, resume, destroy, getStateSnapshot, getCommandLogSnapshot });
+  return Object.freeze({
+    start,
+    pause,
+    resume,
+    destroy,
+    whenDestroyed,
+    getStateSnapshot,
+    getCommandLogSnapshot,
+  });
 }

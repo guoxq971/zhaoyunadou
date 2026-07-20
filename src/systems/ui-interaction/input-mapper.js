@@ -134,6 +134,8 @@ export function createLocalInputMapper({
       return submitOk('battle.set_paused', { paused: view.speed !== 0 });
     }
     if (code === 'KeyR' && inBattle) {
+      // 拖拽是 UI 本地状态，不得暗中改变同一玩法 Command 的规则结果。
+      if (interaction.item) return false;
       setInteractionMode(interaction, null);
       return submitOk('battle.batch_recruit');
     }

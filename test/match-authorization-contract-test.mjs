@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import {
   createCommandDispatcher,
   createCommandFactory,
+  advanceSimulationTime,
   getStateSlice,
   setSimulationPaused,
   setSimulationSpeed,
+  setSimulationTime,
 } from '../src/engine-core/public.js';
 import { createGame } from '../src/state.js';
 
@@ -83,6 +85,10 @@ import { createGame } from '../src/state.js';
   });
   assert.equal(getStateSlice(state, 'foundation').speed, 2);
   assert.equal(getStateSlice(state, 'foundation').resumeSpeed, 2);
+  assert.equal(setSimulationTime(state, 7.5), 7.5);
+  assert.equal(advanceSimulationTime(state, 0.25), 7.75);
+  assert.equal(state.time, 7.75, 'foundation 窄口必须是模拟时间唯一写入入口');
+  assert.throws(() => advanceSimulationTime(state, -0.1), /delta/i);
   assert.throws(() => setSimulationSpeed(state, -1), /speed/i);
 }
 

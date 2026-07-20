@@ -1,7 +1,12 @@
 import { getStateSlice } from '../../engine-core/public.js';
+import { snapshotAttributeRuntimeState } from '../../systems/attribute/index.js';
 import { snapshotCombatRuntimeState } from '../../systems/combat/index.js';
 import { snapshotEconomyRuntimeState } from '../../systems/economy/index.js';
-import { snapshotSkillStatus } from '../../systems/skill-status/index.js';
+import { snapshotPieceRuntimeState } from '../../systems/piece/index.js';
+import {
+  snapshotSkillStatus,
+  statusRemainingForState,
+} from '../../systems/skill-status/index.js';
 
 function unitSnapshot(unit) {
   if (!unit) return null;
@@ -85,7 +90,12 @@ export function snapshotMergeDefenseCommandState(state) {
       enemyId: enemy.enemyId ?? null,
       type: enemy.type, wave: enemy.wave, lane: enemy.lane ?? 0,
       hp: rounded(enemy.hp), p: rounded(enemy.p), speed: rounded(enemy.speed),
-      stun: rounded(enemy.stun),
+      stun: rounded(statusRemainingForState(
+        state,
+        enemy.enemyId,
+        'stun',
+        state.time,
+      )),
     })),
     projectiles: state.projectiles.map((projectile) => ({
       projectileId: projectile.projectileId ?? null,
@@ -96,6 +106,8 @@ export function snapshotMergeDefenseCommandState(state) {
     dragons,
     statuses: skillStatus.statuses,
     nextSkillEntitySequence: skillStatus.nextEntitySequence,
+    pieceRuntime: snapshotPieceRuntimeState(state),
+    attributeRuntime: snapshotAttributeRuntimeState(state),
     combatRuntime: snapshotCombatRuntimeState(state),
     economyRuntime: snapshotEconomyRuntimeState(state),
     encounterRuntime: {

@@ -1,13 +1,19 @@
-import { computeCanvasFit } from '../../canvas-fit.js';
+import { LEGACY_LOGICAL_CANVAS_SIZE, computeCanvasFit } from '../../canvas-fit.js';
 
 const number = (value) => (Number.isFinite(Number.parseFloat(value)) ? Number.parseFloat(value) : 0);
 
 export function createWebSurface(scope, {
   canvasId = 'game',
   statusOutputId = 'game-status',
-  logicalWidth = 420,
-  logicalHeight = 760,
+  logicalWidth = LEGACY_LOGICAL_CANVAS_SIZE.width,
+  logicalHeight = LEGACY_LOGICAL_CANVAS_SIZE.height,
 } = {}) {
+  const initialWidth = Number(logicalWidth);
+  const initialHeight = Number(logicalHeight);
+  if (!Number.isFinite(initialWidth) || initialWidth <= 0
+    || !Number.isFinite(initialHeight) || initialHeight <= 0) {
+    throw new TypeError('[web-surface] logicalWidth and logicalHeight must be positive numbers');
+  }
   const documentRef = scope?.document;
   const mainCanvas = documentRef?.getElementById?.(canvasId);
   if (!mainCanvas) throw new Error(`[web-surface] canvas #${canvasId} was not found`);
@@ -15,7 +21,7 @@ export function createWebSurface(scope, {
   if (!context) throw new Error('[web-surface] Canvas2D context is unavailable');
   const statusOutput = documentRef.getElementById?.(statusOutputId) ?? null;
   const viewportSubscriptions = new Set();
-  let logical = { width: logicalWidth, height: logicalHeight };
+  let logical = { width: initialWidth, height: initialHeight };
 
   function safeArea() {
     const style = typeof scope.getComputedStyle === 'function'
@@ -29,19 +35,26 @@ export function createWebSurface(scope, {
     });
   }
 
-  function getViewport() {
+  function getViewport(fallbackLogical = logical) {
     return Object.freeze({
-      width: Math.max(1, Number(scope.innerWidth) || logical.width),
-      height: Math.max(1, Number(scope.innerHeight) || logical.height),
+      width: Math.max(1, Number(scope.innerWidth) || fallbackLogical.width),
+      height: Math.max(1, Number(scope.innerHeight) || fallbackLogical.height),
       dpr: Math.max(1, Number(scope.devicePixelRatio) || 1),
       safeArea: safeArea(),
     });
   }
 
   function fit(width = logical.width, height = logical.height) {
-    logical = { width, height };
-    const viewport = getViewport();
-    const box = computeCanvasFit(viewport.width, viewport.height, viewport.dpr, width, height);
+    const next = { width: Number(width), height: Number(height) };
+    const viewport = getViewport(next);
+    const box = computeCanvasFit(
+      viewport.width,
+      viewport.height,
+      viewport.dpr,
+      next.width,
+      next.height,
+    );
+    logical = next;
     mainCanvas.width = box.pixelWidth;
     mainCanvas.height = box.pixelHeight;
     mainCanvas.style.width = `${box.cssWidth}px`;

@@ -9,6 +9,18 @@ export function activeEnemyById(state, enemyId) {
   return state.enemies.find((enemy) => enemy.enemyId === enemyId) ?? null;
 }
 
+export function listEnemyViews(state) {
+  return Object.freeze(state.enemies.map((enemy) => Object.freeze({
+    enemyId: enemyIdOf(enemy),
+    type: enemy.type,
+    wave: enemy.wave,
+    lane: enemy.lane ?? 0,
+    progress: enemy.p,
+    hp: enemy.hp,
+    maxHp: enemy.maxHp,
+  })));
+}
+
 // Damage 只结算 Combat 切片和发布事实；奖励、声音、墨迹由事件消费者处理。
 export function damageEnemy(state, enemy, damage, {
   tick = 0,

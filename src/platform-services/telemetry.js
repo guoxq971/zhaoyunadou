@@ -163,6 +163,25 @@ function safeSinkError(callback, error, event) {
   try { callback(error, event); } catch { /* 平台故障不得反向中断玩法。 */ }
 }
 
+// 可替换 reporter 是平台边界；任何实现故障都只能降级为 false。
+export function createSafeTelemetryReporter(reporter, onError = null) {
+  if (!reporter || typeof reporter.emit !== 'function') {
+    throw new TypeError('[events] reporter must expose emit(eventId, state, details)');
+  }
+  return Object.freeze({
+    emit(eventId, state, details) {
+      try { return Boolean(reporter.emit(eventId, state, details)); }
+      catch (error) {
+        safeSinkError(onError, error, { eventId });
+        return false;
+      }
+    },
+    sessionId: reporter.sessionId,
+    versions: reporter.versions,
+    eventIds: reporter.eventIds,
+  });
+}
+
 function publicPayload(details) {
   const payload = {};
   for (const [key, value] of Object.entries(details)) {

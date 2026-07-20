@@ -8,6 +8,7 @@ import {
 } from './engine-core/public.js';
 import { damageEnemy, enemyGameplayXY, ensureEnemyIdentity } from './enemies.js';
 import { findTarget } from './units.js';
+import { activeEnemyById, listEnemyViews } from './systems/combat/index.js';
 import {
   createSkillStatusSystem,
   skillStatusStateFor,
@@ -32,22 +33,37 @@ function cueQueueFor(state) {
 
 function combatPort(state) {
   return {
-    listEnemies: (world) => [...world.enemies],
-    findTarget: (world, { x, y, rangeCells, cellXY }) => {
+    listEnemyViews: (world) => listEnemyViews(world),
+    findTargetView: (world, { x, y, rangeCells, cellXY }) => {
       const target = findTarget(world, x, y, rangeCells, cellXY);
-      return target ? { enemy: target.e, ...target } : null;
+      if (!target) return null;
+      return {
+        enemyId: ensureEnemyIdentity(state, target.e),
+        type: target.e.type,
+        wave: target.e.wave,
+        lane: target.e.lane ?? 0,
+        progress: target.e.p,
+        hp: target.e.hp,
+        maxHp: target.e.maxHp,
+        x: target.x,
+        y: target.y,
+      };
     },
-    positionOf: (world, enemy, cellXY) => enemyGameplayXY(world, enemy, cellXY),
-    damage: (world, enemy, amount, metadata) => damageEnemy(
+    positionOf: (world, targetId, cellXY) => {
+      const enemy = activeEnemyById(world, targetId);
+      return enemy ? enemyGameplayXY(world, enemy, cellXY) : { x: 0, y: 0 };
+    },
+    damageById: (world, targetId, amount, metadata) => {
+      const enemy = activeEnemyById(world, targetId);
+      if (!enemy) return { ok: false, reason: 'enemy-not-active' };
+      return damageEnemy(
       world,
       enemy,
       amount,
       metadata.cellXY,
       { attackerId: metadata.source, attackKind: metadata.attackKind },
-    ),
-    idOf(enemy) { return ensureEnemyIdentity(state, enemy); },
-    laneOf: (enemy) => enemy.lane ?? 0,
-    progressOf: (enemy) => enemy.p,
+      );
+    },
   };
 }
 
@@ -71,13 +87,6 @@ function flushPresentation(state) {
   return cues;
 }
 
-function syncLegacyStunMirror(state, system, skillState) {
-  for (const enemy of state.enemies) {
-    const id = ensureEnemyIdentity(state, enemy);
-    enemy.stun = Math.max(enemy.stun ?? 0, system.statusRemaining(skillState, id, 'stun', state.time));
-  }
-}
-
 export function updateHeroes(state, dt, cellXY) {
   const gamePack = packFor(state);
   for (const enemy of state.enemies) ensureEnemyIdentity(state, enemy);
@@ -94,7 +103,6 @@ export function updateHeroes(state, dt, cellXY) {
     time: state.time,
     tick: tickFor(state),
   });
-  syncLegacyStunMirror(state, system, skillState);
   pumpSystemDomainEvents(state, gamePack);
   flushPresentation(state);
   return result;

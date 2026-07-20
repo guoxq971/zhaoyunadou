@@ -2,13 +2,10 @@ export const SKILL_COMBAT_PORT_API_VERSION = '1.0.0';
 
 // Combat 仅暴露窄查询/结算端口；Skill 不持有敌人对象，也不读取 Combat 内部状态。
 export const SKILL_COMBAT_PORT_METHODS = Object.freeze([
-  'listEnemies',
-  'findTarget',
+  'listEnemyViews',
+  'findTargetView',
   'positionOf',
-  'damage',
-  'idOf',
-  'laneOf',
-  'progressOf',
+  'damageById',
 ]);
 
 export function assertSkillCombatPort(combat) {

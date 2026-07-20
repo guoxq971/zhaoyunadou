@@ -79,4 +79,17 @@ export function createSemanticLayout(config, { rects = DEFAULT_UI_RECTS } = {}) 
   });
 }
 
+const gamePackLayouts = new WeakMap();
+
+// Game Pack 是稳定对象；按包缓存同一份语义布局，避免每帧为 Renderer 分配热区对象。
+export function layoutForGamePack(gamePack) {
+  if (!gamePack || typeof gamePack !== 'object') {
+    throw new TypeError('[ui-layout] gamePack is required');
+  }
+  if (!gamePackLayouts.has(gamePack)) {
+    gamePackLayouts.set(gamePack, createSemanticLayout(gamePack.config));
+  }
+  return gamePackLayouts.get(gamePack);
+}
+
 export { DEFAULT_UI_RECTS };

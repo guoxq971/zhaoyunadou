@@ -3,6 +3,8 @@ import { getStateSlice } from '../../engine-core/public.js';
 export const PIECE_MODEL_API_VERSION = '1.0.0';
 const fallbackSequences = new WeakMap();
 
+export const createPieceStateSlice = () => ({ nextSequence: 0 });
+
 function pieceStateFor(state) {
   try { return getStateSlice(state, 'pieces'); }
   catch {
@@ -15,6 +17,10 @@ function nextPieceId(state) {
   const pieceState = pieceStateFor(state);
   pieceState.nextSequence++;
   return `piece-${pieceState.nextSequence}`;
+}
+
+export function snapshotPieceRuntimeState(state) {
+  return { nextSequence: pieceStateFor(state).nextSequence };
 }
 
 export const isMovablePiece = (piece) => piece?.kind === 'troop' || piece?.kind === 'frag';
@@ -30,6 +36,25 @@ export function legacyPieceSignature(piece) {
 export function pieceSignature(piece) {
   if (!piece?.pieceId) return legacyPieceSignature(piece);
   return `piece:${piece.pieceId}:${piece.revision ?? 0}`;
+}
+
+// 跨系统查询只返回不可变数据；修改弈子必须继续走 Piece 公共操作。
+export function readPiece(piece) {
+  if (!piece) return null;
+  const location = piece.location ? Object.freeze({ ...piece.location }) : piece.location ?? null;
+  return Object.freeze({
+    pieceId: piece.pieceId ?? null,
+    revision: piece.revision ?? 0,
+    location,
+    lifecycle: piece.lifecycle ?? 'active',
+    kind: piece.kind,
+    type: piece.type ?? null,
+    char: piece.char ?? null,
+    key: piece.key ?? null,
+    part: piece.part ?? null,
+    level: piece.level ?? 1,
+    cooldown: Number.isFinite(piece.cd) ? piece.cd : null,
+  });
 }
 
 export function matchesPieceExpectation(piece, expected) {
@@ -59,7 +84,6 @@ export function touchPiece(piece) {
 
 export function upgradePiece(piece) {
   piece.level = (piece.level ?? 1) + 1;
-  piece.flash = 0.2;
   return touchPiece(piece);
 }
 

@@ -2,8 +2,13 @@ export const SKILL_STATUS_API_VERSION = '1.0.0';
 
 export {
   createSkillStatusState,
+  createSkillStatusRuntimeStateSlice,
+  createSkillStatusStateSlice,
+  consumeStatusTickForState,
   nextSkillEntityId,
+  registerUnlockedHero,
   skillStatusStateFor,
+  statusRemainingForState,
   snapshotSkillStatus,
 } from './state.js';
 export {

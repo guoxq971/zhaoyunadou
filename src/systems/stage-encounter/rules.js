@@ -34,13 +34,19 @@ export function createEnemySpawnDefinition({
   laneCount,
   spawnedAt,
   enemyId,
+  allowZeroWave = false,
 }) {
   const enemy = gamePack?.config?.enemy;
   if (!enemy) throw new TypeError('[stage-encounter] gamePack.config.enemy is required');
   if (!stage || typeof stage !== 'object') throw new TypeError('[stage-encounter] stage is required');
   const typeConfig = enemy.types?.[type];
   if (!typeConfig) throw new RangeError(`[stage-encounter] unknown enemy type "${type}"`);
-  const safeWave = requirePositiveInteger(wave, 'wave');
+  const numericWave = Number(wave);
+  // 仅供根级旧 spawnEnemy 门面兼容标题态/开波前的 wave=0 调用；
+  // Encounter 正式出兵不传该选项，继续要求正整数波次。
+  const safeWave = allowZeroWave && numericWave === 0
+    ? 0
+    : requirePositiveInteger(wave, 'wave');
   const safeIndex = Number(index);
   if (!Number.isInteger(safeIndex) || safeIndex < 0) {
     throw new TypeError('[stage-encounter] index must be a non-negative integer');

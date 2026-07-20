@@ -1,5 +1,5 @@
 import { font, presentationTokens, themeColors } from '../render-theme.js';
-import { B, cellXY } from '../ui-layout.js';
+import { layoutForGamePack } from '../systems/ui-interaction/index.js';
 
 function arrowHead(ctx, from, to, color, size = 6, alpha = 0.9) {
   const angle = Math.atan2(to.y - from.y, to.x - from.x);
@@ -20,10 +20,10 @@ function arrowHead(ctx, from, to, color, size = 6, alpha = 0.9) {
   ctx.restore();
 }
 
-function marker(ctx, point, label, color, align, radius, paper) {
+function marker(ctx, point, label, color, align, radius, paper, board, gamePack) {
   const offset = radius + 3;
   const x = point.x + (align === 'right' ? offset : -offset);
-  const y = point.y + (point.y < B.oy + B.cellH ? offset : -offset);
+  const y = point.y + (point.y < board.oy + board.cellH ? offset : -offset);
   ctx.save();
   ctx.shadowColor = 'rgba(255,248,226,0.9)';
   ctx.shadowBlur = 3;
@@ -35,7 +35,7 @@ function marker(ctx, point, label, color, align, radius, paper) {
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = color;
-  ctx.font = font(Math.max(11, radius));
+  ctx.font = font(Math.max(11, radius), true, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(label, x, y + 0.5);
@@ -44,6 +44,7 @@ function marker(ctx, point, label, color, align, radius, paper) {
 
 // 路线只消费关卡展开后的 state.paths；renderer 不保存坐标副本。
 export function drawRouteOverlay(ctx, state, gamePack) {
+  const { board: B, cellXY } = layoutForGamePack(gamePack);
   const paths = Array.isArray(state.paths) && state.paths.length ? state.paths : [state.path];
   const colors = themeColors(gamePack);
   const route = presentationTokens(gamePack).route;
@@ -83,8 +84,8 @@ export function drawRouteOverlay(ctx, state, gamePack) {
         arrowHead(ctx, current, next, arrowColor, route.arrowSize, route.arrowAlpha);
       }
     }
-    marker(ctx, points[0], '入', arrowColor, path[0].c > B.cols / 2 ? 'left' : 'right', route.markerRadius, colors.paperRaised);
-    marker(ctx, points.at(-1), '守', arrowColor, path.at(-1).c > B.cols / 2 ? 'left' : 'right', route.markerRadius, colors.paperRaised);
+    marker(ctx, points[0], '入', arrowColor, path[0].c > B.cols / 2 ? 'left' : 'right', route.markerRadius, colors.paperRaised, B, gamePack);
+    marker(ctx, points.at(-1), '守', arrowColor, path.at(-1).c > B.cols / 2 ? 'left' : 'right', route.markerRadius, colors.paperRaised, B, gamePack);
   });
   ctx.restore();
 }

@@ -61,11 +61,29 @@ function finishStage(state) {
   unlockHero(state, hero);
   state.title = false;
   state.phaseT = 0;
+  let ticks = 0;
   for (let elapsed = 0; elapsed < 300 && !state.over; elapsed += 0.025) {
     advanceBattle(state, 0.025, cellXY);
+    ticks++;
     if (state.phase === 'break' && state.phaseT !== null) state.phaseT = 0;
   }
+  return {
+    ticks,
+    time: state.time,
+    lives: state.lives,
+    kills: state.stats.kills,
+    mantou: state.mantou,
+    casts: state.stats.heroCasts,
+  };
 }
+
+const CANDIDATE_STAGE_RESULTS = Object.freeze([
+  { ticks: 3016, time: 75.40000000000002, lives: 6, kills: 45, mantou: 175, casts: 5 },
+  { ticks: 3641, time: 91.02500000000357, lives: 6, kills: 45, mantou: 175, casts: 7 },
+  { ticks: 4755, time: 118.8750000000099, lives: 5, kills: 44, mantou: 172, casts: 8 },
+  { ticks: 2750, time: 68.74999999999851, lives: 6, kills: 45, mantou: 175, casts: 4 },
+  { ticks: 4823, time: 120.57500000001029, lives: 5, kills: 44, mantou: 172, casts: 8 },
+]);
 
 assert.equal(CONFIG.campaign.stages.length, 5, '军士一应有 5 个星级关卡');
 assert.deepEqual(CONFIG.campaign.stages.map((stage) => stage.star), [1, 2, 3, 4, 5]);
@@ -181,13 +199,15 @@ for (let stageIndex = 0; stageIndex < 5; stageIndex++) {
   for (let stageIndex = 0; stageIndex < 5; stageIndex++) {
     const clearedStars = loadProgress(storage);
     const state = createGame(stageIndex, clearedStars);
-    finishStage(state);
+    const deterministicResult = finishStage(state);
     assert.equal(state.over, true);
     assert.equal(state.win, true, `起始编队应通过第 ${stageIndex + 1} 关`);
     assert.equal(state.wave, state.waveTarget);
     assert.ok(state.lives > 0, `第 ${stageIndex + 1} 关结算时阿斗必须存活`);
     assert.equal(state.lastHeroUnlocked, state.stage.featuredHero);
     assert.ok(state.stats.heroCasts > 0, `第 ${stageIndex + 1} 关代表英雄必须真实释放过技能`);
+    assert.deepEqual(deterministicResult, CANDIDATE_STAGE_RESULTS[stageIndex],
+      `第 ${stageIndex + 1} 关固定 seed/tick 结果必须与候选基座逐项一致`);
     assert.equal(settleResult(state, storage), stageIndex + 1);
 
     const action = resultAction(state);

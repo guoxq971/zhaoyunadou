@@ -1,8 +1,10 @@
 // node test/logic-test.mjs —— 纯逻辑断言(无 DOM)
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
+import { DEFAULT_GAME_PACK } from '../src/game-pack.js';
 import { recruitCost, rollGacha, canMerge, troopDmg, detectHero, unlockHero, useBrush, useShovel } from '../src/logic.js';
 import { buildMap } from '../src/map.js';
+import { createGame } from '../src/state.js';
 
 let n = 0;
 const ok = (name, fn) => { fn(); console.log(`✓ ${++n} ${name}`); };
@@ -106,6 +108,28 @@ ok('毛笔:普通单位改写成本关缺少的英雄字并消耗一次', () => 
   assert.equal(state.brushes, 0);
   assert.equal(state.stats.brushUses, 1);
   assert.equal(useBrush(state, 4, 3), false, '次数耗尽后不可重复改字');
+});
+
+ok('毛笔兼容门面使用状态绑定的自定义 Game Pack', () => {
+  const customPack = {
+    ...DEFAULT_GAME_PACK,
+    config: {
+      ...DEFAULT_GAME_PACK.config,
+      heroes: {
+        ...DEFAULT_GAME_PACK.config.heroes,
+        zhaoyun: {
+          ...DEFAULT_GAME_PACK.config.heroes.zhaoyun,
+          chars: ['甲', '乙'],
+        },
+      },
+    },
+  };
+  const state = createGame(0, 0, customPack);
+  state.grid[4][2].unit = { kind: 'troop', type: 'dao', level: 1 };
+  state.grid[4][3].unit = { kind: 'frag', char: '乙', level: 1 };
+  const result = useBrush(state, 4, 2);
+  assert.equal(result.char, '甲');
+  assert.equal(result.hero.key, 'zhaoyun');
 });
 
 ok('地图:路径连通(相邻格曼哈顿距离=1)且终点是营门', () => {

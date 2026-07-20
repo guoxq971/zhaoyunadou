@@ -7,6 +7,7 @@ import {
   createInteractionState,
   createLocalInputBinding,
   createSemanticLayout,
+  layoutForGamePack,
   recordCommandResult,
   resetInteractionState,
 } from '../src/systems/ui-interaction/index.js';
@@ -22,6 +23,8 @@ assert.equal(layout.boardCell(layout.board.ox - 0.01, layout.board.oy), null);
 assert.deepEqual(layout.benchRect(4), { x: 286, y: 542, w: 48, h: 48 });
 assert.ok(Object.isFrozen(layout));
 assert.ok(Object.isFrozen(layout.ui));
+assert.equal(layoutForGamePack(DEFAULT_GAME_PACK), layoutForGamePack(DEFAULT_GAME_PACK),
+  '同一 Game Pack 必须复用语义布局，避免每帧重复分配');
 
 const interaction = createInteractionState({ mode: 'brush' });
 assert.equal(interaction.mode, 'brush');
@@ -76,6 +79,12 @@ assert.deepEqual(interactionHandlers['item.select_mode']({
 }), { ok: false, reason: 'tool-unavailable' });
 assert.deepEqual(invalidResults, [{ type: 'item.select_mode', reason: 'tool-unavailable' }]);
 
+const trackedPiece = { kind: 'troop', type: 'dao', level: 1 };
+Object.defineProperties(trackedPiece, {
+  pieceId: { value: 'piece-view-model', writable: true },
+  revision: { value: 3, writable: true },
+  location: { value: { zone: 'bench', index: 0 }, writable: true },
+});
 const sourceState = {
   title: false,
   over: false,
@@ -85,7 +94,7 @@ const sourceState = {
   phase: 'break',
   stageIndex: 2,
   grid: [[{ type: 'open', unit: null }]],
-  bench: [null, null],
+  bench: [trackedPiece, null],
 };
 const viewModel = createGameViewModel(sourceState, interaction, {
   stageCount: 5,
@@ -101,6 +110,7 @@ assert.deepEqual({
   phase: viewModel.phase,
   stageIndex: viewModel.stageIndex,
   stageCount: viewModel.stageCount,
+  highestUnlockedStageIndex: viewModel.highestUnlockedStageIndex,
   benchSize: viewModel.benchSize,
 }, {
   screen: 'battle',
@@ -112,6 +122,7 @@ assert.deepEqual({
   phase: 'break',
   stageIndex: 2,
   stageCount: 5,
+  highestUnlockedStageIndex: 0,
   benchSize: 2,
 });
 assert.deepEqual({
@@ -122,8 +133,22 @@ assert.deepEqual({
 }, { item: null, mode: null, source: null, expectedSource: null });
 assert.ok(Object.isFrozen(viewModel));
 assert.ok(Object.isFrozen(viewModel.interaction));
+assert.ok(Object.isFrozen(viewModel.grid));
+assert.ok(Object.isFrozen(viewModel.grid[0]));
+assert.ok(Object.isFrozen(viewModel.grid[0][0]));
+assert.deepEqual({
+  pieceId: viewModel.bench[0].pieceId,
+  revision: viewModel.bench[0].revision,
+  location: viewModel.bench[0].location,
+}, {
+  pieceId: 'piece-view-model',
+  revision: 3,
+  location: { zone: 'bench', index: 0 },
+}, 'ViewModel 必须保留 Piece 的非枚举稳定身份与 revision/location');
 assert.throws(() => { viewModel.speed = 2; }, TypeError);
+assert.throws(() => { viewModel.grid[0][0].type = 'corrupted'; }, TypeError);
 assert.equal(sourceState.speed, 1, 'ViewModel 不得提供玩法状态写入口');
+assert.equal(sourceState.grid[0][0].type, 'open', 'ViewModel 嵌套对象不得反向修改玩法状态');
 
 let listener = null;
 const inputSource = {
@@ -194,6 +219,10 @@ assert.doesNotThrow(() => JSON.stringify(submitted), '输入映射结果必须�
 interaction.item = { kind: 'troop', type: 'dao', level: 1 };
 interaction.source = { zone: 'bench', index: 0 };
 interaction.expectedSource = 'troop:dao:1';
+const commandsBeforeBlockedRecruit = submitted.length;
+assert.equal(listener({ type: 'key-down', code: 'KeyR' }), false);
+assert.equal(submitted.length, commandsBeforeBlockedRecruit,
+  '拖拽期的征兵快捷键由 UI 拦截，不把本地状态泄漏给玩法规则');
 assert.equal(listener({ type: 'key-down', code: 'Enter' }), true);
 assert.deepEqual(submitted.at(-1), {
   type: 'unit.drop',

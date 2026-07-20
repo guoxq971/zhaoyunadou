@@ -281,6 +281,12 @@ assert.deepEqual(
     ok: false, reason: 'invalid-speed',
   });
   assert.deepEqual(invalidTrace, ['invalid-speed']);
+  Object.assign(mode.state, { over: true, win: false });
+  assert.deepEqual(handlers['session.quit'](command('session.quit', { reason: 'result-close' })), {
+    ok: true, reason: 'none', title: true,
+  });
+  assert.equal(mode.state.title, true,
+    '结算态退出必须真实回到标题页，不得只返回伪成功');
 }
 
 assert.equal('ScriptedBotController' in matchModePublic, false);

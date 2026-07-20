@@ -17,3 +17,8 @@ export {
 } from './envelope.js';
 export { normalizeProfileProgress, progressAfterMatch } from './profile-progress.js';
 export { createProgressSave } from './repository.js';
+export {
+  applyLoadedProfileProgress,
+  applySettledProfileProgress,
+  createProgressStateSlice,
+} from './state.js';

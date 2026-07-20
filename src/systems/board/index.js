@@ -1,9 +1,11 @@
 import {
   isMovablePiece,
   matchesPieceExpectation,
+  readPiece,
   retirePiece,
   setPieceLocation,
 } from '../piece/index.js';
+import { getStateSlice } from '../../engine-core/public.js';
 
 export const BOARD_API_VERSION = '1.0.0';
 
@@ -57,11 +59,38 @@ export function buildBoard(gamePack, mapId) {
   return { grid, paths, path: paths[Math.max(0, legacyLane)] };
 }
 
+export function createBoardStateSlice(gamePack, mapId) {
+  return {
+    ...buildBoard(gamePack, mapId),
+    stats: { moves: 0, swaps: 0 },
+  };
+}
+
 export const cellAt = (grid, row, column) => (
   row >= 0 && row < grid.length && column >= 0 && column < grid[0].length
     ? grid[row][column]
     : null
 );
+
+export function boardPieceAt(state, row, column) {
+  return cellAt(state.grid, row, column)?.unit ?? null;
+}
+
+export function boardCellType(state, row, column) {
+  return cellAt(state.grid, row, column)?.type ?? null;
+}
+
+export function listBoardOccupants(state, { kind = null } = {}) {
+  const occupants = [];
+  for (let row = 0; row < state.grid.length; row++) {
+    for (let column = 0; column < state.grid[row].length; column++) {
+      const piece = state.grid[row][column].unit;
+      if (!piece || (kind !== null && piece.kind !== kind)) continue;
+      occupants.push(Object.freeze({ row, column, piece: readPiece(piece) }));
+    }
+  }
+  return Object.freeze(occupants);
+}
 
 export function routeForEntity(state, entity) {
   const routes = Array.isArray(state.paths) && state.paths.length > 0
@@ -104,12 +133,7 @@ export function openLockedCell(state, row, column, tick = 0) {
   };
 }
 
-function resolveLocation(state, location) {
-  if (location?.zone === 'bench') {
-    const index = Number(location.index);
-    if (!Number.isInteger(index) || index < 0 || index >= state.bench.length) return null;
-    return { zone: 'bench', index, get: () => state.bench[index], set: (value) => { state.bench[index] = value; } };
-  }
+function resolveLocation(state, location, resolveExternalLocation) {
   if (location?.zone === 'grid') {
     const r = Number(location.r);
     const c = Number(location.c);
@@ -117,7 +141,12 @@ function resolveLocation(state, location) {
     if (!cell) return null;
     return { zone: 'grid', r, c, cell, get: () => cell.unit, set: (value) => { cell.unit = value; } };
   }
-  return null;
+  const external = resolveExternalLocation?.(location) ?? null;
+  if (!external) return null;
+  if (typeof external.get !== 'function' || typeof external.set !== 'function') {
+    throw new TypeError('[board] external location must expose get/set functions');
+  }
+  return external;
 }
 
 const sameLocation = (source, target) => source.zone === target.zone && (
@@ -127,14 +156,17 @@ const sameLocation = (source, target) => source.zone === target.zone && (
 );
 const failure = (reason) => ({ ok: false, reason });
 
-export function inspectTransfer(state, command, { canCombine = () => false } = {}) {
-  const source = resolveLocation(state, command?.source);
+export function inspectTransfer(state, command, {
+  canCombine = () => false,
+  resolveExternalLocation = null,
+} = {}) {
+  const source = resolveLocation(state, command?.source, resolveExternalLocation);
   if (!source) return failure('invalid-source');
   const sourceItem = source.get();
   if (!sourceItem) return failure('source-empty');
   if (!isMovablePiece(sourceItem)) return failure('source-not-movable');
   if (!matchesPieceExpectation(sourceItem, command.expectedSource)) return failure('source-changed');
-  const target = resolveLocation(state, command?.target);
+  const target = resolveLocation(state, command?.target, resolveExternalLocation);
   if (!target) return failure('invalid-target');
   if (sameLocation(source, target)) return failure('same-location');
   if (source.zone === 'grid' && source.cell.type !== 'open') return failure('source-not-open');
@@ -180,8 +212,56 @@ export function classifyTransfer(state, command, options) {
   return plan.ok ? { ok: true, reason: 'none', action: plan.action } : plan;
 }
 
-export function itemAtLocation(state, location) {
-  return resolveLocation(state, location)?.get() ?? null;
+export function itemAtLocation(state, location, { resolveExternalLocation = null } = {}) {
+  return resolveLocation(state, location, resolveExternalLocation)?.get() ?? null;
+}
+
+// Board 拥有格子占用；多格替换先完整校验，再一次提交。
+export function replaceBoardOccupants(state, replacements) {
+  if (!Array.isArray(replacements) || replacements.length === 0) {
+    return failure('invalid-replacements');
+  }
+  const seen = new Set();
+  const plan = [];
+  for (const replacement of replacements) {
+    const r = Number(replacement?.r);
+    const c = Number(replacement?.c);
+    const key = `${r}:${c}`;
+    const cell = Number.isInteger(r) && Number.isInteger(c) ? state.grid[r]?.[c] : null;
+    if (!cell) return failure('invalid-target');
+    if (seen.has(key)) return failure('duplicate-target');
+    if (Object.hasOwn(replacement, 'expected') && cell.unit !== replacement.expected) {
+      return failure('source-changed');
+    }
+    seen.add(key);
+    plan.push({ cell, next: replacement.next ?? null });
+  }
+  for (const { cell, next } of plan) cell.unit = next;
+  return { ok: true, reason: 'none', count: plan.length };
+}
+
+export function restoreBoardPiece(state, location, piece) {
+  const r = Number(location?.r);
+  const c = Number(location?.c);
+  const cell = Number.isInteger(r) && Number.isInteger(c) ? state.grid[r]?.[c] : null;
+  if (!cell) return failure('invalid-target');
+  if (cell.unit) return failure('target-occupied');
+  cell.unit = piece;
+  return { ok: true, reason: 'none', destination: 'board', r, c };
+}
+
+function boardStateFor(state) {
+  try { return getStateSlice(state, 'board'); }
+  catch { return state; }
+}
+
+export function recordBoardTransfer(state, action) {
+  if (!['move', 'swap'].includes(action)) return { ok: false, reason: 'unknown-transfer-action' };
+  const board = boardStateFor(state);
+  board.stats ??= {};
+  const key = action === 'move' ? 'moves' : 'swaps';
+  board.stats[key] = (board.stats[key] ?? 0) + 1;
+  return { ok: true, reason: 'none', action, count: board.stats[key] };
 }
 
 export function transferDomainEvent(plan, tick) {
@@ -193,6 +273,8 @@ export function transferDomainEvent(plan, tick) {
     payload: {
       pieceId: plan.sourceItem.pieceId,
       otherPieceId: plan.targetItem?.pieceId ?? null,
+      itemKind: plan.sourceItem.kind,
+      itemId: plan.sourceItem.type ?? plan.sourceItem.char,
       source: publicLocation(plan.source),
       target: publicLocation(plan.target),
     },

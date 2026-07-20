@@ -1,4 +1,8 @@
 export const MATCH_MODE_API_VERSION = '1.0.0';
+import {
+  advanceSimulationTime,
+  setSimulationTime,
+} from '../../engine-core/public.js';
 export const FIXED_ROUTE_CAMPAIGN_MODE_ID = 'fixed-route-campaign';
 export const LOCAL_PLAYER_ACTOR = Object.freeze({ actorId: 'local-player', side: 'player' });
 
@@ -48,6 +52,20 @@ function normalizeStageIndex(value, stageCount) {
   return Math.min(stageCount - 1, Math.max(0, Math.floor(parsed)));
 }
 
+export function createFixedRouteMatchStateSlice({ stageIndex = 0, gamePack } = {}) {
+  const stageCount = stageCountFor(gamePack);
+  const selectedIndex = normalizeStageIndex(stageIndex, stageCount);
+  return {
+    title: true,
+    resetConfirmUntil: 0,
+    resetResult: 'idle',
+    stageIndex: selectedIndex,
+    stage: gamePack.config.campaign.stages[selectedIndex],
+    over: false,
+    win: false,
+  };
+}
+
 function tickFrom(value) {
   const tick = Number(value);
   return Number.isInteger(tick) && tick >= 0 ? tick : 0;
@@ -62,6 +80,10 @@ function resultAction(state, stageCount) {
     return Object.freeze({ kind: 'next', stageIndex: stageIndex + 1 });
   }
   return Object.freeze({ kind: 'complete', stageIndex });
+}
+
+export function fixedRouteResultAction(state, gamePack) {
+  return resultAction(state, stageCountFor(gamePack));
 }
 
 export function authorizeFixedRouteCampaignCommand(command) {
@@ -210,7 +232,7 @@ export function createFixedRouteCampaignMode({
     }
     const titleTime = state.time;
     replaceState(index, state.clearedStars);
-    state.time = titleTime;
+    setSimulationTime(state, titleTime);
     onInteractionReset();
     return true;
   }
@@ -244,7 +266,7 @@ export function createFixedRouteCampaignMode({
   }
 
   function abandon(reason = 'player-quit') {
-    if (state.title || state.over) return false;
+    if (state.title) return false;
     publish('match.quit_requested', { stageIndex: state.stageIndex, reason });
     publish('match.ended', {
       result: 'abandoned',
@@ -261,7 +283,7 @@ export function createFixedRouteCampaignMode({
   }
 
   function resolveResult() {
-    const action = resultAction(state, stageCount);
+    const action = fixedRouteResultAction(state, gamePack);
     if (action.kind === 'replay') {
       publish('match.retry_requested', { stageIndex: state.stageIndex, reason: 'stage-defeat' });
     }
@@ -286,7 +308,7 @@ export function createFixedRouteCampaignMode({
       if (!Number.isFinite(delta) || delta <= 0) return { advanced: false, reason: 'non-positive-delta' };
       // 标题页只推进确定性 UI 时间；结算页与候选基座一致保持冻结。
       if (state.title) {
-        state.time += delta;
+        advanceSimulationTime(state, delta);
         return { advanced: false, reason: 'title-time' };
       }
       if (state.over) return { advanced: false, reason: 'match-ended' };

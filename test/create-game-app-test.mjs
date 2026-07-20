@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createGameApp } from '../src/app-shell/create-game-app.js';
 import { DEFAULT_GAME_PACK } from '../src/game-pack.js';
+import { getStateSlice } from '../src/engine-core/public.js';
 import { ADAPTER_API_VERSION } from '../src/platform-contracts/host.js';
 import { UI } from '../src/ui-layout.js';
 
@@ -16,6 +17,7 @@ function fakeHost({ throwingAdapters = false, audioState = 'supported', faultAt 
   };
   let inputListener = null;
   let lifecycleListener = null;
+  let debugHandles = null;
   const values = new Map([['zyad_cleared_stars', '3']]);
   const canvas = { dataset: {} };
   const host = {
@@ -60,6 +62,7 @@ function fakeHost({ throwingAdapters = false, audioState = 'supported', faultAt 
     },
     input: {
       subscribe(listener) {
+        if (faultAt === 'input') throw new Error('input boom');
         counters.input++;
         inputListener = listener;
         return () => { counters.input--; inputListener = null; };
@@ -95,15 +98,17 @@ function fakeHost({ throwingAdapters = false, audioState = 'supported', faultAt 
     debug: {
       expose(handles) {
         if (faultAt === 'debug') throw new Error('debug boom');
+        debugHandles = handles;
         counters.debugHandles = Object.keys(handles).length;
       },
-      clear() { counters.debugHandles = 0; },
+      clear() { debugHandles = null; counters.debugHandles = 0; },
     },
     destroy() {},
     __test: {
       counters,
       emitInput(event) { inputListener?.(event); },
       emitLifecycle(event) { lifecycleListener?.(event); },
+      get handles() { return debugHandles; },
     },
   };
   return host;
@@ -114,8 +119,34 @@ for (let cycle = 0; cycle < 3; cycle++) {
   const app = createGameApp({ gamePack: DEFAULT_GAME_PACK, host, services: { randomSeed: 100 + cycle } });
   assert.equal(app.start(), true);
   assert.equal(app.start(), false, '同一应用不得重复启动循环或输入');
+    assert.equal(host.__test.handles.__commands.header.random.seed, String(100 + cycle),
+      '命令日志头必须记录可恢复的随机 seed/游标快照');
     assert.equal(app.getStateSnapshot().clearedStars, 3, '旧存档键必须继续读取');
     assert.equal('commandLog' in app.getStateSnapshot(), false, '命令日志不得进入玩法状态或旧存档');
+  if (cycle === 0) {
+    const liveState = host.__test.handles.__game.state;
+    const pieceId = liveState.bench[0].pieceId;
+    getStateSlice(liveState, 'combat').attackCooldowns[pieceId] = 1.25;
+    getStateSlice(liveState, 'skillStatus').nextEntitySequence = 4;
+    getStateSlice(liveState, 'encounter').nextEnemySequence = 3;
+    const legacyExpected = JSON.parse(JSON.stringify(liveState, (_key, value) => (
+      value instanceof Set ? [...value] : value
+    )));
+    const snapshot = app.getStateSnapshot();
+    const { runtimeSlices, ...legacyActual } = snapshot;
+    assert.deepEqual(legacyActual, legacyExpected,
+      'getStateSnapshot 必须与当前 flat V2 live facade 的可枚举字段一致');
+    assert.equal(snapshot.stage.id, liveState.stage.id);
+    assert.deepEqual(snapshot.path, liveState.path);
+    assert.deepEqual(snapshot.paths, liveState.paths);
+    assert.equal(runtimeSlices.commandState.bench[0].pieceId, pieceId,
+      'App MatchSnapshot 不得丢失 non-enumerable Piece 稳定身份');
+    assert.equal(runtimeSlices.commandState.combatRuntime.attackCooldowns[pieceId], 1.25,
+      'App MatchSnapshot 必须包含 WeakMap Combat 私有切片');
+    assert.equal(runtimeSlices.commandState.nextSkillEntitySequence, 4);
+    assert.equal(runtimeSlices.commandState.encounterRuntime.nextEnemySequence, 3);
+    assert.equal(Object.isFrozen(snapshot.bench[0]), true, '受控快照必须与在线状态隔离');
+  }
   assert.deepEqual(
     { input: host.__test.counters.input, lifecycle: host.__test.counters.lifecycle, logic: host.__test.counters.logic, render: host.__test.counters.render },
     { input: 1, lifecycle: 1, logic: 1, render: 1 },
@@ -141,7 +172,7 @@ for (let cycle = 0; cycle < 3; cycle++) {
   assert.equal(host.__test.counters.audioDestroy, 1);
 }
 
-for (const faultAt of ['lifecycle', 'debug']) {
+for (const faultAt of ['input', 'lifecycle', 'debug']) {
   const host = fakeHost({ faultAt });
   const errors = [];
   const app = createGameApp({
@@ -168,6 +199,44 @@ for (const faultAt of ['lifecycle', 'debug']) {
   assert.doesNotThrow(() => host.__test.emitLifecycle({ type: 'background', reason: 'test' }));
   assert.doesNotThrow(() => host.__test.emitLifecycle({ type: 'foreground', reason: 'test' }));
   assert.doesNotThrow(() => app.destroy());
+}
+
+{
+  const host = fakeHost();
+  const errors = [];
+  const app = createGameApp({
+    gamePack: DEFAULT_GAME_PACK,
+    host,
+    services: {
+      randomSeed: 9,
+      events: { emit() { throw new Error('telemetry reporter down'); } },
+      onAdapterError: (error, source) => errors.push({ error, source }),
+    },
+  });
+  assert.equal(app.start(), true, 'Telemetry reporter 失败不得中断应用启动');
+  assert.doesNotThrow(() => app.destroy(), 'Telemetry reporter 失败不得中断会话收尾');
+  assert.ok(errors.some(({ source }) => source?.eventId === 'session_start'));
+  assert.ok(errors.some(({ source }) => source?.eventId === 'session_end'));
+}
+
+{
+  const host = fakeHost();
+  let completeAudioDestroy;
+  let audioReleased = false;
+  host.audio.destroy = () => new Promise((resolve) => {
+    completeAudioDestroy = () => {
+      audioReleased = true;
+      resolve();
+    };
+  });
+  const app = createGameApp({ gamePack: DEFAULT_GAME_PACK, host, services: { randomSeed: 10 } });
+  assert.equal(app.start(), true);
+  assert.equal(app.destroy(), true, '同步 destroy 布尔签名继续兼容');
+  assert.equal(audioReleased, false, '自定义 Host 可以异步释放原生音频');
+  const completion = app.whenDestroyed();
+  completeAudioDestroy();
+  assert.equal(await completion, true);
+  assert.equal(audioReleased, true, 'whenDestroyed 必须等到音频实例真正释放');
 }
 
 console.log('✓ createGameApp 启停、异常降级、旧存档与三次无泄漏销毁');

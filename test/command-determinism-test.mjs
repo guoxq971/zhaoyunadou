@@ -15,6 +15,8 @@ import {
   PLAYER_COMMAND_TYPES,
   createMergeDefenseCommandHandlers,
 } from '../src/rulesets/merge-defense/player-command-dispatcher.js';
+import { addGlobalModifier } from '../src/systems/attribute/index.js';
+import { ensurePieceIdentity } from '../src/systems/piece/index.js';
 
 assert.deepEqual([...PLAYER_COMMAND_TYPES].sort(), [
   'battle.batch_recruit', 'battle.retry', 'battle.set_paused', 'battle.set_speed', 'battle.start_wave',
@@ -65,6 +67,29 @@ assert.deepEqual(first, second, '相同初态、seed 与命令序列必须得到
 assert.deepEqual(first.rejected, { ok: false, reason: 'target-not-open' });
 assert.ok(first.entries.every(({ command, stateHash }) => JSON.stringify(command) && /^[0-9a-f]{8}$/.test(stateHash)));
 assert.notDeepEqual(first.final.bench, run('other-seed').final.bench, '不同 seed 可改变随机征兵结果');
+
+function recruitWithInteraction(interactionItem) {
+  const runtime = createGameRuntime(DEFAULT_GAME_PACK, {
+    random: createRandomStreams('interaction-independent-recruit'),
+    now: () => 0,
+  });
+  const game = createGameController(0, () => {}, () => true, DEFAULT_GAME_PACK, runtime);
+  game.startCurrentStage();
+  const drag = { item: interactionItem, mode: null };
+  const dispatcher = createCommandDispatcher({
+    handlers: createMergeDefenseCommandHandlers({ game, drag, gamePack: DEFAULT_GAME_PACK }),
+    getStateSummary: () => snapshotMergeDefenseCommandState(game.state),
+  });
+  const factory = createCommandFactory({ actorId: 'local-player', side: 'player', getTick: () => 1 });
+  const result = dispatcher.dispatch(factory.create('battle.batch_recruit'));
+  return { result, state: snapshotMergeDefenseCommandState(game.state) };
+}
+
+assert.deepEqual(
+  recruitWithInteraction({ kind: 'troop', type: 'dao', level: 1 }),
+  recruitWithInteraction(null),
+  '未进入玩法快照的 UI 拖拽态不得改变同一征兵 Command 结果',
+);
 
 {
   const collector = createLocalEventCollector();
@@ -137,6 +162,31 @@ assert.notDeepEqual(first.final.bench, run('other-seed').final.bench, '不同 se
   game.state.grid[4][2].unit.cd = 0;
   assert.notEqual(hashCommandState(snapshotMergeDefenseCommandState(game.state)), uninitializedCooldown,
     '农民冷却未初始化和立即产出的 0 必须是不同玩法状态');
+}
+
+{
+  const firstState = createGameController(0).state;
+  const secondState = createGameController(0).state;
+  ensurePieceIdentity(secondState, { kind: 'troop', type: 'dao', level: 1 });
+  assert.notEqual(
+    hashCommandState(snapshotMergeDefenseCommandState(firstState)),
+    hashCommandState(snapshotMergeDefenseCommandState(secondState)),
+    'Piece 下一个稳定 ID 序列必须进入状态 hash',
+  );
+  const firstNext = ensurePieceIdentity(firstState, { kind: 'troop', type: 'dao', level: 1 }).pieceId;
+  const secondNext = ensurePieceIdentity(secondState, { kind: 'troop', type: 'dao', level: 1 }).pieceId;
+  assert.notEqual(firstNext, secondNext, '不同 Piece 序列会改变后续实体身份');
+
+  const plain = createGameController(0).state;
+  const modified = createGameController(0).state;
+  addGlobalModifier(modified, {
+    id: 'test-damage', stat: 'damage', operation: 'multiply', value: 2, priority: 10,
+  });
+  assert.notEqual(
+    hashCommandState(snapshotMergeDefenseCommandState(plain)),
+    hashCommandState(snapshotMergeDefenseCommandState(modified)),
+    'Attribute Modifier 会改变后续伤害，必须进入状态 hash',
+  );
 }
 
 {

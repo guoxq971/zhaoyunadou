@@ -79,6 +79,11 @@ assert.throws(() => factory.create('bad command', {}), /type/);
 assert.throws(() => factory.create('battle.pause.toggle', { node: () => {} }), /serializable/);
 
 const gameplayState = { value: 0 };
+const callerHeader = { seed: 'replay-seed', cursor: { gameplay: 2 } };
+const isolatedHeaderLog = createCommandLog({ header: callerHeader });
+callerHeader.cursor.gameplay = 99;
+assert.deepEqual(isolatedHeaderLog.header, { seed: 'replay-seed', cursor: { gameplay: 2 } },
+  'CommandLog 必须在构造时隔离并冻结回放头，不能跟随调用方引用变化');
 const log = createCommandLog({ limit: 2 });
 const dispatcher = createCommandDispatcher({
   handlers: {
@@ -90,6 +95,52 @@ const dispatcher = createCommandDispatcher({
   getStateSummary: () => gameplayState,
   commandLog: log,
 });
+const polluted = {
+  ...factory.create('counter.add', { amount: 100 }),
+  hostObject: new Date(),
+};
+assert.throws(() => dispatcher.dispatch(polluted), /unexpected field|plain data|serializable/,
+  'Command envelope 必须在 handler 之前拒绝 DOM/Canvas/SDK 等额外平台对象');
+assert.equal(gameplayState.value, 0, '非法 Command 不得先改状态、后在日志阶段失败');
+
+const hiddenPolluted = { ...factory.create('counter.add', { amount: 100 }) };
+Object.defineProperty(hiddenPolluted, 'hostObject', {
+  value: new Date(),
+  enumerable: false,
+});
+assert.throws(() => dispatcher.dispatch(hiddenPolluted), /unexpected field|plain data|serializable/,
+  '不可枚举平台对象不能绕过 Command envelope 校验');
+assert.equal(gameplayState.value, 0, '隐藏字段非法 Command 不得调用 handler');
+
+const symbolPolluted = { ...factory.create('counter.add', { amount: 100 }) };
+symbolPolluted[Symbol('host-object')] = new Date();
+assert.throws(() => dispatcher.dispatch(symbolPolluted), /unexpected field|plain data|serializable/,
+  'Symbol 字段不能绕过 Command envelope 校验');
+assert.equal(gameplayState.value, 0, 'Symbol 字段非法 Command 不得调用 handler');
+
+let getterReads = 0;
+const accessorPayload = {};
+Object.defineProperty(accessorPayload, 'amount', {
+  enumerable: true,
+  get() { getterReads++; return 100; },
+});
+assert.throws(() => factory.create('counter.add', accessorPayload), /plain data|serializable|accessor/,
+  'payload accessor 必须在 clone/handler 前拒绝');
+assert.equal(getterReads, 0, '校验非法 accessor 时不得执行调用方 getter');
+
+const sparsePayload = [];
+sparsePayload.length = 2;
+sparsePayload[1] = 'unit';
+assert.throws(() => factory.create('unit.drop', { path: sparsePayload }), /serializable|sparse/,
+  '稀疏数组不能在 JSON clone 时静默变成 null');
+const prototypeKeys = JSON.parse('{"__proto__":{"platform":"wx"},"constructor":"data","prototype":"value"}');
+const prototypeSafe = factory.create('counter.add', prototypeKeys);
+assert.equal(Object.getPrototypeOf(prototypeSafe.payload), Object.prototype);
+assert.equal(Object.hasOwn(prototypeSafe.payload, '__proto__'), true,
+  '合法 JSON 键 __proto__ 必须保持为 own data property，不能污染克隆原型');
+assert.deepEqual(prototypeSafe.payload.__proto__, { platform: 'wx' });
+assert.equal(prototypeSafe.payload.constructor, 'data');
+assert.equal(prototypeSafe.payload.prototype, 'value');
 tick++;
 time += 0.5;
 assert.equal(dispatcher.dispatch(factory.create('counter.add', { amount: 2 })).value, 2);

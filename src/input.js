@@ -1,17 +1,18 @@
 // 兼容装配：Host 标准输入 → UI intent binding → LocalPlayerController → GameCommand。
-import { createLocalPlayerController } from './controllers/local-player-controller.js';
 import {
   createCommandDispatcher,
   createCommandLog,
   publishDomainEventFor,
+  runtimeFor,
 } from './engine-core/public.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { createLocalCommandFeedback } from './presentation-pack/local-command-feedback.js';
 import { snapshotMergeDefenseCommandState } from './rulesets/merge-defense/command-state.js';
 import {
   createMergeDefenseCommandHandlers,
   createMergeDefenseInputQueries,
 } from './rulesets/merge-defense/player-command-dispatcher.js';
+import { createLocalPlayerController } from './systems/match-mode/index.js';
+import { createLocalCommandFeedback } from './systems/skin-presentation/index.js';
 import {
   createGameViewModel,
   createLocalInputBinding,
@@ -30,25 +31,27 @@ export function createLocalGameControl({
   gamePack = DEFAULT_GAME_PACK,
   audioEngine = NOOP_AUDIO,
   getTick = () => 0,
-  commandLog = createCommandLog({
-    limit: 256,
-    header: {
-      gameVersion: gamePack.versions.gameVersion,
-      rulesetVersion: gamePack.versions.rulesetVersion,
-      contentVersion: gamePack.versions.contentVersion,
-    },
-  }),
+  commandLog = null,
   inputQueries,
   presentCommand,
   onCommandError,
 } = {}) {
   resetInteractionState(drag);
+  const activeCommandLog = commandLog ?? createCommandLog({
+    limit: 256,
+    header: {
+      gameVersion: gamePack.versions.gameVersion,
+      rulesetVersion: gamePack.versions.rulesetVersion,
+      contentVersion: gamePack.versions.contentVersion,
+      random: runtimeFor(game.state)?.random?.snapshot?.() ?? null,
+    },
+  });
   const layout = createSemanticLayout(gamePack.config);
   const handlers = createMergeDefenseCommandHandlers({ game, drag, gamePack });
   const dispatcher = createCommandDispatcher({
     handlers,
     authorize: game.authorize,
-    commandLog,
+    commandLog: activeCommandLog,
     getStateSummary: () => snapshotMergeDefenseCommandState(game.state),
     onRejected(command, result) {
       publishDomainEventFor(game.state, {
@@ -83,6 +86,7 @@ export function createLocalGameControl({
     getViewModel: () => createGameViewModel(game.state, drag, {
       stageCount: gamePack.config.campaign.stages.length,
       benchSize: gamePack.config.benchSize,
+      highestUnlockedStageIndex: game.highestUnlockedStageIndex,
     }),
     submit: controller.submit,
     queries: inputQueries ?? createMergeDefenseInputQueries({ getState: () => game.state, gamePack }),
@@ -94,9 +98,21 @@ export function createLocalGameControl({
   function start() {
     if (started || destroyed) return false;
     if (!controller.start()) return false;
-    if (!binding.start()) return false;
-    started = true;
-    return true;
+    try {
+      if (!binding.start()) {
+        binding.destroy();
+        controller.destroy();
+        destroyed = true;
+        return false;
+      }
+      started = true;
+      return true;
+    } catch (error) {
+      binding.destroy();
+      controller.destroy();
+      destroyed = true;
+      throw error;
+    }
   }
 
   function destroy() {
@@ -110,7 +126,7 @@ export function createLocalGameControl({
 
   return Object.freeze({
     controller,
-    commandLog,
+    commandLog: activeCommandLog,
     dispatch: dispatcher.dispatch,
     start,
     destroy,

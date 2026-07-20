@@ -1,6 +1,6 @@
-import { resultAction } from '../campaign.js';
-import { copyText } from '../engine-core/copy.js';
-import { getAssetStatus } from '../render-theme.js';
+import { copyText } from '../engine-core/public.js';
+import { fixedRouteResultAction } from '../systems/match-mode/index.js';
+import { getAssetStatus } from '../systems/skin-presentation/index.js';
 
 function boardSignature(state) {
   const board = [];
@@ -89,7 +89,7 @@ export function createGameStatusSynchronizer({ game, gamePack, drag, storage, ho
       batchStopReason: drag.lastRecruitBatch?.stopReason ?? '',
       over: String(state.over),
       win: String(state.win),
-      resultAction: state.over ? resultAction(state).kind : '',
+      resultAction: state.over ? fixedRouteResultAction(state, gamePack).kind : '',
       bossActive: String(Boolean(boss)),
       bossHp: boss ? String(Math.max(0, Math.ceil(boss.hp))) : '',
       bossMaxHp: boss ? String(boss.maxHp) : '',

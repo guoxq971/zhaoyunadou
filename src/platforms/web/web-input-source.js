@@ -51,12 +51,13 @@ export function createWebInputSource(scope, surface) {
       target.addEventListener?.(type, handler, options);
       removals.push(() => target.removeEventListener?.(type, handler, options));
     };
-    if (typeof scope.PointerEvent === 'function') {
-      listen(canvas, 'pointerdown', onDown);
-      listen(canvas, 'pointermove', onMove);
-      listen(scope, 'pointerup', onUp);
-      listen(scope, 'pointercancel', onCancel);
-    } else {
+    try {
+      if (typeof scope.PointerEvent === 'function') {
+        listen(canvas, 'pointerdown', onDown);
+        listen(canvas, 'pointermove', onMove);
+        listen(scope, 'pointerup', onUp);
+        listen(scope, 'pointercancel', onCancel);
+      } else {
       // 旧 WebView 没有 PointerEvent 时才启用 Touch+Mouse，避免一次触摸触发两套事件。
       let ignoreMouseUntil = -Infinity;
       let activeTouchId = null;
@@ -113,14 +114,19 @@ export function createWebInputSource(scope, surface) {
       listen(scope, 'touchcancel', onTouchCancel, { passive: false });
       listen(canvas, 'mousedown', onMouseDown);
       listen(canvas, 'mousemove', onMouseMove);
-      listen(scope, 'mouseup', onMouseUp);
+        listen(scope, 'mouseup', onMouseUp);
+      }
+      listen(scope, 'blur', onBlur);
+      listen(scope, 'keydown', onKeyDown);
+    } catch (error) {
+      // subscribe 必须原子化：中途注册失败时撤销已安装的所有监听器。
+      for (const remove of removals.splice(0).reverse()) {
+        try { remove(); } catch { /* 继续撤销其他监听器。 */ }
+      }
+      throw error;
     }
-    scope.addEventListener('blur', onBlur);
-    scope.addEventListener('keydown', onKeyDown);
     const unsubscribe = () => {
       for (const remove of removals.splice(0).reverse()) remove();
-      scope.removeEventListener('blur', onBlur);
-      scope.removeEventListener('keydown', onKeyDown);
     };
     subscriptions.add(unsubscribe);
     return () => {

@@ -2,12 +2,24 @@
   "schemaVersion": "2.0.0",
   "contractVersion": "1.0.0",
   "baselineCommit": "9796962a76cdc222b94d2e1fce6d165ba1843509",
-  "governedPaths": ["src/**", "games/zhaoyun-adou/**"],
-  "systemUpdateOrder": [
-    "foundation-runtime", "equipment-items", "stage-encounter", "combat",
-    "economy-formation", "skill-status", "skin-presentation"
+  "governedPaths": [
+    "src/**", "games/zhaoyun-adou/**", "scripts/**", ".github/**",
+    "architecture/**", "docs/architecture/**", "AGENTS.md", "README.md", "package.json"
   ],
-  "temporaryImportExceptions": [
+  "systemUpdateOrder": [
+    "foundation-runtime.advance-simulation-time",
+    "equipment-items.update-generator",
+    "stage-encounter.update-waves",
+    "combat.update-enemies",
+    "integration-quality.update-units",
+    "skill-status.update-heroes",
+    "skill-status.update-dragon-damage",
+    "combat.update-projectiles",
+    "skill-status.advance-skill-entities",
+    "skin-presentation.update-effects"
+  ],
+  "temporaryImportExceptions": [],
+  "resolvedImportExceptionsPhaseG": [
     {
       "source": "src/app-shell/create-game-app.js",
       "target": "src/game-clock.js",
@@ -249,97 +261,190 @@
       "removeByPhase": "G"
     }
   ],
+  "integrationRoots": [
+    { "path": "src/state.js", "responsibility": "组合各系统状态切片并维持旧顶层访问形状" },
+    { "path": "src/game-loop.js", "responsibility": "声明固定路线模式的确定性系统更新顺序" },
+    { "path": "src/game-pack.js", "responsibility": "选择默认内容包并注入 merge-defense compiler" },
+    { "path": "src/runtime.js", "responsibility": "组合 Registry、DomainEvent、PresentationCue 与 Telemetry bridge" },
+    { "path": "src/app-shell/create-game-app.js", "responsibility": "组合 Game Pack、Host、Controller、存档、循环与表现" }
+  ],
   "compatibilityFacades": [
     {
       "path": "src/config.js",
-      "realCallers": ["legacy root gameplay modules", "legacy tests"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "src/campaign.js", "src/enemies.js", "src/heroes.js", "src/logic.js", "src/state.js", "src/ui-layout.js", "src/units.js",
+        "test/attribute-system-test.mjs", "test/campaign-test.mjs", "test/combat-system-test.mjs", "test/combat-types-test.mjs",
+        "test/dual-lane-test.mjs", "test/gacha-balance-test.mjs", "test/game-pack-test.mjs", "test/layout-test.mjs",
+        "test/logic-test.mjs", "test/playthrough-test.mjs", "test/skill-status-system-test.mjs", "test/stability-test.mjs"
+      ],
       "delegatesTo": "content-pack compiled compatibility view",
-      "removalCondition": "production imports of CONFIG reach zero",
-      "removeByPhase": "G"
+      "removalCondition": "production imports of CONFIG reach zero"
     },
     {
-      "path": "src/state.js",
-      "realCallers": ["game-controller", "playthrough and campaign tests"],
-      "delegatesTo": "system slice composer",
-      "removalCondition": "fixed-route MatchMode is the only production state factory",
-      "removeByPhase": "G"
+      "path": "src/game-controller.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "src/app-shell/create-game-app.js", "test/command-determinism-test.mjs", "test/controller-test.mjs",
+        "test/game-events-integration-test.mjs", "test/local-player-controller-test.mjs"
+      ],
+      "delegatesTo": "match-controller public MatchMode with injected state/runtime/advance ports",
+      "removalCondition": "app-shell and compatibility tests construct MatchMode through a shared integration factory"
     },
     {
       "path": "src/engine-core/events.js",
-      "realCallers": ["legacy event tests"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "src/rulesets/merge-defense/event-snapshot.js", "test/events-test.mjs", "test/foundation-contracts-v2-test.mjs"
+      ],
       "delegatesTo": "platform-services Telemetry reporter",
-      "removalCondition": "all production code uses DomainEvent and Telemetry bridge",
-      "removeByPhase": "G"
+      "removalCondition": "all production code uses DomainEvent and Telemetry bridge"
     },
     {
       "path": "src/engine-core/game-command-source.js",
-      "realCallers": ["LocalPlayerController", "legacy input tests"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/game-command-test.mjs"],
       "delegatesTo": "engine-core InputIntent protocol",
-      "removalCondition": "all callers import InputIntent through engine-core/public.js",
-      "removeByPhase": "F"
+      "removalCondition": "all callers import InputIntent through engine-core/public.js"
     },
     {
-      "path": "src/game-loop.js",
-      "realCallers": ["app-shell", "playthrough and stability tests"],
-      "delegatesTo": "fixed-route MatchMode update schedule",
-      "removalCondition": "all production and tests call MatchMode.advance",
-      "removeByPhase": "G"
+      "path": "src/input.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "src/app-shell/create-game-app.js", "test/input-pointer-ownership-test.mjs", "test/local-player-controller-test.mjs"
+      ],
+      "delegatesTo": "Controller, UI binding, system handler maps and Skin feedback public entries",
+      "removalCondition": "Local control composition moves into app-shell and root imports reach zero"
+    },
+    {
+      "path": "src/ui-layout.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "test/campaign-test.mjs", "test/combat-system-test.mjs", "test/combat-types-test.mjs", "test/create-game-app-test.mjs",
+        "test/determinism-test.mjs", "test/dual-lane-test.mjs", "test/economy-system-test.mjs", "test/game-events-integration-test.mjs",
+        "test/game-pack-test.mjs", "test/heroes-test.mjs", "test/input-pointer-ownership-test.mjs", "test/layout-test.mjs",
+        "test/local-player-controller-test.mjs", "test/playthrough-test.mjs", "test/stability-test.mjs"
+      ],
+      "delegatesTo": "ui-interaction layoutForGamePack(DEFAULT_GAME_PACK)",
+      "removalCondition": "legacy tests import UI layout through ui-interaction public entry"
     },
     {
       "path": "src/map.js",
-      "realCallers": ["legacy map and dual-lane tests"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/dual-lane-test.mjs", "test/logic-test.mjs"],
       "delegatesTo": "board-route buildBoard",
-      "removalCondition": "legacy buildMap imports reach zero",
-      "removeByPhase": "G"
+      "removalCondition": "legacy buildMap imports reach zero"
     },
     {
       "path": "src/rulesets/merge-defense/unit-placement.js",
-      "realCallers": ["command dispatcher", "legacy placement and presentation tests"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/unit-placement-test.mjs"],
       "delegatesTo": "board-route and piece-model public APIs",
-      "removalCondition": "Economy owns merge handler and UI reads transfer ViewModel",
-      "removeByPhase": "G"
+      "removalCondition": "Economy owns merge handler and UI reads transfer ViewModel"
     },
     {
       "path": "src/actions.js",
-      "realCallers": ["legacy recruitment tests"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "test/actions-test.mjs", "test/batch-recruit-test.mjs", "test/campaign-test.mjs",
+        "test/determinism-test.mjs", "test/game-events-integration-test.mjs"
+      ],
       "delegatesTo": "economy-formation public API",
-      "removalCondition": "legacy actions imports reach zero",
-      "removeByPhase": "G"
+      "removalCondition": "legacy actions imports reach zero"
     },
     {
       "path": "src/logic.js",
-      "realCallers": ["legacy logic tests and LocalPlayerController"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "test/campaign-test.mjs", "test/gacha-balance-test.mjs", "test/game-events-integration-test.mjs", "test/logic-test.mjs"
+      ],
       "delegatesTo": "economy, attribute and equipment public APIs",
-      "removalCondition": "all callers import owning system public entries",
-      "removeByPhase": "G"
+      "removalCondition": "all callers import owning system public entries"
     },
     {
       "path": "src/enemies.js",
-      "realCallers": ["legacy combat tests and fixed-route compatibility loop"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": [
+        "src/game-loop.js", "src/heroes.js", "src/units.js", "test/campaign-test.mjs", "test/combat-types-test.mjs",
+        "test/determinism-test.mjs", "test/dual-lane-test.mjs", "test/game-events-integration-test.mjs"
+      ],
       "delegatesTo": "stage-encounter and combat public APIs",
-      "removalCondition": "fixed-route MatchMode owns the only production update schedule",
-      "removeByPhase": "G"
+      "removalCondition": "fixed-route MatchMode owns the only production update schedule"
     },
     {
       "path": "src/units.js",
-      "realCallers": ["legacy combat tests and fixed-route compatibility loop"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["src/game-loop.js", "src/heroes.js", "test/combat-types-test.mjs", "test/determinism-test.mjs"],
       "delegatesTo": "combat and economy public APIs",
-      "removalCondition": "legacy units imports reach zero",
-      "removeByPhase": "G"
+      "removalCondition": "legacy units imports reach zero"
     },
     {
       "path": "src/heroes.js",
-      "realCallers": ["legacy hero tests and fixed-route compatibility loop"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["src/game-loop.js", "test/dual-lane-test.mjs", "test/game-events-integration-test.mjs", "test/heroes-test.mjs"],
       "delegatesTo": "skill-status, combat and skin-presentation public APIs",
-      "removalCondition": "legacy hero imports reach zero",
-      "removeByPhase": "G"
+      "removalCondition": "legacy hero imports reach zero"
     },
     {
       "path": "src/campaign.js",
-      "realCallers": ["game-controller and legacy campaign tests"],
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/campaign-test.mjs"],
       "delegatesTo": "progress-save public API",
-      "removalCondition": "controller consumes ProfileProgress rather than scalar stars",
-      "removeByPhase": "G"
+      "removalCondition": "controller consumes ProfileProgress rather than scalar stars"
+    },
+    {
+      "path": "src/field-tools.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/actions-test.mjs"],
+      "delegatesTo": "equipment-items public field-tool operations",
+      "removalCondition": "legacy field-tools imports reach zero"
+    },
+    {
+      "path": "src/rulesets/merge-defense/effect-registry.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/registry-test.mjs"],
+      "delegatesTo": "skin-presentation effect Registry binding",
+      "removalCondition": "registry compatibility tests import the skin-presentation public entry"
+    },
+    {
+      "path": "src/rulesets/merge-defense/item-registry.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/registry-test.mjs"],
+      "delegatesTo": "equipment-items item Registry binding",
+      "removalCondition": "registry compatibility tests import the equipment-items public entry"
+    },
+    {
+      "path": "src/rulesets/merge-defense/skill-registry.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["test/registry-test.mjs"],
+      "delegatesTo": "skill-status skill Registry binding",
+      "removalCondition": "registry compatibility tests import the skill-status public entry"
+    },
+    {
+      "path": "src/rulesets/merge-defense/compile-config.js",
+      "status": "retained",
+      "lastReviewedPhase": "G",
+      "realCallers": ["src/game-pack.js", "test/game-pack-test.mjs"],
+      "delegatesTo": "content-pack Manifest compiler with legacy CONFIG shape",
+      "removalCondition": "RuntimeGamePack and compatibility tests no longer require the legacy compiled CONFIG view"
     }
   ],
   "integrationOnlyPaths": [
@@ -347,6 +452,10 @@
     "src/runtime.js",
     "src/state.js",
     "src/game-loop.js",
+    "src/game-controller.js",
+    "src/input.js",
+    "src/ui-layout.js",
+    "src/game-pack.js",
     "src/actions.js",
     "src/logic.js",
     "src/field-tools.js",
@@ -357,6 +466,7 @@
     "src/app-shell/**",
     "src/rulesets/merge-defense/player-command-dispatcher.js",
     "package.json",
+    "games/zhaoyun-adou/balance.json",
     "games/zhaoyun-adou/generated-manifests.js"
   ],
   "systems": [
@@ -387,10 +497,10 @@
     },
     {
       "systemId": "content-pack",
-      "migrationStatus": "migrating",
+      "migrationStatus": "active",
       "ownedPaths": [
         "games/zhaoyun-adou/game.json", "games/zhaoyun-adou/assets.json",
-        "games/zhaoyun-adou/audio.json", "games/zhaoyun-adou/balance.json",
+        "games/zhaoyun-adou/audio.json",
         "games/zhaoyun-adou/copy.zh-CN.json", "games/zhaoyun-adou/events.json",
         "games/zhaoyun-adou/levels.json", "games/zhaoyun-adou/theme.json",
         "games/zhaoyun-adou/schemas/**", "games/zhaoyun-adou/sources/**",
@@ -403,14 +513,14 @@
       "commands": [],
       "publishesDomainEvents": [],
       "consumesDomainEvents": [],
-      "requiredTests": ["test/game-pack-test.mjs"],
-      "responsibilities": ["Game Pack 纯数据、Schema、稳定引用与版本", "分系统内容源及兼容视图编译"],
-      "nonResponsibilities": ["运行时状态写入", "玩法执行和平台资源加载"]
+      "requiredTests": ["test/game-pack-test.mjs", "test/balance-sources-test.mjs"],
+      "responsibilities": ["Game Pack 纯数据、Schema、稳定引用与版本", "分系统人工内容源与编译输入契约"],
+      "nonResponsibilities": ["运行时状态写入", "玩法执行、生成编排和平台资源加载"]
     },
     {
       "systemId": "match-controller",
       "migrationStatus": "active",
-      "ownedPaths": ["src/systems/match-mode/**", "src/controllers/**", "src/game-controller.js"],
+      "ownedPaths": ["src/systems/match-mode/**", "src/controllers/**"],
       "ownerRole": "对局模式与控制器维护者",
       "ownedStateSlice": "match",
       "publicEntry": "src/systems/match-mode/index.js",
@@ -442,18 +552,19 @@
     },
     {
       "systemId": "piece-model",
-      "migrationStatus": "active",
+      "migrationStatus": "migrating",
       "ownedPaths": ["src/systems/piece/**"],
       "ownerRole": "弈子模型维护者",
       "ownedStateSlice": "pieces",
       "publicEntry": "src/systems/piece/index.js",
       "allowedDependencies": ["foundation-runtime", "content-pack"],
       "commands": [],
-      "publishesDomainEvents": ["piece.created", "piece.upgraded", "piece.removed"],
+      "publishesDomainEvents": ["piece.upgraded"],
       "consumesDomainEvents": [],
       "requiredTests": ["test/piece-system-test.mjs"],
-      "responsibilities": ["弈子身份、类型、等级、位置和生命周期", "属性、技能、装备和表现的稳定引用"],
-      "nonResponsibilities": ["征兵概率与资源扣除", "伤害结算及具体画法"]
+      "responsibilities": ["已接入确定性身份、revision、位置和消耗生命周期操作", "弈子只读查询、升级及稳定引用协议"],
+      "nonResponsibilities": ["征兵概率与资源扣除", "伤害结算及具体画法"],
+      "remainingMigration": ["弈子实体仍嵌入 board.grid/economy.bench，未建立 Piece 中央注册表", "属性/攻击/技能/装备/表现 ref ID 尚未覆盖现有全部弈子"]
     },
     {
       "systemId": "economy-formation",
@@ -462,7 +573,7 @@
       "ownerRole": "经济与编队维护者",
       "ownedStateSlice": "economy",
       "publicEntry": "src/systems/economy/index.js",
-      "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model"],
+      "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "skill-status"],
       "commands": ["battle.batch_recruit", "unit.drop"],
       "publishesDomainEvents": ["economy.recruit_attempted", "economy.recruit_completed", "economy.reward_granted", "formation.merged", "formation.hero_unlocked"],
       "consumesDomainEvents": ["combat.enemy_defeated", "encounter.wave_completed"],
@@ -472,18 +583,19 @@
     },
     {
       "systemId": "attribute",
-      "migrationStatus": "active",
+      "migrationStatus": "migrating",
       "ownedPaths": ["src/systems/attribute/**"],
       "ownerRole": "属性维护者",
       "ownedStateSlice": "attributes",
       "publicEntry": "src/systems/attribute/index.js",
       "allowedDependencies": ["foundation-runtime", "content-pack"],
       "commands": [],
-      "publishesDomainEvents": ["attribute.modifier_added", "attribute.modifier_removed"],
-      "consumesDomainEvents": ["status.applied", "status.expired", "equipment.changed"],
+      "publishesDomainEvents": [],
+      "consumesDomainEvents": [],
       "requiredTests": ["test/attribute-system-test.mjs"],
-      "responsibilities": ["StatBlock、等级成长和 Modifier 确定性叠加", "最终属性值查询"],
-      "nonResponsibilities": ["索敌与攻击流程", "技能触发及装备持有"]
+      "responsibilities": ["已接入兵种等级成长适配与 Modifier 确定性叠加", "现有伤害属性的最终值查询"],
+      "nonResponsibilities": ["索敌与攻击流程", "技能触发及装备持有"],
+      "remainingMigration": ["未建立覆盖英雄/敌人/装备的完整 StatBlock 与 base/growth 引用模型"]
     },
     {
       "systemId": "combat",
@@ -495,7 +607,7 @@
       "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "attribute"],
       "commands": [],
       "publishesDomainEvents": ["combat.attack_resolved", "combat.enemy_defeated", "combat.enemy_leaked"],
-      "consumesDomainEvents": ["encounter.enemy_spawned", "status.applied"],
+      "consumesDomainEvents": [],
       "requiredTests": ["test/combat-system-test.mjs", "test/combat-types-test.mjs"],
       "responsibilities": ["索敌、攻击节奏、射程、命中和 Damage API", "投射物与死亡"],
       "nonResponsibilities": ["技能触发与装备槽", "视觉特效"]
@@ -510,7 +622,7 @@
       "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "attribute", "combat"],
       "commands": [],
       "publishesDomainEvents": ["skill.cast", "status.applied", "status.expired"],
-      "consumesDomainEvents": ["combat.attack_resolved"],
+      "consumesDomainEvents": [],
       "publishesPresentationCues": ["skill.cast_feedback", "skill.impact_feedback"],
       "requiredTests": ["test/skill-status-system-test.mjs", "test/heroes-test.mjs"],
       "responsibilities": ["主动/被动触发、冷却及 Buff/Debuff", "持续时间、玩法效果和领域事件"],
@@ -525,7 +637,7 @@
       "publicEntry": "src/systems/equipment-items/index.js",
       "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "attribute", "skill-status", "economy-formation"],
       "commands": ["item.relocate", "item.use"],
-      "publishesDomainEvents": ["item.used", "item.generated", "equipment.changed"],
+      "publishesDomainEvents": ["item.used", "item.generated"],
       "consumesDomainEvents": [],
       "requiredTests": ["test/equipment-items-system-test.mjs", "test/actions-test.mjs"],
       "responsibilities": ["当前消耗品、产铲道具和未来装备槽契约", "通过 Modifier/技能授予扩展，不复制算法"],
@@ -540,8 +652,8 @@
       "publicEntry": "src/systems/stage-encounter/index.js",
       "allowedDependencies": ["foundation-runtime", "content-pack", "board-route", "piece-model", "combat"],
       "commands": ["battle.start_wave"],
-      "publishesDomainEvents": ["encounter.wave_started", "encounter.wave_completed", "encounter.completed", "encounter.enemy_spawned"],
-      "consumesDomainEvents": ["combat.enemy_defeated", "combat.enemy_leaked"],
+      "publishesDomainEvents": ["encounter.wave_started", "encounter.wave_completed", "encounter.completed", "encounter.enemy_spawned", "encounter.enemy_leak_resolved"],
+      "consumesDomainEvents": ["combat.enemy_leaked"],
       "requiredTests": ["test/stage-encounter-system-test.mjs", "test/playthrough-test.mjs"],
       "responsibilities": ["地图组合、敌人编队和波次状态机", "Boss、局内胜负与 MatchResult"],
       "nonResponsibilities": ["永久解锁和 Storage I/O", "皮肤"]
@@ -555,8 +667,8 @@
       "publicEntry": "src/systems/progress-save/index.js",
       "allowedDependencies": ["foundation-runtime", "content-pack"],
       "commands": [],
-      "publishesDomainEvents": ["progress.loaded", "progress.saved", "progress.degraded"],
-      "consumesDomainEvents": ["match.ended"],
+      "publishesDomainEvents": [],
+      "consumesDomainEvents": [],
       "requiredTests": ["test/progress-save-system-test.mjs", "test/campaign-test.mjs"],
       "responsibilities": ["ProfileProgress、SaveEnvelope、迁移链和旧存档兼容", "MatchSnapshot/Replay 协议及损坏存档降级"],
       "nonResponsibilities": ["Web/wx/原生 Storage API", "关卡运行"]
@@ -564,15 +676,16 @@
     {
       "systemId": "ui-interaction",
       "migrationStatus": "active",
-      "ownedPaths": ["src/systems/ui-interaction/**", "src/input.js", "src/ui-layout.js"],
+      "ownedPaths": ["src/systems/ui-interaction/**"],
       "ownerRole": "UI 与交互维护者",
-      "ownedStateSlice": "interaction",
+      "ownedStateSlice": null,
+      "ownedAppState": "interaction",
       "publicEntry": "src/systems/ui-interaction/index.js",
-      "allowedDependencies": ["foundation-runtime", "match-controller"],
+      "allowedDependencies": ["foundation-runtime"],
       "commands": ["interaction.drag_begin", "interaction.drag_cancel", "item.select_mode"],
-      "publishesDomainEvents": ["interaction.intent_mapped"],
-      "consumesDomainEvents": ["command.rejected"],
-      "publishesPresentationCues": ["interaction.feedback"],
+      "publishesDomainEvents": [],
+      "consumesDomainEvents": [],
+      "publishesPresentationCues": [],
       "requiredTests": ["test/ui-interaction-system-test.mjs", "test/input-pointer-ownership-test.mjs"],
       "responsibilities": ["只读 GameViewModel、语义布局与命中测试", "标准输入意图到 GameCommand 的映射"],
       "nonResponsibilities": ["玩法合法性和状态直写", "皮肤颜色"]
@@ -592,10 +705,10 @@
       "allowedDependencies": ["foundation-runtime", "content-pack", "ui-interaction"],
       "commands": [],
       "publishesDomainEvents": [],
-      "consumesDomainEvents": ["combat.attack_resolved", "combat.enemy_defeated", "combat.enemy_leaked", "skill.cast", "encounter.wave_started", "encounter.wave_completed", "command.rejected"],
+      "consumesDomainEvents": [],
       "consumesPresentationCues": [
-        "skill.cast_feedback", "skill.impact_feedback", "interaction.feedback",
-        "combat.attack_feedback", "combat.enemy_defeated_feedback",
+        "skill.cast_feedback", "skill.impact_feedback",
+        "combat.unit_attack_started_feedback", "combat.attack_feedback", "combat.enemy_defeated_feedback",
         "combat.enemy_leaked_feedback", "combat.projectile_missed_feedback",
         "encounter.wave_completed_feedback", "economy.producer_income_feedback",
         "equipment.item_generated_feedback"
@@ -606,7 +719,7 @@
     },
     {
       "systemId": "platform-services",
-      "migrationStatus": "migrating",
+      "migrationStatus": "active",
       "ownedPaths": ["src/platform-contracts/**", "src/platform-services/**", "src/platforms/**", "src/canvas-fit.js", "src/storage.js"],
       "ownerRole": "平台 Host 与服务适配维护者",
       "ownedStateSlice": null,
@@ -614,16 +727,24 @@
       "allowedDependencies": ["foundation-runtime"],
       "commands": [],
       "publishesDomainEvents": [],
-      "consumesDomainEvents": [],
+      "consumesDomainEvents": [
+        "match.started", "match.retry_requested", "match.quit_requested", "match.ended",
+        "command.rejected", "encounter.wave_started", "economy.reward_granted",
+        "encounter.enemy_leak_resolved", "skill.cast",
+        "economy.recruit_attempted", "economy.recruit_completed",
+        "formation.merged", "formation.hero_unlocked",
+        "board.piece_moved", "board.pieces_swapped", "item.used"
+      ],
       "requiredTests": ["test/host-contract-test.mjs", "test/platform-boundary-test.mjs", "test/match-telemetry-bridge-test.mjs"],
       "responsibilities": ["输入、Surface、存储、音频、素材和生命周期适配", "设备能力与失败降级"],
       "nonResponsibilities": ["玩法、题材和 Bot", "平台分支规则"]
     },
     {
       "systemId": "integration-quality",
-      "migrationStatus": "migrating",
+      "migrationStatus": "active",
       "ownedPaths": [
         "src/main.js", "src/runtime.js", "src/state.js", "src/game-loop.js",
+        "src/game-controller.js", "src/input.js", "src/ui-layout.js",
         "src/game-pack.js", "src/config.js", "src/app-shell/**",
         "src/engine-core/events.js",
         "src/rulesets/merge-defense/compile-config.js",
@@ -638,23 +759,25 @@
         "src/rulesets/merge-defense/item-registry.js",
         "src/actions.js", "src/logic.js", "src/field-tools.js",
         "src/enemies.js", "src/units.js", "src/heroes.js", "src/campaign.js", "src/map.js",
-        "package.json", "games/zhaoyun-adou/generated-manifests.js"
+        "scripts/**", ".github/**", "architecture/**", "docs/architecture/**",
+        "AGENTS.md", "README.md", "package.json", "games/zhaoyun-adou/balance.json",
+        "games/zhaoyun-adou/generated-manifests.js"
       ],
       "ownerRole": "集成负责人",
       "ownedStateSlice": null,
       "publicEntry": "src/runtime.js",
       "allowedDependencies": ["foundation-runtime", "content-pack", "match-controller", "board-route", "piece-model", "economy-formation", "attribute", "combat", "skill-status", "equipment-items", "stage-encounter", "progress-save", "ui-interaction", "skin-presentation", "platform-services"],
       "commands": [],
-      "publishesDomainEvents": ["session.started", "session.ended"],
-      "consumesDomainEvents": ["match.started", "match.ended"],
+      "publishesDomainEvents": [],
+      "consumesDomainEvents": [],
       "publishesPresentationCues": [
-        "combat.attack_feedback", "combat.enemy_defeated_feedback",
+        "combat.unit_attack_started_feedback", "combat.attack_feedback", "combat.enemy_defeated_feedback",
         "combat.enemy_leaked_feedback", "combat.projectile_missed_feedback",
         "encounter.wave_completed_feedback", "economy.producer_income_feedback",
         "equipment.item_generated_feedback"
       ],
-      "consumesPresentationCues": ["skill.cast_feedback", "skill.impact_feedback", "interaction.feedback"],
-      "requiredTests": ["test/system-boundaries-v2-test.mjs", "test/create-game-app-test.mjs", "test/screenshots-test.mjs"],
+      "consumesPresentationCues": [],
+      "requiredTests": ["test/system-boundaries-v2-test.mjs", "test/state-ownership-boundary-test.mjs", "test/create-game-app-test.mjs", "test/screenshots-test.mjs"],
       "responsibilities": ["composition root、系统顺序、生成索引和测试编排", "CI、发布指纹和跨系统接线"],
       "nonResponsibilities": ["新增玩法功能", "拥有其他系统内部状态或算法"]
     }

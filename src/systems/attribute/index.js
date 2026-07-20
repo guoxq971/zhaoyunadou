@@ -1,7 +1,9 @@
-import { assertStableId, getStateSlice } from '../../engine-core/public.js';
+import { assertStableId, compareCodePointStrings, getStateSlice } from '../../engine-core/public.js';
 
 export const STAT_MODIFIER_API_VERSION = '1.0.0';
 const OPERATIONS = new Set(['add', 'multiply', 'override']);
+
+export const createAttributeStateSlice = () => ({ modifiers: [] });
 
 export function assertStatModifier(modifier) {
   if (!modifier || typeof modifier !== 'object' || Array.isArray(modifier)) {
@@ -16,7 +18,7 @@ export function assertStatModifier(modifier) {
 }
 
 export function compareStatModifiers(left, right) {
-  return left.priority - right.priority || left.id.localeCompare(right.id);
+  return left.priority - right.priority || compareCodePointStrings(left.id, right.id);
 }
 
 export function applyStatModifiers(baseValue, modifiers, stat) {
@@ -64,4 +66,17 @@ export function removeGlobalModifier(state, modifierId) {
   if (index < 0) return false;
   slice.modifiers.splice(index, 1);
   return true;
+}
+
+export function snapshotAttributeRuntimeState(state) {
+  const slice = getStateSlice(state, 'attributes');
+  return {
+    modifiers: slice.modifiers.map((modifier) => ({
+      id: modifier.id,
+      stat: modifier.stat,
+      operation: modifier.operation,
+      value: modifier.value,
+      priority: modifier.priority,
+    })),
+  };
 }

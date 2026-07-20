@@ -1,8 +1,8 @@
 // 参考图式底部操作区：营栏与主按钮保持可操作，黑框军械栏只表达系统状态。
-import { UI, benchRect, toolRect } from './ui-layout.js';
 import { drawToolAtlasIcon, font, presentationTokens, roundRect, themeColors } from './render-theme.js';
 import { copyText } from './engine-core/public.js';
-import { DEFAULT_GAME_PACK } from './game-pack.js';
+import { layoutForGamePack } from './systems/ui-interaction/index.js';
+import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
 
 function strokePath(ctx, points, { close = false, width = 3, color = '#211b16' } = {}) {
   ctx.beginPath();
@@ -16,6 +16,7 @@ function strokePath(ctx, points, { close = false, width = 3, color = '#211b16' }
 }
 
 function drawCamp(ctx, state, drag, drawCard, gamePack, host) {
+  const { ui: UI, benchRect } = layoutForGamePack(gamePack);
   const config = gamePack.config;
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
@@ -37,7 +38,7 @@ function drawCamp(ctx, state, drag, drawCard, gamePack, host) {
   ctx.lineWidth = tokens.strokes.default;
   ctx.stroke();
   ctx.fillStyle = colors.paperRaised;
-  ctx.font = font(25);
+  ctx.font = font(25, true, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(copyText(gamePack, 'battle.camp'), 48, y + 27);
@@ -74,7 +75,7 @@ function drawCamp(ctx, state, drag, drawCard, gamePack, host) {
         });
       } else if (!drawToolAtlasIcon(ctx, 'item.shovel', rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, gamePack, host)) {
         ctx.fillStyle = '#9b711e';
-        ctx.font = font(25);
+        ctx.font = font(25, true, gamePack);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('铲', rect.x + rect.w / 2, rect.y + rect.h / 2);
@@ -146,20 +147,21 @@ function drawBrush(ctx, rect, state, drag, gamePack, host) {
   ctx.globalAlpha = enabled ? 1 : 0.45;
   if (!drawToolAtlasIcon(ctx, 'item.brush', cx - 24, cy - 28, 48, 48, gamePack, host)) {
     ctx.fillStyle = '#35281d';
-    ctx.font = font(28);
+    ctx.font = font(28, true, gamePack);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('笔', cx, cy - 2);
   }
   ctx.restore();
   ctx.fillStyle = enabled ? '#35281d' : '#756a59';
-  ctx.font = font(11);
+  ctx.font = font(11, true, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(`×${state.brushes ?? 0}`, cx + 15, cy + 18);
 }
 
 function drawRecruit(ctx, state, drag, gamePack, host) {
+  const { ui: UI } = layoutForGamePack(gamePack);
   const config = gamePack.config;
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
@@ -182,12 +184,12 @@ function drawRecruit(ctx, state, drag, gamePack, host) {
   roundRect(ctx, rect.x + 5, rect.y + 5, rect.w - 10, rect.h - 10, 2);
   ctx.stroke();
   ctx.fillStyle = enabled ? colors.paperRaised : colors.disabledInk;
-  ctx.font = font(28);
+  ctx.font = font(28, true, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(copyText(gamePack, 'battle.recruit.batch', {}, '征满'), rect.x + rect.w / 2, rect.y + 23);
   ctx.fillStyle = enabled ? colors.paperLight : colors.disabledInk;
-  ctx.font = font(13);
+  ctx.font = font(13, true, gamePack);
   const latest = drag?.lastRecruitBatch?.until > state.time ? drag.lastRecruitBatch : null;
   const summary = latest
     ? copyText(gamePack, 'battle.recruit.batchResult', {
@@ -211,7 +213,7 @@ function drawSpeedBag(ctx, rect, state, gamePack, host) {
   ctx.fillStyle = '#f6ead2';
   ctx.strokeStyle = '#2b241d';
   ctx.lineWidth = 3;
-  ctx.font = font(11);
+  ctx.font = font(11, true, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const speedText = state.speed === 0 ? '▶' : `×${state.speed}`;
@@ -229,6 +231,7 @@ const PASSIVE_TOOLS = [
 ];
 
 function drawToolStatus(ctx, state, gamePack, host) {
+  const { toolRect } = layoutForGamePack(gamePack);
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
   ctx.save();
@@ -258,7 +261,7 @@ function drawToolStatus(ctx, state, gamePack, host) {
     roundRect(ctx, rect.x + rect.w - 22, rect.y + 3, 19, 15, 6);
     ctx.fill();
     ctx.fillStyle = '#fff0ba';
-    ctx.font = font(8, false);
+    ctx.font = font(8, false, gamePack);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(state.luoyang.pending ? copyText(gamePack, 'battle.tool.pending') : String(remaining), rect.x + rect.w - 12.5, rect.y + 10.5);
@@ -266,7 +269,16 @@ function drawToolStatus(ctx, state, gamePack, host) {
   ctx.restore();
 }
 
-export function drawBattleControls(ctx, state, drag, drawCard, gamePack = DEFAULT_GAME_PACK, host = null) {
+export function drawBattleControls(
+  ctx,
+  state,
+  drag,
+  drawCard,
+  gamePack = null,
+  host = null,
+) {
+  gamePack = resolveLegacyPresentationGamePack(state, gamePack);
+  const { ui: UI } = layoutForGamePack(gamePack);
   drawCamp(ctx, state, drag, drawCard, gamePack, host);
   drawBrush(ctx, UI.shovel, state, drag, gamePack, host);
   drawRecruit(ctx, state, drag, gamePack, host);

@@ -1,8 +1,8 @@
 // 战斗态势层：参考图式悬浮资源、波次、装备、Boss、暂停与临近失守提示。
-import { B, UI, boardHeight, boardWidth } from './ui-layout.js';
 import { drawToolAtlasIcon, font, presentationTokens, roundRect, themeColors } from './render-theme.js';
 import { copyText } from './engine-core/public.js';
-import { DEFAULT_GAME_PACK } from './game-pack.js';
+import { layoutForGamePack } from './systems/ui-interaction/index.js';
+import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
 
 function drawHeart(ctx, x, y, size, filled = true) {
   ctx.save();
@@ -20,6 +20,7 @@ function drawHeart(ctx, x, y, size, filled = true) {
 }
 
 function drawPauseButton(ctx, paused, gamePack) {
+  const { ui: UI } = layoutForGamePack(gamePack);
   const { x, y, w, h } = UI.pause;
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
@@ -53,7 +54,7 @@ function drawPauseButton(ctx, paused, gamePack) {
 function drawResources(ctx, state, gamePack) {
   ctx.save();
   ctx.fillStyle = '#493a2d';
-  ctx.font = font(12);
+  ctx.font = font(12, true, gamePack);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(copyText(gamePack, 'resource.protected.name'), 13, 49);
@@ -73,7 +74,7 @@ function drawResources(ctx, state, gamePack) {
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.fillStyle = '#2b241c';
-  ctx.font = font(19);
+  ctx.font = font(19, true, gamePack);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(state.mantou), 112, 75);
@@ -88,11 +89,11 @@ function drawStageWave(ctx, state, gamePack) {
   ctx.strokeStyle = 'rgba(247,238,216,0.96)';
   ctx.fillStyle = '#201d19';
   ctx.lineWidth = 4;
-  ctx.font = font(22);
+  ctx.font = font(22, true, gamePack);
   const mapName = copyText(gamePack, `map.${state.stage.mapId}.name`);
   ctx.strokeText(mapName, 210, 27);
   ctx.fillText(mapName, 210, 27);
-  ctx.font = font(21);
+  ctx.font = font(21, true, gamePack);
   const wave = Math.max(1, state.wave || 1);
   const waveLabel = copyText(gamePack, 'battle.wave.label', { wave });
   ctx.strokeText(waveLabel, 210, 50);
@@ -121,7 +122,8 @@ function drawEquipmentIcons(ctx, state, gamePack, host) {
   }
 }
 
-export function drawTopBar(ctx, state, gamePack = DEFAULT_GAME_PACK, host = null) {
+export function drawTopBar(ctx, state, gamePack = null, host = null) {
+  gamePack = resolveLegacyPresentationGamePack(state, gamePack);
   drawPauseButton(ctx, state.speed === 0 && !state.over, gamePack);
   drawResources(ctx, state, gamePack);
   drawStageWave(ctx, state, gamePack);
@@ -138,7 +140,7 @@ function drawBossBar(ctx, boss, gamePack) {
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.fillStyle = '#f3dfb2';
-  ctx.font = font(12);
+  ctx.font = font(12, true, gamePack);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   ctx.fillText(copyText(gamePack, 'battle.boss.name'), 96, 81);
@@ -155,6 +157,7 @@ function drawBossBar(ctx, boss, gamePack) {
 }
 
 function drawPause(ctx, gamePack) {
+  const { board: B, boardHeight, boardWidth } = layoutForGamePack(gamePack);
   ctx.save();
   ctx.fillStyle = 'rgba(24,19,13,0.48)';
   ctx.fillRect(B.ox - 2, B.oy - 2, boardWidth + 4, boardHeight + 4);
@@ -165,17 +168,18 @@ function drawPause(ctx, gamePack) {
   ctx.lineWidth = 2.5;
   ctx.stroke();
   ctx.fillStyle = '#7d241b';
-  ctx.font = font(28);
+  ctx.font = font(28, true, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(copyText(gamePack, 'battle.pause.title'), 210, 304);
   ctx.fillStyle = '#554737';
-  ctx.font = font(14, false);
+  ctx.font = font(14, false, gamePack);
   ctx.fillText(copyText(gamePack, 'battle.pause.hint'), 210, 335);
   ctx.restore();
 }
 
 function drawReadyBanner(ctx, state, gamePack) {
+  const { ui: UI } = layoutForGamePack(gamePack);
   const waiting = state.phaseT === null;
   const rect = UI.callWave;
   ctx.fillStyle = waiting ? 'rgba(146,45,35,0.94)' : 'rgba(43,36,28,0.9)';
@@ -185,7 +189,7 @@ function drawReadyBanner(ctx, state, gamePack) {
   ctx.lineWidth = 1.2;
   ctx.stroke();
   ctx.fillStyle = '#f7ead1';
-  ctx.font = font(waiting ? 15 : 14);
+  ctx.font = font(waiting ? 15 : 14, true, gamePack);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const label = waiting
@@ -194,8 +198,10 @@ function drawReadyBanner(ctx, state, gamePack) {
   ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 1);
 }
 
-export function drawBattleSignals(ctx, state, gamePack = DEFAULT_GAME_PACK) {
+export function drawBattleSignals(ctx, state, gamePack = null) {
+  gamePack = resolveLegacyPresentationGamePack(state, gamePack);
   const config = gamePack.config;
+  const { board: B } = layoutForGamePack(gamePack);
   const paused = state.speed === 0 && !state.over;
   const boss = state.enemies.find((enemy) => enemy.type === 'boss');
   if (boss) drawBossBar(ctx, boss, gamePack);
@@ -206,7 +212,7 @@ export function drawBattleSignals(ctx, state, gamePack = DEFAULT_GAME_PACK) {
     ctx.fillStyle = `rgba(118,24,20,${alpha * 0.32})`;
     ctx.fillRect(0, 0, config.canvas.w, config.canvas.h);
     ctx.fillStyle = `rgba(125,32,25,${alpha})`;
-    ctx.font = font(36);
+    ctx.font = font(36, true, gamePack);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(copyText(gamePack, 'battle.boss.incoming'), 210, 242);
@@ -222,7 +228,7 @@ export function drawBattleSignals(ctx, state, gamePack = DEFAULT_GAME_PACK) {
     ctx.lineWidth = 7;
     ctx.strokeRect(4, 4, config.canvas.w - 8, config.canvas.h - 8);
     ctx.fillStyle = `rgba(160,32,32,${0.5 + pulse * 0.5})`;
-    ctx.font = font(30);
+    ctx.font = font(30, true, gamePack);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(copyText(gamePack, 'battle.danger'), B.ox + 7.5 * B.cellW, B.oy + 9.5 * B.cellH);

@@ -6,11 +6,30 @@ import {
 
 export const DOMAIN_EVENT_API_VERSION = '1.0.0';
 export const DOMAIN_EVENT_PROTOCOL = 'domain-event';
+const DOMAIN_EVENT_FIELDS = new Set([
+  'apiVersion', 'protocol', 'type', 'source', 'sequence', 'tick', 'payload',
+]);
+
+// 拒绝事实由 Foundation 定义，具体 dispatcher 只补入命令上下文并发布。
+export function commandRejectedDomainEvent({ tick, commandType, reason }) {
+  return immutableData({
+    type: 'command.rejected',
+    source: 'foundation-runtime',
+    tick,
+    payload: { commandType, reason },
+  });
+}
 
 export function assertDomainEvent(event) {
-  if (!event || typeof event !== 'object' || Array.isArray(event)) {
-    throw new TypeError('[domain-event] event is required');
+  if (!event || typeof event !== 'object' || Array.isArray(event)
+    || Object.getPrototypeOf(event) !== Object.prototype) {
+    throw new TypeError('[domain-event] event must be serializable plain data');
   }
+  const unexpected = Reflect.ownKeys(event).filter((field) => !DOMAIN_EVENT_FIELDS.has(field));
+  if (unexpected.length > 0) {
+    throw new TypeError(`[domain-event] unexpected field(s): ${unexpected.map(String).join(', ')}`);
+  }
+  assertSerializableData(event);
   if (event.apiVersion !== DOMAIN_EVENT_API_VERSION) {
     throw new TypeError('[domain-event] unsupported apiVersion');
   }
@@ -22,7 +41,6 @@ export function assertDomainEvent(event) {
       throw new TypeError(`[domain-event] ${field} must be a non-negative integer`);
     }
   }
-  assertSerializableData(event.payload);
   return event;
 }
 

@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { DEFAULT_GAME_PACK } from '../src/game-pack.js';
 import { ZHAOYUN_ADOU_MANIFESTS } from '../src/game-pack.js';
-import { createGamePack } from '../src/engine-core/game-pack.js';
+import {
+  createAssetLoader,
+  createGameClock,
+  createGamePack,
+} from '../src/engine-core/public.js';
+import {
+  CONTENT_PACK_API_VERSION,
+  defineContentPack,
+} from '../src/systems/content-pack/index.js';
 import { compileMergeDefenseConfig } from '../src/rulesets/merge-defense/compile-config.js';
 import { createGame } from '../src/state.js';
 import { CONFIG } from '../src/config.js';
@@ -21,6 +30,43 @@ assert.equal(CONFIG.recruitCost(4), 44);
 assert.equal(CONFIG.waves.size(3), 9);
 assert.equal(CONFIG.waves.killReward(5), 3);
 assert.equal(CONFIG.waves.waveBonus(5), 18);
+
+{
+  const mutableManifests = structuredClone(ZHAOYUN_ADOU_MANIFESTS);
+  const definition = defineContentPack(mutableManifests);
+  assert.equal(definition.apiVersion, CONTENT_PACK_API_VERSION);
+  assert.deepEqual(definition.manifests, ZHAOYUN_ADOU_MANIFESTS);
+  assert.equal(Object.isFrozen(definition), true, 'Content Pack 定义外壳必须是只读契约');
+  assert.equal(Object.isFrozen(definition.manifests.game), true, 'Content Pack 嵌套 Manifest 必须递归只读');
+  mutableManifests.game.id = 'mutated-after-definition';
+  assert.equal(definition.manifests.game.id, 'zhaoyun-adou', '定义必须与调用方可变数据隔离');
+  assert.doesNotThrow(() => JSON.stringify(definition), 'Content Pack 定义必须保持纯数据');
+  assert.doesNotThrow(() => structuredClone(definition), 'Content Pack 定义必须可结构化克隆');
+  assert.throws(
+    () => defineContentPack({ invalid: () => {} }),
+    /serializable/,
+    'Content Pack 公共入口必须拒绝可执行内容',
+  );
+  const pack = createGamePack(definition.manifests, { compileRuleset: compileMergeDefenseConfig });
+  assert.equal(pack.id, DEFAULT_GAME_PACK.id);
+  assert.equal(pack.config.recruitCost(0), DEFAULT_GAME_PACK.config.recruitCost(0));
+  assert.equal(Object.isFrozen(pack.config.board), true, '编译后的嵌套 ruleset config 必须只读');
+  assert.throws(() => { pack.config.board.cell = 999; }, TypeError,
+    '外部不得修改确定性运行配置');
+  const contentSource = await readFile(
+    new URL('../src/systems/content-pack/index.js', import.meta.url),
+    'utf8',
+  );
+  assert.doesNotMatch(contentSource, /compileRuleset|createGamePack/,
+    'Content Pack 公共入口只提供纯数据定义，不执行规则编译');
+}
+
+{
+  const clock = createGameClock(() => 0);
+  const assets = createAssetLoader({ manifest: { assets: [] } });
+  assert.equal(clock.next(), 0, 'Foundation 公共入口必须暴露真实时钟');
+  assert.equal(assets.has('missing'), false, 'Foundation 公共入口必须暴露真实素材加载器');
+}
 
 const state = createGame(0, 0, DEFAULT_GAME_PACK);
 assert.equal(state.stage.id, 'star-1');

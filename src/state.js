@@ -1,10 +1,25 @@
 // 对局状态工厂 —— 纯数据,渲染/输入不落这里
 import { CONFIG } from './config.js';
-import { normalizeClearedStars, normalizeStageIndex } from './campaign.js';
 import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { attachRuntime, createSlicedState, getStateSlice } from './engine-core/public.js';
-import { buildBoard, cellAt } from './systems/board/index.js';
-import { ensurePieceIdentity } from './systems/piece/index.js';
+import {
+  attachRuntime,
+  createFoundationStateSlice,
+  createSlicedState,
+} from './engine-core/public.js';
+import { cellAt, createBoardStateSlice } from './systems/board/index.js';
+import {
+  createPieceStateSlice,
+  ensurePieceIdentity,
+} from './systems/piece/index.js';
+import { createAttributeStateSlice } from './systems/attribute/index.js';
+import { createEconomyStateSlice } from './systems/economy/index.js';
+import { createCombatStateSlice } from './systems/combat/index.js';
+import { createSkillStatusStateSlice } from './systems/skill-status/index.js';
+import { createStageEncounterStateSlice } from './systems/stage-encounter/index.js';
+import { createEquipmentItemsStateSlice } from './systems/equipment-items/index.js';
+import { createFixedRouteMatchStateSlice } from './systems/match-mode/index.js';
+import { createProgressStateSlice } from './systems/progress-save/index.js';
+import { createPresentationStateSlice } from './systems/skin-presentation/index.js';
 
 export const STATE_SLICE_KEYS = Object.freeze({
   foundation: Object.freeze(['time', 'speed', 'resumeSpeed']),
@@ -15,7 +30,7 @@ export const STATE_SLICE_KEYS = Object.freeze({
   equipmentItems: Object.freeze(['shovels', 'brushes', 'luoyang']),
   skillStatus: Object.freeze(['heroes', 'buff', 'lastHeroUnlocked', 'lastHeroCast']),
   combat: Object.freeze(['enemies', 'projectiles']),
-  presentation: Object.freeze(['effects']),
+  presentation: Object.freeze(['effects', 'feedback']),
   encounter: Object.freeze(['lives', 'waveTarget', 'wave', 'phase', 'phaseT', 'spawnLeft', 'spawnTotal', 'spawnT']),
 });
 
@@ -34,99 +49,83 @@ export const STATE_FACADE_OWNERS = Object.freeze({
   }),
 });
 
+// 保持候选基座 JSON/Object.keys 顺序；这里只描述兼容投影，不保存任何系统初值或规则。
+const LEGACY_STATE_KEY_ORDER = Object.freeze([
+  'title', 'time', 'resetConfirmUntil', 'resetResult', 'speed', 'resumeSpeed',
+  'mantou', 'lives', 'shovels', 'brushes', 'luoyang', 'recruitCount', 'recruitQueue',
+  'stageIndex', 'stage', 'waveTarget', 'clearedStars', 'saved', 'saveWarning',
+  'grid', 'path', 'paths', 'bench', 'heroes', 'enemies', 'projectiles', 'effects',
+  'feedback', 'buff', 'wave', 'phase', 'phaseT', 'spawnLeft', 'spawnTotal', 'spawnT',
+  'over', 'win', 'lastHeroUnlocked', 'lastHeroCast', 'stats',
+]);
+
+const STATE_OWNER_BY_KEY = new Map(Object.entries(STATE_SLICE_KEYS).flatMap(
+  ([sliceId, keys]) => keys.map((key) => [key, sliceId]),
+));
+
+function composeSystemSlices(systemSlices) {
+  const initialState = {};
+  const stats = {};
+  for (const [stat, sliceId] of Object.entries(STATE_FACADE_OWNERS.stats)) {
+    if (!Object.hasOwn(systemSlices[sliceId]?.stats ?? {}, stat)) {
+      throw new Error(`[state] ${sliceId} state factory must initialize stats.${stat}`);
+    }
+    stats[stat] = systemSlices[sliceId].stats[stat];
+  }
+  for (const key of LEGACY_STATE_KEY_ORDER) {
+    if (key === 'stats') {
+      initialState.stats = stats;
+      continue;
+    }
+    const sliceId = STATE_OWNER_BY_KEY.get(key);
+    if (!sliceId || !Object.hasOwn(systemSlices[sliceId] ?? {}, key)) {
+      throw new Error(`[state] ${sliceId ?? 'unknown'} state factory must initialize ${key}`);
+    }
+    initialState[key] = systemSlices[sliceId][key];
+  }
+  const sliceExtensions = {};
+  for (const [sliceId, slice] of Object.entries(systemSlices)) {
+    const publicKeys = new Set([...(STATE_SLICE_KEYS[sliceId] ?? []), 'stats']);
+    const extension = Object.fromEntries(
+      Object.entries(slice).filter(([key]) => !publicKeys.has(key)),
+    );
+    if (Object.keys(extension).length > 0) sliceExtensions[sliceId] = extension;
+  }
+  return { initialState, sliceExtensions };
+}
+
 export function createGame(stageIndex = 0, clearedStars = 0, gamePack = DEFAULT_GAME_PACK, runtime) {
-  const config = gamePack?.config ?? CONFIG;
-  const safeStageIndex = normalizeStageIndex(stageIndex, gamePack);
-  const stage = config.campaign.stages[safeStageIndex];
-  const { grid, path, paths } = buildBoard(gamePack, stage.mapId);
-  const initialState = {
-    title: true,   // 标题页(restart 时由 main 置 false 直接开局)
-    time: 0,
-    resetConfirmUntil: 0,
-    resetResult: 'idle',
-    speed: 1,
-    resumeSpeed: 1,
-    mantou: config.startMantou,
-    lives: config.startLives,
-    shovels: config.startShovels,
-    brushes: config.startBrushes,
-    // 实机中的洛阳铲是被动产铲；普通铲子本身进入营栏后拖到封地使用。
-    luoyang: {
-      enabled: true,
-      elapsed: 0,
-      interval: config.luoyangShovel.interval,
-      generated: 0,
-      pending: false,
-    },
-    recruitCount: 0,
-    // 每关前两次有效征兵给出本关代表英雄双字，保证玩家能真实体验英雄合成链。
-    recruitQueue: [...config.heroes[stage.featuredHero].chars],
-    stageIndex: safeStageIndex,
-    stage,
-    waveTarget: stage.waveCount,
-    clearedStars: normalizeClearedStars(clearedStars, gamePack),
-    saved: undefined,
-    saveWarning: undefined,
-    grid, path, paths,
-    bench: Array.from({ length: config.benchSize }, (_, index) => {
-      const type = config.starterUnits[index];
-      if (type) return { kind: 'troop', type, level: 1 };
-      if (index === config.starterUnits.length && config.startShovels > 0) return { kind: 'shovel' };
-      return null;
-    }), // troop | frag | shovel
-    heroes: [],      // {key,r,c,cd,ultCd} 占 (r,c)+(r,c+1) 两格
-    enemies: [],     // {type,wave,hp,maxHp,p,stun,slowFlash}
-    projectiles: [], // {x,y,target,dmg,speed}
-    effects: [],     // 见 effects.js
-    buff: null,      // {mult,until} 刘备光环
-    wave: 0,
-    phase: 'break',  // break | wave
-    phaseT: null,    // 首波等玩家主动开战;后续波次为数字倒计时
-    spawnLeft: 0,
-    spawnTotal: 0,
-    spawnT: 0,
-    over: false, win: false,
-    lastHeroUnlocked: null,
-    lastHeroCast: null,
-    stats: {
-      kills: 0,
-      merges: 0,
-      recruits: 0,
-      shovelsUsed: 0,
-      brushUses: 0,
-      luoyangGenerated: 0,
-      heroUnlocks: 0,
-      heroCasts: 0,
-      moves: 0,
-      swaps: 0,
-    },
+  const effectiveGamePack = gamePack?.config ? gamePack : DEFAULT_GAME_PACK;
+  const config = effectiveGamePack.config ?? CONFIG;
+  const match = createFixedRouteMatchStateSlice({ stageIndex, gamePack: effectiveGamePack });
+  const systemSlices = {
+    foundation: createFoundationStateSlice(),
+    match,
+    progress: createProgressStateSlice({
+      clearedStars,
+      stageCount: config.campaign.stages.length,
+    }),
+    board: createBoardStateSlice(effectiveGamePack, match.stage.mapId),
+    economy: createEconomyStateSlice({ config, stage: match.stage }),
+    equipmentItems: createEquipmentItemsStateSlice({ config }),
+    skillStatus: createSkillStatusStateSlice(),
+    combat: createCombatStateSlice(),
+    presentation: createPresentationStateSlice(),
+    encounter: createStageEncounterStateSlice({ config, stage: match.stage }),
   };
+  const { initialState, sliceExtensions } = composeSystemSlices(systemSlices);
   const state = createSlicedState(initialState, STATE_SLICE_KEYS, {
     facades: STATE_FACADE_OWNERS,
     privateSlices: {
-      pieces: { nextSequence: 0 },
-      attributes: { modifiers: [] },
+      pieces: createPieceStateSlice(),
+      attributes: createAttributeStateSlice(),
     },
-  });
-  Object.assign(getStateSlice(state, 'economy'), { producerCooldowns: {} });
-  Object.assign(getStateSlice(state, 'combat'), {
-    attackCooldowns: {},
-    nextProjectileSequence: 0,
-  });
-  Object.assign(getStateSlice(state, 'skillStatus'), {
-    dragons: [],
-    statuses: [],
-    nextEntitySequence: 0,
-  });
-  Object.assign(getStateSlice(state, 'encounter'), {
-    nextEnemySequence: 0,
-    completed: false,
-    result: null,
+    sliceExtensions,
   });
   state.bench.forEach((piece, index) => {
     if (piece) ensurePieceIdentity(state, piece, { zone: 'bench', index });
   });
-  const context = runtime?.gamePack ? runtime : { ...(runtime ?? {}), gamePack };
+  const context = runtime?.gamePack ? runtime : { ...(runtime ?? {}), gamePack: effectiveGamePack };
   return attachRuntime(state, context);
 }
 

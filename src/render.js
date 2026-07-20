@@ -1,5 +1,4 @@
 // 渲染编排：棋盘、字牌、敌人、特效与战斗 UI。
-import { B, UI, boardHeight, boardWidth, cellXY } from './ui-layout.js';
 import {
   drawBattleBackdrop, drawButton, drawStars, drawToolAtlasIcon, font,
   presentationTokens, roundRect, themeColors,
@@ -8,14 +7,15 @@ import { drawBattleSignals, drawTopBar } from './render-battle-hud.js';
 import { drawBattleControls } from './render-battle-controls.js';
 import { drawEnemies } from './render-enemies.js';
 import { drawTitle } from './render-title.js';
-import { DEFAULT_GAME_PACK } from './game-pack.js';
-import { copyText, gamePackFor, hostFor, registryFor } from './engine-core/public.js';
+import { copyText, hostFor, registryFor } from './engine-core/public.js';
 import {
   createEffectRendererRegistry,
   createHeroPresentationRegistry,
 } from './presentation-pack/presentation-registry.js';
 import { drawRouteOverlay } from './presentation-pack/route-overlay.js';
 import { drawBoardInteractionOverlay } from './presentation-pack/board-interaction-overlay.js';
+import { layoutForGamePack } from './systems/ui-interaction/index.js';
+import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
 
 // ---------- 字牌 ----------
 function drawCard(ctx, x, y, size, { char, level, style, shake = 0, height = size, palette }, gamePack) {
@@ -56,7 +56,7 @@ function drawCard(ctx, x, y, size, { char, level, style, shake = 0, height = siz
   ctx.stroke();
   ctx.globalAlpha = 1;
   ctx.fillStyle = style === 'hero' ? (palette?.ink ?? colors.inkStrong) : colors.inkStrong;
-  ctx.font = font(Math.min(w, h) * 0.7);
+  ctx.font = font(Math.min(w, h) * 0.7, true, gamePack);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(char, 0, 2);
   if (level) {
@@ -64,7 +64,7 @@ function drawCard(ctx, x, y, size, { char, level, style, shake = 0, height = siz
     ctx.fillStyle = style === 'hero' ? colors.goldReward : colors.inkStructure;
     ctx.beginPath(); ctx.arc(halfW - badgeRadius - 2, -halfH + badgeRadius + 2, badgeRadius, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = style === 'hero' ? colors.inkStrong : colors.paperRaised;
-    ctx.font = font(Math.max(10, Math.min(w, h) * 0.24));
+    ctx.font = font(Math.max(10, Math.min(w, h) * 0.24), true, gamePack);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(String(level), halfW - badgeRadius - 2, -halfH + badgeRadius + 2.5);
   }
@@ -126,6 +126,7 @@ function drawHeroWeapon(ctx, rendererId, x, y) {
 // ---------- 棋盘 ----------
 function drawBoard(ctx, state, drag, gamePack) {
   const config = gamePack.config;
+  const { board: B, boardHeight, boardWidth, cellXY } = layoutForGamePack(gamePack);
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
   const heroVisuals = gamePack.manifests.theme.heroVisuals ?? {};
@@ -188,7 +189,7 @@ function drawBoard(ctx, state, drag, gamePack) {
         ctx.fillStyle = '#9f5540';
         roundRect(ctx, x + 8, y + 13, B.cellW - 16, B.cellH - 17, 2); ctx.fill();
         ctx.strokeStyle = '#4f2b21'; ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle = '#fff0cf'; ctx.font = font(21);
+        ctx.fillStyle = '#fff0cf'; ctx.font = font(21, true, gamePack);
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(copyText(gamePack, 'battle.gate'), x + B.cellW / 2, y + B.cellH / 2 + 5);
       }
@@ -236,7 +237,13 @@ function drawBoard(ctx, state, drag, gamePack) {
         ctx.strokeRect(x - B.cellW / 2 + 4, y - B.cellH / 2 + 4, B.cellW - 8, B.cellH - 8);
         ctx.setLineDash([]);
       }
-      if (u.kind === 'troop') drawCard(ctx, x, y, B.cellW - 5, { char: config.troops[u.type].char, level: u.level, style: 'troop', shake: u.flash, height: B.cellH - 5 }, gamePack);
+      if (u.kind === 'troop') drawCard(ctx, x, y, B.cellW - 5, {
+        char: config.troops[u.type].char,
+        level: u.level,
+        style: 'troop',
+        shake: state.pieceHitFlashes?.[u.pieceId] ?? 0,
+        height: B.cellH - 5,
+      }, gamePack);
       else if (u.kind === 'frag') drawCard(ctx, x, y, B.cellW - 5, { char: u.char, level: u.level ?? 1, style: 'frag', height: B.cellH - 5 }, gamePack);
       if (sourceGhost) ctx.restore();
     }
@@ -256,8 +263,9 @@ function drawBoard(ctx, state, drag, gamePack) {
     ctx.fillStyle = halo;
     ctx.beginPath(); ctx.arc(centerX, a.y, 50, 0, Math.PI * 2); ctx.fill();
     ctx.shadowColor = visual.glow; ctx.shadowBlur = 7;
-    drawCard(ctx, a.x, a.y, B.cellW - 3, { char: cfg.chars[0], level: h.level ?? 1, style: 'hero', shake: h.flash, height: B.cellH - 3, palette: visual }, gamePack);
-    drawCard(ctx, a.x + B.cellW, a.y, B.cellW - 3, { char: cfg.chars[1], level: h.level ?? 1, style: 'hero', shake: h.flash, height: B.cellH - 3, palette: visual }, gamePack);
+    const heroFlash = state.pieceHitFlashes?.[`hero-${h.key}-basic`] ?? 0;
+    drawCard(ctx, a.x, a.y, B.cellW - 3, { char: cfg.chars[0], level: h.level ?? 1, style: 'hero', shake: heroFlash, height: B.cellH - 3, palette: visual }, gamePack);
+    drawCard(ctx, a.x + B.cellW, a.y, B.cellW - 3, { char: cfg.chars[1], level: h.level ?? 1, style: 'hero', shake: heroFlash, height: B.cellH - 3, palette: visual }, gamePack);
     ctx.shadowColor = 'transparent';
     drawHeroWeapon(ctx, presentation.weaponRendererId, a.x + B.cellW + 9, a.y + 11);
     ctx.restore();
@@ -327,7 +335,7 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
   'effect.floating-text': ({ ctx, f, k }) => {
       ctx.globalAlpha = Math.min(1, k * 2);
       ctx.fillStyle = f.color;
-      ctx.font = font(Math.max(15, 15 * f.scale));
+      ctx.font = font(Math.max(15, 15 * f.scale), true, gamePack);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(247,238,216,0.92)';
@@ -347,7 +355,8 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
       ctx.beginPath(); ctx.arc(f.x, f.y, f.maxR * (1 - k), 0, 6.29); ctx.stroke();
       ctx.globalAlpha = 1;
   },
-  'effect.flame-dragon': ({ ctx, f, k, state }) => {
+  'effect.flame-dragon': ({ ctx, f, k, state, layout }) => {
+      const { cellXY } = layout;
       const path = state.paths?.[f.lane ?? 0] ?? state.path;
       const i = Math.min(Math.floor(f.p), path.length - 2);
       if (i >= 0) {
@@ -358,7 +367,8 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
         drawFlameDragon(ctx, x, y, Math.atan2(b.y - a.y, b.x - a.x), f.t, k);
       }
   },
-  'effect.arrow-rain': ({ ctx, f, k }) => {
+  'effect.arrow-rain': ({ ctx, f, k, layout }) => {
+      const { board: B, boardHeight, boardWidth } = layout;
       for (let i = 0; i < 30; i++) {
         const x = (i * 137) % boardWidth + B.ox;
         const y = B.oy - 28 + ((i * 89 + f.t * 520) % (boardHeight + 56));
@@ -369,12 +379,13 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
 
 function drawEffects(ctx, state, gamePack) {
   const bindings = gamePack.manifests.theme.renderers.effects;
+  const layout = layoutForGamePack(gamePack);
   for (const f of state.effects) {
     if (f.t < 0) continue;
     const k = 1 - f.t / f.life;
     const effectId = f.effectId ?? `effect.${f.kind}`;
     const rendererId = bindings[effectId];
-    EFFECT_RENDERERS.get(rendererId)({ ctx, f, k, state });
+    EFFECT_RENDERERS.get(rendererId)({ ctx, f, k, state, layout });
   }
   // 弓箭弹道
   for (const p of state.projectiles) {
@@ -384,6 +395,7 @@ function drawEffects(ctx, state, gamePack) {
 
 function drawOverlay(ctx, state, gamePack) {
   const config = gamePack.config;
+  const { ui: UI } = layoutForGamePack(gamePack);
   const copy = (id, values, fallback) => copyText(gamePack, id, values, fallback);
   const colors = themeColors(gamePack);
   ctx.fillStyle = 'rgba(23,25,20,0.74)';
@@ -414,18 +426,18 @@ function drawOverlay(ctx, state, gamePack) {
     ctx.restore();
   }
   ctx.fillStyle = state.win ? colors.cinnabarPrimary : colors.inkStrong;
-  ctx.font = font(64);
+  ctx.font = font(64, true, gamePack);
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(copy(state.win ? 'result.victory' : 'result.defeat'), 210, 278);
-  ctx.font = font(18, false);
+  ctx.font = font(18, false, gamePack);
   ctx.fillText(state.win
     ? copy('result.victory.summary', { stageName: state.stage.name, kills: state.stats.kills })
     : copy('result.defeat.summary', { wave: state.wave, kills: state.stats.kills }), 210, 358);
-  ctx.font = font(14, false);
+  ctx.font = font(14, false, gamePack);
   ctx.fillText(`${config.campaign.rank} · ${state.clearedStars}/${config.campaign.stages.length} 星`, 210, 398);
   drawStars(ctx, state.clearedStars, 432, 25, gamePack);
   if (state.saveWarning) {
-    ctx.fillStyle = '#8f3a2d'; ctx.font = font(11, false);
+    ctx.fillStyle = '#8f3a2d'; ctx.font = font(11, false, gamePack);
     ctx.fillText(copy('result.storageWarning'), 210, 470);
   }
 
@@ -442,10 +454,12 @@ export function render(
   ctx,
   state,
   drag,
-  gamePack = gamePackFor(state, DEFAULT_GAME_PACK),
+  gamePack = null,
   host = hostFor(state),
 ) {
+  gamePack = resolveLegacyPresentationGamePack(state, gamePack);
   const config = gamePack.config;
+  const { ui: UI } = layoutForGamePack(gamePack);
   const copy = (id, values, fallback) => copyText(gamePack, id, values, fallback);
   if (state.title) { drawTitle(ctx, state, gamePack, host); return; }
   drawBattleBackdrop(ctx, gamePack, host);
@@ -456,11 +470,11 @@ export function render(
   drawBattleControls(ctx, state, drag, (...args) => drawCard(...args, gamePack), gamePack, host);
   // 铲子模式提示
   if (drag?.mode === 'brush') {
-    ctx.fillStyle = themeColors(gamePack).qingPlayable; ctx.font = font(12);
+    ctx.fillStyle = themeColors(gamePack).qingPlayable; ctx.font = font(12, true, gamePack);
     ctx.textAlign = 'center';
     ctx.fillText(copy('battle.brush.hint'), 210, 600);
   } else if (drag?.mode === 'shovel' || drag?.item?.kind === 'shovel') {
-    ctx.fillStyle = themeColors(gamePack).qingPlayable; ctx.font = font(12);
+    ctx.fillStyle = themeColors(gamePack).qingPlayable; ctx.font = font(12, true, gamePack);
     ctx.textAlign = 'center';
     ctx.fillText(copy('battle.shovel.hint'), 210, 600);
   }

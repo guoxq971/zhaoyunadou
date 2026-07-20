@@ -1,6 +1,6 @@
 export const UI_INTERACTION_API_VERSION = '1.0.0';
 
-export { createSemanticLayout, DEFAULT_UI_RECTS } from './layout.js';
+export { createSemanticLayout, DEFAULT_UI_RECTS, layoutForGamePack } from './layout.js';
 export {
   createInteractionState,
   recordCommandResult,

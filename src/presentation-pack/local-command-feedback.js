@@ -1,7 +1,8 @@
 import { copyText } from '../engine-core/public.js';
 import { addRing, addText } from '../effects.js';
-import { B, UI, benchRect, cellXY } from '../ui-layout.js';
 import { presentationTokens, themeColors } from '../render-theme.js';
+import { layoutForGamePack } from '../systems/ui-interaction/index.js';
+import { markPieceHitFeedback } from '../systems/skin-presentation/feedback-state.js';
 import { addConfiguredFeedback } from './feedback-effect.js';
 
 const FAILURE_LABELS = Object.freeze({
@@ -17,13 +18,13 @@ const FAILURE_LABELS = Object.freeze({
   'tool-unavailable': '道具不足',
 });
 
-function targetPoint(target) {
-  if (target?.zone === 'grid') return cellXY(target.r, target.c);
+function targetPoint(target, layout) {
+  if (target?.zone === 'grid') return layout.cellXY(target.r, target.c);
   if (target?.zone === 'bench') {
-    const rect = benchRect(target.index);
+    const rect = layout.benchRect(target.index);
     return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
   }
-  return { x: 210, y: UI.recruit.y - 14 };
+  return { x: 210, y: layout.ui.recruit.y - 14 };
 }
 
 export function createLocalCommandFeedback({ game, gamePack, audioEngine }) {
@@ -31,6 +32,8 @@ export function createLocalCommandFeedback({ game, gamePack, audioEngine }) {
   const colors = themeColors(gamePack);
   const feedback = gamePack.manifests.theme.feedback;
   const { motion } = presentationTokens(gamePack);
+  const layout = layoutForGamePack(gamePack);
+  const { board: B, ui: UI, benchRect, cellXY } = layout;
   const sfx = (cueId) => audioEngine?.play?.(cueId);
 
   return function presentCommand(command, result) {
@@ -62,8 +65,8 @@ export function createLocalCommandFeedback({ game, gamePack, audioEngine }) {
     }
 
     if (command.type === 'unit.drop') {
-      const point = targetPoint(command.payload.target);
-      const sourcePoint = targetPoint(command.payload.source);
+      const point = targetPoint(command.payload.target, layout);
+      const sourcePoint = targetPoint(command.payload.source, layout);
       if (!result.ok) {
         addRing(state, point.x, point.y, colors.invalidTarget, 38, {
           life: motion.invalidReboundSeconds, feedbackId: 'invalid-target',
@@ -86,6 +89,7 @@ export function createLocalCommandFeedback({ game, gamePack, audioEngine }) {
         : result.action === 'swap'
           ? { color: colors.qingPlayable, label: '换', cue: 'place', radius: 44 }
           : { color: colors.qingPlayable, label: '移', cue: 'place', radius: 38 };
+      if (result.action === 'merge') markPieceHitFeedback(state, result.pieceId, 0.2);
       if (result.action === 'swap') {
         addRing(state, sourcePoint.x, sourcePoint.y, style.color, 36, {
           life: motion.feedbackSeconds, feedbackId: 'swap-source',
@@ -119,7 +123,7 @@ export function createLocalCommandFeedback({ game, gamePack, audioEngine }) {
     }
 
     if (command.type === 'item.use') {
-      const point = targetPoint(command.payload.target);
+      const point = targetPoint(command.payload.target, layout);
       if (!result.ok) {
         addRing(state, point.x, point.y, colors.invalidTarget, 38);
         addText(state, point.x, point.y - 20, FAILURE_LABELS[result.reason] ?? '道具无效', colors.invalidTarget, 0.9);

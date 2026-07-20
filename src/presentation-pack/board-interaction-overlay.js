@@ -1,5 +1,5 @@
-import { B } from '../ui-layout.js';
 import { presentationTokens, themeColors } from '../render-theme.js';
+import { layoutForGamePack } from '../systems/ui-interaction/index.js';
 
 function hovered(drag, r, c) {
   return drag.hover?.zone === 'grid' && drag.hover.r === r && drag.hover.c === c;
@@ -7,6 +7,7 @@ function hovered(drag, r, c) {
 
 export function drawBoardInteractionOverlay(ctx, state, drag, gamePack) {
   if (!drag?.item && drag?.mode !== 'shovel' && drag?.mode !== 'brush') return;
+  const B = layoutForGamePack(gamePack).board;
   const colors = themeColors(gamePack);
   const { motion } = presentationTokens(gamePack);
   const pulse = 0.5 + 0.5 * Math.sin(state.time * Math.PI * 2 * motion.targetPulseHz);

@@ -15,6 +15,26 @@ function normalizedResumeSpeed(clockState) {
       : 1;
 }
 
+// Foundation 独占模拟时间；对局模式和总循环只通过这两个窄口推进。
+export function setSimulationTime(state, time) {
+  const nextTime = Number(time);
+  if (!Number.isFinite(nextTime) || nextTime < 0) {
+    throw new RangeError('[simulation-clock] time must be a non-negative finite number');
+  }
+  const clockState = simulationClockState(state);
+  clockState.time = nextTime;
+  return clockState.time;
+}
+
+export function advanceSimulationTime(state, delta) {
+  const elapsed = Number(delta);
+  if (!Number.isFinite(elapsed) || elapsed < 0) {
+    throw new RangeError('[simulation-clock] delta must be a non-negative finite number');
+  }
+  const clockState = simulationClockState(state);
+  return setSimulationTime(state, (Number(clockState.time) || 0) + elapsed);
+}
+
 // Foundation 独占模拟速度与暂停恢复值；MatchMode 只通过该窄 API 提交变更。
 export function setSimulationSpeed(state, speed) {
   const nextSpeed = Number(speed);

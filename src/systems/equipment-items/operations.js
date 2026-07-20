@@ -4,9 +4,9 @@ import {
   publishDomainEventFor,
   runtimeFor,
 } from '../../engine-core/public.js';
-import { cellAt, openLockedCell } from '../board/index.js';
+import { boardPieceAt, openLockedCell } from '../board/index.js';
 import {
-  detectHero,
+  detectHeroOnBoard,
   insertBenchPiece,
   ownedFragChars,
   relocateBenchPiece,
@@ -25,43 +25,71 @@ function publish(state, type, payload, tick) {
   });
 }
 
-export function useShovel(state, row, column, tick) {
-  if (state.shovels <= 0) return false;
+export function recordRecruitedItem(state, piece) {
+  if (piece?.kind !== 'shovel') return { recorded: false, itemId: null };
+  state.shovels++;
+  return { recorded: true, itemId: 'shovel', count: state.shovels };
+}
+
+export function commitShovelUse(state, row, column, tick) {
+  if (state.shovels <= 0) return { ok: false, reason: 'tool-unavailable' };
   const result = openLockedCell(state, row, column, tickFor(state, tick));
-  if (!result.ok) return false;
+  if (!result.ok) return result;
   state.shovels--;
   if (state.stats) state.stats.shovelsUsed = (state.stats.shovelsUsed ?? 0) + 1;
-  publishDomainEventFor(state, result.event);
-  publish(state, 'item.used', { itemId: 'shovel', r: row, c: column }, tick);
+  return {
+    ok: true,
+    reason: 'none',
+    row,
+    column,
+    tick: tickFor(state, tick),
+    boardEvent: result.event,
+  };
+}
+
+export function publishCommittedShovelUse(state, committed, source = 'bench') {
+  if (!committed?.ok) return false;
+  publishDomainEventFor(state, committed.boardEvent);
+  publish(state, 'item.used', {
+    itemId: 'shovel', r: committed.row, c: committed.column, source,
+  }, committed.tick);
+  return true;
+}
+
+// 旧同步 API 保持 boolean；GameCommand 路径则将发布延后到营栏与库存全部提交后。
+export function useShovel(state, row, column, tick) {
+  const committed = commitShovelUse(state, row, column, tick);
+  if (!committed.ok) return false;
+  publishCommittedShovelUse(state, committed, 'bench');
   return true;
 }
 
 export function useBrush(state, row, column, tick, gamePack) {
-  const cell = cellAt(state.grid, row, column);
-  if (!cell?.unit || !['troop', 'frag'].includes(cell.unit.kind) || state.brushes <= 0) return false;
+  const piece = boardPieceAt(state, row, column);
+  if (!piece || !['troop', 'frag'].includes(piece.kind) || state.brushes <= 0) return false;
   const config = gamePack?.config ?? gamePackFor(state)?.config;
   const featured = config?.heroes?.[state.stage.featuredHero];
   if (!featured) return false;
   const [first, second] = featured.chars;
   const owned = ownedFragChars(state).filter((char, index, chars) => {
-    if (cell.unit.kind !== 'frag' || char !== cell.unit.char) return true;
+    if (piece.kind !== 'frag' || char !== piece.char) return true;
     return index !== chars.indexOf(char);
   });
   const char = owned.includes(first) && !owned.includes(second)
     ? second
     : owned.includes(second) && !owned.includes(first) ? first : first;
-  ensurePieceIdentity(state, cell.unit, { zone: 'grid', r: row, c: column });
-  transformPiece(cell.unit, { kind: 'frag', char, level: 1 });
+  ensurePieceIdentity(state, piece, { zone: 'grid', r: row, c: column });
+  transformPiece(piece, { kind: 'frag', char, level: 1 });
   state.brushes--;
   if (state.stats) state.stats.brushUses = (state.stats.brushUses ?? 0) + 1;
   publish(state, 'item.used', { itemId: 'brush', r: row, c: column, char }, tick);
-  return { char, hero: detectHero(state.grid, row, column, gamePack ?? gamePackFor(state)) };
+  return { char, hero: detectHeroOnBoard(state, row, column, gamePack ?? gamePackFor(state)) };
 }
 
 export function insertGeneratedShovel(state, tick) {
   const result = insertBenchPiece(state, { kind: 'shovel' });
   if (!result.ok) return result;
-  state.shovels++;
+  recordRecruitedItem(state, result.piece);
   publish(state, 'item.generated', { itemId: 'shovel', slot: result.index }, tick);
   return { ok: true, reason: 'none', slot: result.index };
 }

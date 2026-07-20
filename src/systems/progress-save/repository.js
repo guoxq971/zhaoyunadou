@@ -97,8 +97,31 @@ export function createProgressSave({
       migrations,
     });
     if (!decoded.ok) return loadLegacy(decoded.reason);
+    const envelopeProfile = normalizeProfileProgress(decoded.envelope.payload, limits);
+    // revision>0 表示该 Envelope 来自真实结算。若弱存储只成功双写 Legacy、却既不能
+    // 覆盖也不能删除旧 Envelope，永久进度按单调字段取最大值，避免重启回滚。
+    if (decoded.envelope.revision > 0) {
+      const legacy = loadLegacy();
+      if (legacy.source === 'legacy') {
+        const reconciled = normalizeProfileProgress({
+          clearedStars: Math.max(envelopeProfile.clearedStars, legacy.profile.clearedStars),
+          bestWave: Math.max(envelopeProfile.bestWave, legacy.profile.bestWave),
+        }, limits);
+        if (reconciled.clearedStars !== envelopeProfile.clearedStars
+          || reconciled.bestWave !== envelopeProfile.bestWave) {
+          return {
+            profile: reconciled,
+            source: 'reconciled',
+            degraded: true,
+            reason: 'storage-diverged',
+            envelope: decoded.envelope,
+            migrated: decoded.migrated,
+          };
+        }
+      }
+    }
     return {
-      profile: normalizeProfileProgress(decoded.envelope.payload, limits),
+      profile: envelopeProfile,
       source: 'envelope',
       degraded: false,
       reason: null,
@@ -120,6 +143,9 @@ export function createProgressSave({
       write(storage, storageKeys.legacyProgressKey, String(profile.clearedStars)),
       write(storage, storageKeys.legacyBestWaveKey, String(profile.bestWave)),
     ];
+    // Envelope 优先读取：若新 Envelope 写入失败，必须尽力失效旧值，
+    // 否则已成功双写的 Legacy 新进度会在下次启动被旧 Envelope 覆盖。
+    if (!results[0]) remove(storage, storageKeys.profileKey);
     const persisted = results.every(Boolean) && storage?.persistent !== false;
     return {
       profile,

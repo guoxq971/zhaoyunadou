@@ -1,7 +1,17 @@
 const slicedStates = new WeakMap();
 
+export const createFoundationStateSlice = () => ({
+  time: 0,
+  speed: 1,
+  resumeSpeed: 1,
+});
+
 // 顶层 getter/setter 是旧调用方的兼容投影；真实可变值只存在命名切片中。
-export function createSlicedState(initialState, ownership, { facades = {}, privateSlices = {} } = {}) {
+export function createSlicedState(initialState, ownership, {
+  facades = {},
+  privateSlices = {},
+  sliceExtensions = {},
+} = {}) {
   if (!initialState || typeof initialState !== 'object' || Array.isArray(initialState)) {
     throw new TypeError('[state-slices] initialState must be an object');
   }
@@ -31,6 +41,18 @@ export function createSlicedState(initialState, ownership, { facades = {}, priva
       throw new TypeError(`[state-slices] private slice "${sliceId}" must be an object`);
     }
     slices[sliceId] = slice;
+  }
+  for (const [sliceId, extension] of Object.entries(sliceExtensions)) {
+    if (!slices[sliceId]) throw new Error(`[state-slices] extension has unknown state slice "${sliceId}"`);
+    if (!extension || typeof extension !== 'object' || Array.isArray(extension)) {
+      throw new TypeError(`[state-slices] extension "${sliceId}" must be an object`);
+    }
+    for (const [key, value] of Object.entries(extension)) {
+      if (Object.hasOwn(slices[sliceId], key)) {
+        throw new Error(`[state-slices] extension duplicates "${sliceId}.${key}"`);
+      }
+      slices[sliceId][key] = value;
+    }
   }
   for (const key of Object.keys(initialState)) {
     if (!ownerByKey.has(key) && !facadeKeys.has(key)) {

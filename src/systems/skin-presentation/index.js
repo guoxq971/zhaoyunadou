@@ -8,10 +8,26 @@ import {
   addText,
 } from '../../effects.js';
 import { addConfiguredFeedback } from '../../presentation-pack/feedback-effect.js';
+import {
+  enemyBobPhase,
+  markEnemyHitFeedback,
+  markPieceHitFeedback,
+} from './feedback-state.js';
+
+function skillVisualPoint(state, payload) {
+  if (!payload.enemyId) return { x: payload.x, y: payload.y };
+  return {
+    x: payload.x,
+    y: payload.y + Math.sin(enemyBobPhase(state, { enemyId: payload.enemyId })) * 2,
+  };
+}
 
 export const SKIN_PRESENTATION_API_VERSION = '1.0.0';
 
+export { configureLegacyPresentationGamePack } from './legacy-game-pack.js';
+
 export const PRESENTATION_CUE_TYPES = Object.freeze({
+  unitAttackStarted: 'combat.unit_attack_started_feedback',
   combatAttack: 'combat.attack_feedback',
   enemyDefeated: 'combat.enemy_defeated_feedback',
   enemyLeaked: 'combat.enemy_leaked_feedback',
@@ -21,24 +37,14 @@ export const PRESENTATION_CUE_TYPES = Object.freeze({
   projectileMissed: 'combat.projectile_missed_feedback',
 });
 
-function locatePiece(state, pieceId) {
-  if (!pieceId) return null;
-  for (let row = 0; row < (state.grid?.length ?? 0); row++) {
-    for (let column = 0; column < state.grid[row].length; column++) {
-      const piece = state.grid[row][column].unit;
-      if (piece?.pieceId === pieceId || pieceId === `legacy-piece-${row}-${column}`) return piece;
-    }
-  }
-  return null;
-}
-
 function presentBattleCue(state, cue, gamePack) {
   const payload = cue.payload;
+  if (cue.type === PRESENTATION_CUE_TYPES.unitAttackStarted) {
+    markPieceHitFeedback(state, payload.attackerId, payload.duration ?? 0.15);
+    return true;
+  }
   if (cue.type === PRESENTATION_CUE_TYPES.combatAttack) {
-    const target = state.enemies?.find(({ enemyId }) => enemyId === payload.enemyId);
-    if (target) target.hitFlash = 0.12;
-    const attacker = locatePiece(state, payload.attackerId);
-    if (attacker) attacker.flash = 0.15;
+    markEnemyHitFeedback(state, payload.enemyId, 0.12);
     if (payload.attackKind === 'direct') addSlash(state, payload.x, payload.y, payload.angle ?? 0);
     addText(
       state,
@@ -128,6 +134,9 @@ function presentSkillCue(state, cue, gamePack) {
   }
   if (cue.type !== 'skill.impact_feedback') return false;
   const { effectId, skillId } = payload;
+  if (skillId === 'basic-attack' && payload.heroId) {
+    markPieceHitFeedback(state, `hero-${payload.heroId}-basic`, payload.duration ?? 0.15);
+  }
   if (effectId === 'effect.dragon' && payload.phase !== 'end') {
     const skill = gamePack.config.ults.dragon;
     addDragon(state, payload.lane, {
@@ -137,9 +146,14 @@ function presentSkillCue(state, cue, gamePack) {
       hitDistance: skill.hitDistance,
     });
   } else if (effectId === 'effect.rain') addRain(state);
-  else if (effectId === 'effect.slash') addSlash(state, payload.x, payload.y, payload.angle ?? 0);
+  else if (effectId === 'effect.slash') {
+    const point = skillVisualPoint(state, payload);
+    const angle = payload.angle ?? randomFor(state, 'presentation')() * 6.28;
+    addSlash(state, point.x, point.y, angle);
+  }
   else if (effectId === 'effect.ink') {
-    addInk(state, payload.x, payload.y, '#c25a1a');
+    const point = skillVisualPoint(state, payload);
+    addInk(state, point.x, point.y, '#c25a1a');
     const dragon = state.effects.find((effect) => (
       effect.kind === 'dragon' && effect.entityId === payload.entityId
     ));
@@ -160,6 +174,16 @@ export function consumePresentationCues(state, cues, gamePack) {
   return consumed;
 }
 
+export {
+  advanceEnemyPresentationFeedback,
+  advancePiecePresentationFeedback,
+  advancePresentationFeedback,
+  createPresentationStateSlice,
+  enemyBobPhase,
+  presentationFeedbackSnapshot,
+  setEnemyBobPhase,
+} from './feedback-state.js';
+
 // 表现系统的唯一公开入口；根目录文件在物理搬迁前仍是同一系统的实现文件。
 export { createGameViewModel } from '../ui-interaction/index.js';
 export { createSafeAudioAdapter } from '../../audio.js';
@@ -174,6 +198,7 @@ export {
 } from '../../effects.js';
 export {
   assetsFor,
+  font,
   getAssetStatus,
   presentationTokens,
   releasePresentationResources,

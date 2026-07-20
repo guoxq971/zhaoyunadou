@@ -11,9 +11,12 @@ export {
   MATCH_MODE_API_VERSION,
   authorizeFixedRouteCampaignCommand,
   consumeFixedRouteCampaignDomainEvents,
+  createFixedRouteMatchStateSlice,
   createFixedRouteCampaignDomainEventHandlers,
   createFixedRouteCampaignMode,
+  fixedRouteResultAction,
 } from './fixed-route-campaign.js';
+export { createLocalPlayerController } from '../../controllers/local-player-controller.js';
 
 export function assertMatchModeContract(matchMode) {
   if (!matchMode || typeof matchMode !== 'object') throw new TypeError('[match-mode] matchMode is required');

@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
 import { CONFIG } from '../src/config.js';
 import { createGame } from '../src/state.js';
-import { damageEnemy, updateEnemies, updateWaves } from '../src/enemies.js';
+import { damageEnemy, spawnEnemy, updateEnemies, updateWaves } from '../src/enemies.js';
 import { updateProjectiles, updateUnits } from '../src/units.js';
 import { cellXY } from '../src/ui-layout.js';
+import { DEFAULT_GAME_PACK } from '../src/game-pack.js';
+import {
+  enemyBobPhase,
+  presentationFeedbackSnapshot,
+  setEnemyBobPhase,
+} from '../src/systems/skin-presentation/index.js';
+import { skillStatusStateFor } from '../src/systems/skill-status/index.js';
+import { createEnemySpawnDefinition } from '../src/systems/stage-encounter/index.js';
 
 function spawnedType(stageIndex, wave, total) {
   const state = createGame(stageIndex, stageIndex);
@@ -35,11 +43,97 @@ assert.equal(spawnedType(4, 5, CONFIG.waves.size(5)), 'boss');
 
 {
   const state = createGame();
+  const enemy = {
+    enemyId: 'enemy-stun-boundary', type: 'normal', wave: 1, lane: 0,
+    hp: 10, maxHp: 10, p: 0, speed: 1, stun: 0, bob: 0,
+  };
+  state.enemies.push(enemy);
+  skillStatusStateFor(state).statuses.push({
+    statusId: 'stun', targetId: enemy.enemyId,
+    appliedAt: 0, expiresAt: 2.5,
+  });
+  state.time = 2.5;
+  updateEnemies(state, 1 / 30, cellXY);
+  assert.equal(enemy.p, 0,
+    '眩晕在边界 tick 必须保持候选基座的整 tick 阻挡，下一 tick 才恢复移动');
+}
+
+{
+  const state = createGame();
+  const enemy = {
+    enemyId: 'enemy-stunned-bob', type: 'normal', wave: 1, lane: 0,
+    hp: 10, maxHp: 10, p: 0, speed: 1, stun: 0,
+  };
+  state.enemies.push(enemy);
+  setEnemyBobPhase(state, enemy.enemyId, 1.25);
+  skillStatusStateFor(state).statuses.push({
+    statusId: 'stun', targetId: enemy.enemyId,
+    appliedAt: 0, expiresAt: 2.5,
+  });
+  state.time = 1;
+  updateEnemies(state, 0.1, cellXY);
+  assert.equal(enemyBobPhase(state, enemy), 1.25,
+    '候选基座中眩晕会同时冻结移动和 bob，表现切片不得改变该时序');
+}
+
+{
+  const state = createGame(0, 0, undefined, {
+    gamePack: undefined,
+    random: { presentation: () => 0.5 },
+  });
+  state.wave = 1;
+  const enemy = spawnEnemy(state, 'normal');
+  assert.equal(enemyBobPhase(state, enemy), 3.14,
+    '敌人初始浮动位相须保持候选基座 random * 6.28 的表现序列');
+}
+
+{
+  const state = createGame();
+  assert.equal(state.wave, 0);
+  const enemy = spawnEnemy(state, 'normal');
+  assert.equal(enemy.wave, 0, '根级旧 spawnEnemy 在开波前仍兼容 wave=0');
+  assert.ok(enemy.hp > 0);
+  assert.throws(() => createEnemySpawnDefinition({
+    gamePack: DEFAULT_GAME_PACK,
+    stage: state.stage,
+    wave: 0,
+    type: 'normal',
+    index: 0,
+    laneCount: 1,
+    spawnedAt: 0,
+    enemyId: 'enemy-2',
+  }), /wave must be a positive integer/,
+  'Stage/Encounter 公开规则仍必须拒绝 wave=0');
+}
+
+{
+  const state = createGame();
   const start = state.path[0];
   state.grid[start.r][start.c].unit = { kind: 'troop', type: 'gong', level: 1, cd: 0 };
   state.enemies.push({ type: 'normal', wave: 1, hp: 100, maxHp: 100, p: 0, speed: 0, stun: 0, bob: 0 });
   updateUnits(state, 0.1, cellXY);
   assert.equal(state.projectiles.length, 1, '弓兵应创建追踪弹道');
+  const attackerId = state.projectiles[0].attackerId;
+  assert.equal(presentationFeedbackSnapshot(state).pieceHitFlashes[attackerId], 0.05,
+    '弓兵在发射当帧必须留下已衰减一个 dt 的候选攻击抖动，不能等命中才反馈');
+}
+
+{
+  const state = createGame();
+  const unit = state.bench.find((piece) => piece?.kind === 'troop' && piece.type === 'dao');
+  state.bench[state.bench.indexOf(unit)] = null;
+  state.grid[0][4].unit = unit;
+  state.enemies.push({
+    type: 'normal', wave: 1, hp: 100, maxHp: 100,
+    p: 4, speed: 0, stun: 0, bob: 0,
+  });
+  updateUnits(state, 0.1, cellXY);
+  const slash = state.effects.find((effect) => effect.kind === 'slash');
+  assert.ok(slash, '近战命中必须保留候选基座刀光');
+  assert.equal(slash.ang, Math.PI / 2,
+    '刀光必须指向目标，不得在 DomainEvent 转 PresentationCue 时丢失角度');
+  assert.equal(presentationFeedbackSnapshot(state).pieceHitFlashes[unit.pieceId], 0.05,
+    '近战攻击抖动必须在创建当帧按候选顺序衰减一个 dt');
 }
 
 {
@@ -71,7 +165,11 @@ assert.equal(spawnedType(4, 5, CONFIG.waves.size(5)), 'boss');
   const enemy = { type: 'normal', wave: 1, hp: 10, maxHp: 10, p: 0, speed: 0, stun: 0, bob: 0 };
   state.enemies.push(enemy);
   damageEnemy(state, enemy, 3, cellXY);
-  assert.equal(enemy.hitFlash, 0.12, '受击必须留下短暂闪白反馈');
+  assert.equal(
+    presentationFeedbackSnapshot(state).enemyHitFlashes[enemy.enemyId],
+    0.12,
+    '受击必须在 Presentation 切片留下短暂闪白反馈',
+  );
   damageEnemy(state, enemy, 7, cellXY);
   assert.ok(state.effects.some((effect) => effect.kind === 'text' && effect.text === '破'), '击杀必须生成破敌印记');
 }

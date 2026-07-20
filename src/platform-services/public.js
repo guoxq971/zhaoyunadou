@@ -7,6 +7,7 @@ export {
 export { createLocalEventCollector } from './local-event-collector.js';
 export {
   REQUIRED_EVENT_IDS,
+  createSafeTelemetryReporter,
   createEventReporter as createTelemetryReporter,
   immutableSnapshot,
   snapshotGameState,
@@ -15,4 +16,7 @@ export {
 export {
   createDomainTelemetryBridge,
   deriveTelemetryFromDomainEvent,
+  deriveTelemetryEventsFromDomainEvent,
 } from './domain-telemetry-bridge.js';
+export { createSafeStorage, createScopedStorage } from '../storage.js';
+export { createWebHost } from '../platforms/web/web-host.js';

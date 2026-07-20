@@ -10,6 +10,8 @@ import {
   createSkillExecutionRegistry,
   createSkillStatusState,
   createSkillStatusSystem,
+  consumeStatusTickForState,
+  registerUnlockedHero,
   snapshotSkillStatus,
 } from '../src/systems/skill-status/index.js';
 
@@ -21,25 +23,40 @@ function createHarness(enemies = []) {
   const events = [];
   const world = { enemies };
   const combat = {
-    listEnemies: (current) => [...current.enemies],
-    findTarget: (current, { x, y, rangeCells }) => {
+    listEnemyViews: (current) => current.enemies.map((enemy) => ({
+      enemyId: enemy.id,
+      lane: enemy.lane,
+      progress: enemy.p,
+      hp: enemy.hp,
+      maxHp: enemy.maxHp ?? enemy.hp,
+    })),
+    findTargetView: (current, { x, y, rangeCells }) => {
       const enemy = current.enemies.find((candidate) => {
-        const point = combat.positionOf(current, candidate);
+        const point = combat.positionOf(current, candidate.id);
         return Math.hypot(point.x - x, point.y - y) <= rangeCells * CONFIG.board.cell;
       });
       if (!enemy) return null;
-      return { enemy, ...combat.positionOf(current, enemy) };
+      return {
+        enemyId: enemy.id,
+        lane: enemy.lane,
+        progress: enemy.p,
+        hp: enemy.hp,
+        maxHp: enemy.maxHp ?? enemy.hp,
+        ...combat.positionOf(current, enemy.id),
+      };
     },
-    positionOf: (_current, enemy) => ({ x: enemy.x ?? 0, y: enemy.y ?? 0 }),
-    damage: (current, enemy, amount, metadata) => {
+    positionOf: (current, targetId) => {
+      const enemy = current.enemies.find(({ id }) => id === targetId);
+      return { x: enemy?.x ?? 0, y: enemy?.y ?? 0 };
+    },
+    damageById: (current, targetId, amount, metadata) => {
+      const enemy = current.enemies.find(({ id }) => id === targetId);
+      if (!enemy) return { ok: false, reason: 'enemy-not-active' };
       operations.push(`damage:${metadata.source}:${amount}`);
       enemy.hp -= amount;
       if (enemy.hp <= 0) current.enemies.splice(current.enemies.indexOf(enemy), 1);
       return { defeated: enemy.hp <= 0 };
     },
-    idOf: (enemy) => enemy.id,
-    laneOf: (enemy) => enemy.lane,
-    progressOf: (enemy) => enemy.p,
   };
   const system = createSkillStatusSystem({
     combat,
@@ -57,12 +74,23 @@ assert.throws(
   /missing execution handler "skill\.dragon"/,
   '执行系统不能遗漏 Manifest 可引用的稳定 handler',
 );
+
+{
+  const state = createSkillStatusState();
+  const hero = registerUnlockedHero(state, {
+    key: 'zhaoyun', r: 2, c: 3, level: 1, cd: 0, ultCd: 6,
+  });
+  assert.equal(hero.key, 'zhaoyun');
+  assert.equal(state.heroes[0], hero);
+  assert.equal(state.lastHeroUnlocked, 'zhaoyun');
+  assert.equal(state.stats.heroUnlocks, 1);
+}
 assert.deepEqual(SKILL_COMBAT_PORT_METHODS, [
-  'listEnemies', 'findTarget', 'positionOf', 'damage', 'idOf', 'laneOf', 'progressOf',
+  'listEnemyViews', 'findTargetView', 'positionOf', 'damageById',
 ]);
 assert.throws(
   () => createSkillStatusSystem({ combat: {} }),
-  /combat\.listEnemies must be a function/,
+  /combat\.listEnemyViews must be a function/,
   '缺失 Combat Port 时必须在装配期明确失败',
 );
 
@@ -70,7 +98,7 @@ assert.throws(
   const state = createSkillStatusState({
     heroes: [{ key: 'zhaoyun', r: 1, c: 1, cd: 0, ultCd: 0, flash: 0 }],
   });
-  const enemy = { id: 'enemy-1', lane: 0, p: 0, x: 80, y: 40, hp: 1_000 };
+  const enemy = { id: 'enemy-1', lane: 0, p: 0, x: 80, y: 80, hp: 1_000 };
   const harness = createHarness([enemy]);
   harness.system.updateHeroes({
     world: harness.world,
@@ -94,6 +122,9 @@ assert.throws(
   assert.ok(harness.cues.some(({ type, payload }) => (
     type === 'skill.cast_feedback' && payload.skillId === 'dragon'
   )));
+  const basicSlash = harness.cues.find(({ payload }) => payload.skillId === 'basic-attack');
+  assert.equal(basicSlash.payload.angle, Math.atan2(40, 20),
+    '英雄平 A 刀光必须保留候选基座的目标方向');
   assert.ok(harness.events.some(({ type, tick }) => type === 'skill.cast' && tick === 7));
 }
 
@@ -157,6 +188,18 @@ assert.throws(
   });
   assert.equal(enemy.hp, 980, '张飞大招必须保持 20 点伤害');
   assert.equal(harness.system.statusRemaining(state, 'enemy-status', 'stun', 10), 2.5);
+  let blockedTicks = 0;
+  while (consumeStatusTickForState(state, 'enemy-status', 'stun', 0.025, 10)
+    && blockedTicks < 200) blockedTicks++;
+  assert.equal(blockedTicks, 101,
+    '逐 tick 眩晕必须保留候选浮点扣减语义，不能被绝对 expiresAt 提前一帧清除');
+  assert.ok(state.statuses[0].remaining < 0);
+  assert.equal(
+    harness.cues.find(({ payload }) => payload.skillId === 'shout' && payload.effectId === 'effect.ring')
+      .payload.radius,
+    240,
+    '张飞大招圆环半径必须保持候选基座 240px',
+  );
 
   harness.system.castSkill({
     world: harness.world, skillState: state, config: CONFIG,

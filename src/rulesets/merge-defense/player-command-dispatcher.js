@@ -1,4 +1,5 @@
 import {
+  commandRejectedDomainEvent,
   composeCommandHandlerMaps,
   publishDomainEventFor,
   setSimulationPaused,
@@ -15,7 +16,10 @@ import {
   itemSignature,
   isMovableUnit,
 } from '../../systems/economy/index.js';
-import { createEquipmentCommandHandlers } from '../../systems/equipment-items/index.js';
+import {
+  createEquipmentCommandHandlers,
+  recordRecruitedItem,
+} from '../../systems/equipment-items/index.js';
 import { createStageEncounterCommandHandlers } from '../../systems/stage-encounter/index.js';
 import {
   createInteractionCommandHandlers,
@@ -78,7 +82,7 @@ export function createMergeDefenseInteractionCommandQueries({ getState } = {}) {
     querySource(location) {
       const item = itemAtLocation(getState(), location);
       return {
-        item,
+        item: item ? Object.freeze({ ...item }) : null,
         signature: item ? itemSignature(item) : null,
         movable: isMovableUnit(item),
         draggableTool: location?.zone === 'bench' && item?.kind === 'shovel',
@@ -96,12 +100,11 @@ export function createMergeDefenseInteractionCommandQueries({ getState } = {}) {
 export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
   const stateNow = () => game.state;
   const invalid = (command, reason, actionId = command.type) => {
-    publishDomainEventFor(stateNow(), {
-      type: 'command.rejected',
-      source: 'foundation-runtime',
+    publishDomainEventFor(stateNow(), commandRejectedDomainEvent({
       tick: command.tick,
-      payload: { commandType: actionId, reason },
-    });
+      commandType: actionId,
+      reason,
+    }));
     return { ok: false, reason };
   };
   const clearDrag = () => resetInteractionState(drag);
@@ -129,7 +132,14 @@ export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
     },
     {
       systemId: 'economy-formation',
-      handlers: createEconomyCommandHandlers({ game, drag, gamePack, invalid, clearDrag }),
+      handlers: createEconomyCommandHandlers({
+        game,
+        drag,
+        gamePack,
+        invalid,
+        clearDrag,
+        onItemRecruited: recordRecruitedItem,
+      }),
     },
     {
       systemId: 'equipment-items',
@@ -137,7 +147,11 @@ export function createMergeDefenseCommandHandlers({ game, drag, gamePack }) {
     },
     {
       systemId: 'stage-encounter',
-      handlers: createStageEncounterCommandHandlers({ getState: stateNow, invalid }),
+      handlers: createStageEncounterCommandHandlers({
+        getState: stateNow,
+        canStartWave: (state) => !state.title && !state.over,
+        invalid,
+      }),
     },
   ]);
 }

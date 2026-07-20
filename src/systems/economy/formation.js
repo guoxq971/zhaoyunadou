@@ -1,9 +1,12 @@
 import {
   classifyTransfer,
+  boardPieceAt,
   commitAtomicTransfer,
   commitMergeOccupancy,
   inspectTransfer,
-  itemAtLocation,
+  itemAtLocation as boardItemAtLocation,
+  recordBoardTransfer,
+  replaceBoardOccupants,
   transferDomainEvent,
 } from '../board/index.js';
 import {
@@ -13,19 +16,41 @@ import {
   matchesPieceExpectation,
   pieceSignature,
   pieceUpgradedDomainEvent,
+  retirePiece,
   setPieceLocation,
   upgradePiece,
 } from '../piece/index.js';
-import { eventsFor, publishDomainEventFor, runtimeFor } from '../../engine-core/public.js';
-import { canMerge, configForEconomy, detectHero } from './rules.js';
+import { registerUnlockedHero } from '../skill-status/index.js';
+import { publishDomainEventFor, runtimeFor } from '../../engine-core/public.js';
+import {
+  canMerge,
+  configForEconomy,
+  detectHero,
+  detectHeroOnBoard,
+} from './rules.js';
 
 export const isMovableUnit = isMovablePiece;
 export const itemSignature = pieceSignature;
 const tickFor = (state, tick) => tick ?? runtimeFor(state)?.currentTick?.() ?? 0;
-const optionsFor = (gamePack) => ({ canCombine: (target, source) => canMerge(target, source, gamePack) });
+function resolveBenchLocation(state, location) {
+  if (location?.zone !== 'bench') return null;
+  const index = Number(location.index);
+  if (!Number.isInteger(index) || index < 0 || index >= state.bench.length) return null;
+  return {
+    zone: 'bench', index,
+    get: () => state.bench[index],
+    set: (value) => { state.bench[index] = value; },
+  };
+}
+
+const optionsFor = (state, gamePack) => ({
+  canCombine: (target, source) => canMerge(target, source, gamePack),
+  // Board 负责原子事务，Economy 只授予访问营栏单个位置的窄口。
+  resolveExternalLocation: (location) => resolveBenchLocation(state, location),
+});
 
 export function classifyUnitTransfer(state, command, gamePack) {
-  return classifyTransfer(state, command, optionsFor(gamePack));
+  return classifyTransfer(state, command, optionsFor(state, gamePack));
 }
 
 export function insertBenchPiece(state, piece) {
@@ -64,7 +89,7 @@ export function removeBenchPiece(state, index, { accepts = () => true } = {}) {
 }
 
 export function applyUnitTransfer(state, command, gamePack, tick) {
-  const plan = inspectTransfer(state, command, optionsFor(gamePack));
+  const plan = inspectTransfer(state, command, optionsFor(state, gamePack));
   if (!plan.ok) return plan;
   ensurePieceIdentity(state, plan.sourceItem, command.source);
   if (plan.targetItem) ensurePieceIdentity(state, plan.targetItem, command.target);
@@ -77,7 +102,13 @@ export function applyUnitTransfer(state, command, gamePack, tick) {
     publishDomainEventFor(state, pieceUpgradedDomainEvent(plan.targetItem, eventTick));
     publishDomainEventFor(state, {
       type: 'formation.merged', source: 'economy-formation', tick: eventTick,
-      payload: { pieceId: plan.targetItem.pieceId, level: plan.targetItem.level },
+      payload: {
+        pieceId: plan.targetItem.pieceId,
+        itemKind: plan.targetItem.kind,
+        itemId: plan.targetItem.type ?? plan.targetItem.char,
+        level: plan.targetItem.level,
+        cell: plan.target.zone === 'grid' ? { r: plan.target.r, c: plan.target.c } : null,
+      },
     });
   } else publishDomainEventFor(state, transferDomainEvent(plan, eventTick));
   return {
@@ -88,27 +119,31 @@ export function applyUnitTransfer(state, command, gamePack, tick) {
     target: command.target,
     itemKind: plan.sourceItem.kind,
     itemId: plan.sourceItem.type ?? plan.sourceItem.char,
+    pieceId: plan.action === 'merge' ? plan.targetItem.pieceId : plan.sourceItem.pieceId,
     level: plan.action === 'merge' ? plan.targetItem.level : plan.sourceItem.level ?? 1,
   };
 }
 
 export function unlockHero(state, { key, r, c, level = 1 }, gamePack) {
   const config = configForEconomy(gamePack ?? state);
+  const consumed = [boardPieceAt(state, r, c), boardPieceAt(state, r, c + 1)];
+  consumed.forEach((piece, index) => ensurePieceIdentity(state, piece, {
+    zone: 'grid', r, c: c + index,
+  }));
   const [left, right] = createHeroParts(state, key, level, [
     { zone: 'grid', r, c },
     { zone: 'grid', r, c: c + 1 },
   ]);
-  state.grid[r][c].unit = left;
-  state.grid[r][c + 1].unit = right;
+  const replaced = replaceBoardOccupants(state, [
+    { r, c, expected: boardPieceAt(state, r, c), next: left },
+    { r, c: c + 1, expected: boardPieceAt(state, r, c + 1), next: right },
+  ]);
+  if (!replaced.ok) throw new Error(`[economy] hero board replacement failed: ${replaced.reason}`);
+  consumed.forEach(retirePiece);
   const hero = config.heroes[key];
-  state.heroes.push({
+  registerUnlockedHero(state, {
     key, r, c, level, cd: 0,
     ultCd: hero.ultCd * (hero.initialUltCooldownRatio ?? 0.5),
-  });
-  state.lastHeroUnlocked = key;
-  if (state.stats) state.stats.heroUnlocks = (state.stats.heroUnlocks ?? 0) + 1;
-  eventsFor(state)?.emit('hero_unlock', state, {
-    result: 'success', reason: 'pair-completed', heroId: key,
   });
   publishDomainEventFor(state, {
     type: 'formation.hero_unlocked', source: 'economy-formation', tick: tickFor(state),
@@ -117,4 +152,8 @@ export function unlockHero(state, { key, r, c, level = 1 }, gamePack) {
   return { key, r, c, level };
 }
 
-export { detectHero, itemAtLocation };
+export function itemAtLocation(state, location) {
+  return boardItemAtLocation(state, location, optionsFor(state));
+}
+
+export { detectHero, detectHeroOnBoard, recordBoardTransfer };

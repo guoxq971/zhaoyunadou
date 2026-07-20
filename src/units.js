@@ -17,6 +17,7 @@ import {
 } from './rulesets/merge-defense/domain-event-runtime.js';
 import {
   consumePresentationCues,
+  advancePiecePresentationFeedback,
   PRESENTATION_CUE_TYPES,
 } from './systems/skin-presentation/index.js';
 
@@ -34,9 +35,19 @@ function eventPublisher(state, cellXY, gamePack) {
     ensureEnemyIdentity(state, enemy);
     return [enemy.enemyId, enemyGameplayXY(state, enemy, cellXY)];
   }));
+  const attackerOrigins = new Map();
+  for (let row = 0; row < state.grid.length; row++) {
+    for (let column = 0; column < state.grid[row].length; column++) {
+      const unit = state.grid[row][column].unit;
+      if (!unit || unit.kind !== 'troop') continue;
+      attackerOrigins.set(unit.pieceId ?? `legacy-piece-${row}-${column}`, cellXY(row, column));
+    }
+  }
   return (definition) => {
     const event = publishSystemDomainEvent(state, definition, gamePack);
     const point = positions.get(event.payload.enemyId) ?? { x: 0, y: 0 };
+    const origin = attackerOrigins.get(event.payload.attackerId) ?? point;
+    const angle = Math.atan2(point.y - origin.y, point.x - origin.x);
     const type = event.type === 'combat.attack_resolved'
       ? PRESENTATION_CUE_TYPES.combatAttack
       : event.type === 'combat.enemy_defeated'
@@ -46,7 +57,7 @@ function eventPublisher(state, cellXY, gamePack) {
       type,
       source: 'integration-quality',
       tick: event.tick,
-      payload: { ...event.payload, ...point },
+      payload: { ...event.payload, ...point, angle },
     }, gamePack);
     return event;
   };
@@ -82,9 +93,16 @@ export function updateUnits(state, dt, cellXY) {
       }]
       : [],
   });
-  for (const row of state.grid) for (const cell of row) {
-    if (cell.unit?.flash > 0) cell.unit.flash -= dt;
-  }
+  for (const started of result.started ?? []) publishSystemPresentationCue(state, {
+    type: PRESENTATION_CUE_TYPES.unitAttackStarted,
+    source: 'integration-quality',
+    tick: tickFor(state),
+    payload: {
+      attackerId: started.attackerId,
+      duration: Number(Math.max(0, 0.15 - dt).toFixed(6)),
+    },
+  }, gamePack);
+  advancePiecePresentationFeedback(state, dt);
   pumpSystemDomainEvents(state, gamePack);
   flushPresentation(state, gamePack);
   return result;
