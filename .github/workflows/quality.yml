@@ -2,7 +2,9 @@ name: game-foundation-quality
 
 on:
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - "codex/integration-game-systems-*"
   push:
     branches:
       - "codex/integration-game-systems-*"

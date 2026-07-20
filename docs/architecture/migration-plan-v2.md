@@ -15,6 +15,20 @@
 4. 跨系统契约变更单独提交；生成物只由集成负责人更新。
 5. 任一阶段出现不可控五关、存档或视觉回归时停止扩张并保留门面。
 
+## 实际执行记录
+
+| 阶段 | 状态 | 提交 | 真实落点 |
+|---|---|---|---|
+| A | 完成 | `f087d63cd8cd2dc6b1c4633018f0d2c1900d1716` | 架构证据、所有权清单、边界门禁、CI/PR 约束 |
+| B | 完成 | `413f09d9f2dffefb120bca019a9a3f0a0d7d7612` | GameCommand/DomainEvent/Telemetry 分层、切片状态、Modifier |
+| C | 部分完成（可运行迁移态） | `d093f274032ee86ec4ae55aa461a8af6c9e2432e` | Board/Route 完整落地；Piece/Attribute 已进入真实生产调用，仍保留实体/StatBlock 债务 |
+| C 契约加固 | 完成 | `c179c7086eddc4542f4379df3d1c3fd5136e1f6f` | 确定性领域事件路由 |
+| D | 完成 | `25a6fdc58710e57abdfda833934176039148ef10` | Economy/Combat/Skill/Equipment/Encounter/Progress 及 SaveEnvelope |
+| E | 完成 | `97e94edd48d72fa621ef1836db07a336805cea50` | UI/Interaction 与 Skin/Presentation 分离 |
+| F 契约加固 | 完成 | `45ca2c245ed5f6963cd407924b2cc715a6ac0d7e` | 对局授权、序列号与模拟时钟窄口 |
+| F | 完成 | `1d003321fb5c06c578d69502a1e85f458ff03545` | 固定路线 MatchMode 与 LocalPlayerController 真实接入 |
+| G | 执行中 | 本轮集成提交 | 公共入口、平台窄口、零深导入例外；提交后回填 SHA 和 Chrome 证据 |
+
 ## 阶段 A：证据与门禁
 
 - 新增三份架构文档、项目 `AGENTS.md`、PR 模板和 CI。
@@ -34,8 +48,8 @@
 ## 阶段 C：Board、Piece、Attribute
 
 - Board 从 levels 构建拓扑、路线、入口、终点和 occupancy。
-- Piece 统一 troop/frag/hero/tool 身份与等级，不执行经济或伤害。
-- Attribute 负责基础值、等级成长、Modifier 与最终查询。
+- Piece 已统一 troop/frag/hero/tool 的稳定 ID、revision、location、升级与消耗操作；实体仍嵌入 `board.grid` / `economy.bench`，未建中央注册表。
+- Attribute 已负责现有兵种成长、Modifier 与最终查询；英雄/敌人/装备的完整 StatBlock 仍待后续迁移。
 - 旧 `map.js`、`logic.js`、`units.js` 保留转发门面并记录调用方。
 - 提交建议：`重构: 提取棋盘弈子与属性系统`。
 
@@ -64,12 +78,15 @@
 
 ## 阶段 G：最终装配与证据
 
-- Runtime/App Shell 只导入公共入口并明确更新顺序。
+- Runtime/App Shell 只经系统公共入口、机器登记的兼容门面或 composition root 接线，并明确更新顺序。
 - 总 dispatcher 只组合 handler maps；`state.js` 只组合切片。
 - 运行生成同步、专项测试、完整 `npm test`。
 - 按端口规则启动独立服务，在 Chrome 重跑五关、关键操作和截图清单。
-- 更新兼容层调用方/删除条件；无法安全删除的继续保留。
+- 更新 19 个文件级兼容门面的精确调用方/删除条件；边界测试对 `realCallers` 做反向导入全量比对。
+- 将生产源码、Pack、脚本、GitHub 工作流、机器清单和架构文档统一纳入 `governedPaths`，要求每个受治理文件恰好一个 owner。
 - 提交建议：`集成: 收口模块化基座并更新回归证据`。
+
+Phase G 代码收口与截图证据分为两个可审查提交：先固定最终源码指纹，再采集真实 Chrome 产物。不会为了一个提交而混合代码与大量二进制截图。
 
 ## 退出条件
 
@@ -77,3 +94,9 @@
 - 非法依赖、deep import、平台泄漏与表现反向依赖能自动失败。
 - Game Pack、旧存档、SaveEnvelope、固定 seed、Host 三次销毁和五关全绿。
 - Chrome 新截图指纹与最终源码一致；`main` checkout 和 SHA 未变化。
+
+## 已知未完成项
+
+- `piece-model` 尚未成为所有弈子实体的唯一注册表；删除 flat state 前必须完成所有消耗/转移路径的 lifecycle 和引用迁移。
+- `attribute` 尚未提供覆盖全实体的 StatBlock/base/growth 引用模型。
+- `getStateSnapshot()` 现为受控 V2 诊断快照，并在 `runtimeSlices` 中补充确定性私有状态；它不伪造候选提交内部 `bob/cd/flash/projectile.target/dragon.hit` 的 raw 对象形状。若外部消费者要求 9796962 raw snapshot ABI，必须以独立版本化适配层完成，不得把纯表现字段写回玩法 hash/save。

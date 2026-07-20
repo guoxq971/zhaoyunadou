@@ -8,7 +8,7 @@
 - 普通系统分支命名为 `codex/sys-<system>-<feature>`，例如 `codex/sys-board-atomic-swap`。
 - 多系统周期集成分支命名为 `codex/integration-game-systems-<cycle>`。
 - 每个需求使用独立 worktree；创建前必须核对起始 SHA、现有 worktree 和目标目录状态。
-- 系统分支只修改 `architecture/system-ownership.json` 中本系统 `ownedPaths`；跨系统改动先拆为独立契约提交。
+- 系统分支只修改 `architecture/system-ownership.json` 中本系统 `ownedPaths`、对应 `requiredTests` 和系统文档；跨系统改动先拆为独立契约提交。
 
 ## 系统负责与不负责
 
@@ -29,13 +29,15 @@
 - `platform-services`：负责 Host 能力和平台适配；不包含玩法、题材、Bot 或平台分支规则。
 - `integration-quality` 是工程责任线：负责总装配、系统顺序、生成物、测试、CI 和发布指纹；不得新增玩法。
 
+当前 `piece-model` 和 `attribute` 在机器清单中是 `migrating`：前者已负责 ID/revision/location/lifecycle 窄口，但实体仍嵌在 Board/Economy 容器；后者已负责成长适配和 Modifier，但尚无覆盖全实体的完整 StatBlock。系统分支不得在没有迁移计划与全量复验时将它们擅自改为 `active`。
+
 系统边界和开发窗口不一一对应。第一阶段可以由同一维护窗口负责 `piece-model + economy-formation`、`attribute + combat`、`skill-status + equipment-items`，但目录、状态切片和公共入口必须保持独立。
 
 ## 强制依赖规则
 
 - 跨系统只能导入目标系统 `publicEntry`；禁止导入其他系统内部文件。
 - `engine-core` 不得依赖 Game Pack、ruleset、presentation 或 platform。
-- Game Pack 只提供纯数据；玩法系统不得导入 DOM、Canvas、Audio 或平台 SDK。
+- `ContentPackDefinition` 只提供纯可序列化 Manifest；`RuntimeGamePack` 仅由集成根注入编译函数与资源基址，二者都不得携带平台对象。玩法系统不得导入 DOM、Canvas、Audio 或平台 SDK。
 - Controller 只产生 GameCommand；规则 handler 才能决定合法性并修改所属切片。
 - 一个系统不得直接写另一个系统的状态切片；使用命令、DomainEvent 或窄公共 API。
 - DomainEvent 是确定性事实；TelemetryEvent 由服务层派生；PresentationCue 只描述反馈。三者不得混用。
@@ -50,22 +52,30 @@
 - `src/runtime.js`
 - `src/state.js`
 - `src/game-loop.js`
+- `src/game-controller.js`
+- `src/input.js`
+- `src/ui-layout.js`
+- `src/game-pack.js`
 - `src/app-shell/`
+- `src/engine-core/events.js`（历史 Telemetry 兼容门面，物理位于 engine-core 但不属于 foundation-runtime）
 - 总命令分发器组合
 - 跨系统公共契约与版本
 - `package.json` 测试编排
+- `scripts/`、`.github/`、`architecture/`、`docs/architecture/`、`AGENTS.md` 和 `README.md` 治理入口
+- `games/zhaoyun-adou/balance.json`
 - `games/zhaoyun-adou/generated-manifests.js`
 
-`balance.json` 和生成模块是兼容产物。普通系统分支只改对应人工来源；由集成负责人统一运行生成命令并检查 diff。
+`balance.json` 和 `generated-manifests.js` 是兼容生成物。普通系统分支只改 `games/zhaoyun-adou/sources/balance/` 中对应人工来源；由集成负责人统一运行 `npm run balance:build && npm run game-pack:build` 并检查 diff。`systemUpdateOrder` 逐步记录固定路线模式每 tick 的真实调用顺序；其中 `integration-quality.update-units` 是仍同时协调产粮与单位攻击的兼容步骤，删除前必须先拆清调用方。
 
 ## 测试与提交
 
 - 每项代码改动遵循 RED → GREEN → REFACTOR；先补失败测试。
 - 系统分支至少运行清单中的 `requiredTests`、`npm run test:boundaries` 和 `npm run game-pack:validate`。
-- 集成分支必须运行 `npm run game-pack:build` 后确认生成物同步，再运行 `npm test`。
+- 集成分支必须运行 `npm run balance:build && npm run game-pack:build` 后确认生成物同步，再运行 `npm test`。
 - 修改 `index.html`、`package.json`、`assets/`、`games/`、`src/` 或 `test/` 后，必须重新采集真实 Chrome 截图并更新指纹，不能只改清单。
 - 每阶段形成可审查的中文提交；跨系统契约变更必须单独提交并列出受影响系统。
 - 只 `git add <明确文件>`；禁止 `git add .`、`git add -A`、force push 和 AI 署名。
+- `compatibilityFacades[].realCallers` 是精确文件路径，边界测试会与真实反向导入做全量对比；增删调用方必须同步清单。
 
 ## 合入顺序
 
@@ -74,3 +84,5 @@
 3. 推送系统分支并提交到 `codex/integration-game-systems-*` 的 PR。
 4. 集成负责人重建生成物、处理接线并运行全量/Chrome 复验。
 5. 集成分支全绿后才申请合入 `main`；本仓库没有真实 CODEOWNERS 账号前不得虚构。
+
+CI 同时对目标为 `main` 或 `codex/integration-game-systems-*` 的 PR 运行全部质量门禁，普通系统分支不得绕过周期集成复验。

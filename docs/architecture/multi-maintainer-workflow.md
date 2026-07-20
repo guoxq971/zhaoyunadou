@@ -11,6 +11,8 @@
 
 未知真实 GitHub 用户名/团队时不创建虚假 `CODEOWNERS`；当前使用 ownerRole、机器门禁和 PR 清单。
 
+`architecture/system-ownership.json.governedPaths` 是受治理文件的唯一机器清单，同时覆盖生产源码、Game Pack、构建脚本、GitHub 配置、架构清单/文档和根级治理文件。边界测试由该清单递归发现文件并要求恰好一个 owner，不再维护第二份硬编码扫描目录。
+
 ## 1. 获取统一基线
 
 ```bash
@@ -26,7 +28,14 @@ git rev-parse <集成分支>
 9796962a76cdc222b94d2e1fce6d165ba1843509
 ```
 
-完成后的系统开发基线将在本文件和最终交付中更新。
+重构完成后，系统开发以远程分支 `origin/codex/refactor-modular-foundation` 为发布基线。维护者在创建 worktree 前必须执行：
+
+```bash
+git fetch origin
+git rev-parse origin/codex/refactor-modular-foundation
+```
+
+只使用本次最终交付公布的完整 SHA；不把本地短 SHA、未推送 HEAD 或浮动的“最新”当作多人基线。
 
 ## 2. 创建系统 worktree
 
@@ -49,11 +58,11 @@ git status --short --branch
 ```bash
 npm run test:boundaries
 npm run game-pack:validate
-node test/<system>-system-test.mjs
+node test/board-system-test.mjs # 例：按 requiredTests 选择所属系统真实测试
 git diff --check
 ```
 
-内容维护者只改分系统人工来源，不提交自行生成的 `balance.json` 或 `generated-manifests.js`。
+内容维护者只改分系统人工来源，不手工修改 `balance.json` 或 `generated-manifests.js`；两个生成物只在周期集成时由集成负责人重建。
 
 ## 4. 提交和推送系统分支
 
@@ -79,13 +88,22 @@ codex/integration-game-systems-<cycle>
 集成负责人统一执行：
 
 ```bash
+npm run balance:build
 npm run game-pack:build
 git diff -- games/zhaoyun-adou/balance.json games/zhaoyun-adou/generated-manifests.js
 npm run game-pack:validate
+npm run test:boundaries
 npm test
 ```
 
 源码指纹变化后必须在真实 Chrome 重采截图，更新 raw capture、manifest 和浏览器报告，再次运行 `npm test`。
+
+`integrationRoots` 是长期存在的组合根，不以“调用方清零”为删除目标；`compatibilityFacades` 是迁移面，只能在清单中记录的真实调用方全部转入公开入口后删除。
+
+`compatibilityFacades[].status = retained` 表示仍有生产或兼容测试调用，必须保留；只有生产与测试调用都归零且删除条件已验证时，才可在独立迁移提交中删除条目和门面。
+`realCallers` 存储精确仓库路径，门禁会反向扫描 `src/test/games/scripts` 的真实 import 并要求全量相等；这使得新增隐式兼容依赖或无人清理的陈旧记录都会在 PR 中失败。
+
+`.github/workflows/quality.yml` 对目标为 `main` 和 `codex/integration-game-systems-*` 的 PR 运行 Pack、边界与全量测试；因此系统分支先进周期集成分支，再由集成分支申请进入 `main`。
 
 ## 6. 申请合入 main 前
 
