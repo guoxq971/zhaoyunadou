@@ -11,3 +11,4 @@ export {
 export { createGameViewModel } from './view-model.js';
 export { createLocalInputMapper, pointerLocation } from './input-mapper.js';
 export { createLocalInputBinding } from './input-binding.js';
+export { createInteractionCommandHandlers } from './command-handlers.js';

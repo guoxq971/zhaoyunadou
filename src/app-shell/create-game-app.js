@@ -44,7 +44,6 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
   const safeAudio = createSafeAudioAdapter(host.audio, reportAdapterError);
   const drag = createInteractionState();
   const teardown = [];
-  const endedStages = new WeakSet();
   let game = null;
   let runtime = null;
   let storage = null;
@@ -92,11 +91,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     sessionEnded = true;
     const state = game.state;
     if (!state.title && !state.over) {
-      runtime.events.emit('quit', state, { result: 'abandoned', reason });
-      if (!endedStages.has(state)) {
-        runtime.events.emit('stage_end', state, { result: 'abandoned', reason });
-        endedStages.add(state);
-      }
+      game.abandon(reason);
     }
     runtime.events.emit('session_end', state, { result: 'ended', reason });
   }
@@ -105,14 +100,10 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     if (!started || destroyed || !game) return;
     logicTick++;
     runtime.setCurrentTick(logicTick);
+    const current = game.state;
+    const dt = forcedDt ?? clock.next(current.speed, appPaused);
+    game.advance(dt, layout.cellXY, gamePack);
     const state = game.state;
-    const dt = forcedDt ?? clock.next(state.speed, appPaused);
-    if (state.title) {
-      state.time += dt;
-      syncStatus(state);
-      return;
-    }
-    if (!state.over) advanceBattle(state, dt, layout.cellXY, gamePack);
     if (state.over && !state.saved) {
       const reached = state.win ? state.wave : Math.max(state.wave - 1, 0);
       const settled = progressSave.settleMatchResult({
@@ -123,11 +114,6 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
       state.clearedStars = settled.profile.clearedStars;
       state.saveWarning = settled.degraded;
       state.saved = true;
-      runtime.events.emit('stage_end', state, {
-        result: state.win ? 'won' : 'lost',
-        reason: state.win ? 'waves-cleared' : 'lives-depleted',
-      });
-      endedStages.add(state);
     }
     runtime.pumpDomainEvents(state);
     syncStatus(state);
@@ -202,6 +188,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
         () => progressSave.clearProgress(),
         gamePack,
         runtime,
+        advanceBattle,
       );
       game.state.saveWarning = loadedProgress.degraded;
       clock = createGameClock(() => host.scheduler.now());

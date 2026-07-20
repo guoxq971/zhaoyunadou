@@ -64,12 +64,6 @@
     },
     {
       "source": "src/game-controller.js",
-      "target": "src/campaign.js",
-      "reason": "兼容迁移期间 match-controller 尚未改经 integration-quality 公共入口",
-      "removeByPhase": "G"
-    },
-    {
-      "source": "src/game-controller.js",
       "target": "src/state.js",
       "reason": "兼容迁移期间 match-controller 尚未改经 integration-quality 公共入口",
       "removeByPhase": "G"
@@ -415,14 +409,14 @@
     },
     {
       "systemId": "match-controller",
-      "migrationStatus": "migrating",
+      "migrationStatus": "active",
       "ownedPaths": ["src/systems/match-mode/**", "src/controllers/**", "src/game-controller.js"],
       "ownerRole": "对局模式与控制器维护者",
       "ownedStateSlice": "match",
       "publicEntry": "src/systems/match-mode/index.js",
       "allowedDependencies": ["foundation-runtime", "progress-save"],
       "commands": [
-        "campaign.select_stage", "campaign.start_stage", "battle.set_paused",
+        "campaign.select_stage", "campaign.start_stage", "campaign.reset_progress", "battle.set_paused",
         "battle.set_speed", "battle.retry", "result.resolve", "session.quit"
       ],
       "publishesDomainEvents": ["match.started", "match.ended", "match.retry_requested", "match.quit_requested"],
@@ -560,7 +554,7 @@
       "ownedStateSlice": "progress",
       "publicEntry": "src/systems/progress-save/index.js",
       "allowedDependencies": ["foundation-runtime", "content-pack"],
-      "commands": ["campaign.reset_progress"],
+      "commands": [],
       "publishesDomainEvents": ["progress.loaded", "progress.saved", "progress.degraded"],
       "consumesDomainEvents": ["match.ended"],
       "requiredTests": ["test/progress-save-system-test.mjs", "test/campaign-test.mjs"],
@@ -621,7 +615,7 @@
       "commands": [],
       "publishesDomainEvents": [],
       "consumesDomainEvents": [],
-      "requiredTests": ["test/host-contract-test.mjs", "test/platform-boundary-test.mjs"],
+      "requiredTests": ["test/host-contract-test.mjs", "test/platform-boundary-test.mjs", "test/match-telemetry-bridge-test.mjs"],
       "responsibilities": ["输入、Surface、存储、音频、素材和生命周期适配", "设备能力与失败降级"],
       "nonResponsibilities": ["玩法、题材和 Bot", "平台分支规则"]
     },

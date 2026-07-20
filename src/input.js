@@ -47,6 +47,7 @@ export function createLocalGameControl({
   const handlers = createMergeDefenseCommandHandlers({ game, drag, gamePack });
   const dispatcher = createCommandDispatcher({
     handlers,
+    authorize: game.authorize,
     commandLog,
     getStateSummary: () => snapshotMergeDefenseCommandState(game.state),
     onRejected(command, result) {

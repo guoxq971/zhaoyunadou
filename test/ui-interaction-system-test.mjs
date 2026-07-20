@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   UI_INTERACTION_API_VERSION,
+  createInteractionCommandHandlers,
   createGameViewModel,
   createInteractionState,
   createLocalInputBinding,
@@ -40,6 +41,40 @@ assert.equal(interaction.item, null);
 assert.equal(interaction.mode, null);
 assert.equal(interaction.lastCommand, null);
 assert.equal(interaction.lastRecruitBatch, null);
+
+const commandInteraction = createInteractionState();
+let brushAvailable = true;
+const invalidResults = [];
+const interactionHandlers = createInteractionCommandHandlers({
+  interaction: commandInteraction,
+  querySource: () => ({
+    item: { kind: 'troop', type: 'dao', level: 2 },
+    signature: 'troop:dao:2',
+    movable: true,
+    draggableTool: false,
+  }),
+  queryItemAvailable: (itemId) => itemId === 'brush' && brushAvailable,
+  invalid(command, reason) {
+    invalidResults.push({ type: command.type, reason });
+    return { ok: false, reason };
+  },
+});
+assert.equal(interactionHandlers['interaction.drag_begin']({
+  type: 'interaction.drag_begin', payload: { source: { zone: 'bench', index: 1 } },
+}).ok, true);
+assert.equal(commandInteraction.expectedSource, 'troop:dao:2');
+assert.equal(commandInteraction.item.level, 2, '升级后的单位仍应进入同一拖拽链');
+assert.deepEqual(interactionHandlers['interaction.drag_cancel'](), {
+  ok: true, reason: 'none', active: true,
+});
+assert.equal(interactionHandlers['item.select_mode']({
+  type: 'item.select_mode', payload: { itemId: 'brush' },
+}).itemId, 'brush');
+brushAvailable = false;
+assert.deepEqual(interactionHandlers['item.select_mode']({
+  type: 'item.select_mode', payload: { itemId: 'brush' },
+}), { ok: false, reason: 'tool-unavailable' });
+assert.deepEqual(invalidResults, [{ type: 'item.select_mode', reason: 'tool-unavailable' }]);
 
 const sourceState = {
   title: false,
@@ -177,7 +212,8 @@ assert.equal(listener, null);
 assert.equal(submitted.at(-1).type, 'interaction.drag_cancel', '销毁绑定必须取消活动拖拽');
 
 const uiSources = await Promise.all([
-  'layout.js', 'interaction-state.js', 'view-model.js', 'input-mapper.js', 'input-binding.js', 'index.js',
+  'layout.js', 'interaction-state.js', 'command-handlers.js', 'view-model.js',
+  'input-mapper.js', 'input-binding.js', 'index.js',
 ].map((file) => readFile(new URL(`../src/systems/ui-interaction/${file}`, import.meta.url), 'utf8')));
 for (const source of uiSources) {
   assert.doesNotMatch(source, /(?:presentation-pack|skin-presentation|logic\.js|rulesets\/|systems\/economy|systems\/combat)/,

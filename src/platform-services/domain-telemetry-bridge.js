@@ -1,4 +1,41 @@
 const DOMAIN_TO_TELEMETRY = Object.freeze({
+  'match.started': ({ payload }) => ({
+    eventId: 'stage_start',
+    details: {
+      result: 'started',
+      reason: payload.reason ?? 'player-start',
+    },
+  }),
+  'match.retry_requested': ({ payload }) => ({
+    eventId: 'retry',
+    details: {
+      result: 'started',
+      reason: payload.reason ?? 'manual-retry',
+    },
+  }),
+  'match.quit_requested': ({ payload }) => ({
+    eventId: 'quit',
+    details: {
+      result: 'abandoned',
+      reason: payload.reason ?? 'player-quit',
+    },
+  }),
+  'match.ended': ({ payload }) => ({
+    eventId: 'stage_end',
+    details: {
+      result: payload.result === 'victory'
+        ? 'won'
+        : payload.result === 'defeat'
+          ? 'lost'
+          : 'abandoned',
+      // 对外 Telemetry 保留候选基座既有 reason；领域内部可使用更精确的关卡事实。
+      reason: payload.result === 'victory'
+        ? 'waves-cleared'
+        : payload.result === 'defeat'
+          ? 'lives-depleted'
+          : payload.reason ?? 'match-ended',
+    },
+  }),
   'command.rejected': ({ tick, payload }) => ({
     eventId: 'invalid_action',
     details: {
