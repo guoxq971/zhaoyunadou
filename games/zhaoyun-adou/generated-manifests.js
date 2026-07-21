@@ -759,6 +759,7 @@ export const manifests = {
       "battle.brush.result": "改作「{char}」",
       "battle.hero.join": "{heroName} 参战!",
       "battle.hero.cast": "【{heroName}】",
+      "battle.hero.skill.dragon": "赵云 · 火龙破阵",
       "battle.wave.label": "第{wave}波",
       "battle.wave.ready": "点击迎敌",
       "battle.wave.incoming": "来袭 · {seconds}",
@@ -1064,6 +1065,13 @@ export const manifests = {
         "batchStepSeconds": 0.08,
         "invalidReboundSeconds": 0.22,
         "targetPulseHz": 1.2
+      },
+      "dragonSkill": {
+        "birthSeconds": 0.46,
+        "startScale": 0.08,
+        "arcLift": 32,
+        "originGlowRadius": 24,
+        "trailWidth": 4.5
       },
       "route": {
         "lineWidth": 2.4,

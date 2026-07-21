@@ -181,6 +181,7 @@
 
 ## 测试与提交
 
+- 本项目开发服务统一使用 `npm start` 或 `npm run dev -- --port <端口>`；启动器必须是 `scripts/dev-server.mjs`，不得要求维护者安装 Python、修改启动文件或直接运行其他临时静态服务器。
 - 每项代码改动遵循 RED → GREEN → REFACTOR；先补失败测试。
 - 系统分支至少运行清单中的 `requiredTests`、`npm run test:boundaries` 和 `npm run game-pack:validate`。
 - 集成分支必须运行 `npm run balance:build && npm run game-pack:build` 后确认生成物同步，再运行 `npm test`。

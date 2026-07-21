@@ -43,6 +43,7 @@
     "battle.brush.result": "改作「{char}」",
     "battle.hero.join": "{heroName} 参战!",
     "battle.hero.cast": "【{heroName}】",
+    "battle.hero.skill.dragon": "赵云 · 火龙破阵",
     "battle.wave.label": "第{wave}波",
     "battle.wave.ready": "点击迎敌",
     "battle.wave.incoming": "来袭 · {seconds}",

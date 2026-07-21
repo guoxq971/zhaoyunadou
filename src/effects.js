@@ -44,6 +44,10 @@ export function addRing(state, x, y, color, maxR = 60, options = {}) {
 export function addDragon(state, lane = 0, options = {}) {
   state.effects.push(effect(EFFECT_IDS.dragon, {
     entityId: options.entityId,
+    heroId: options.heroId,
+    castId: options.castId,
+    originX: options.originX,
+    originY: options.originY,
     lane,
     p: 0,
     speed: options.speed ?? 14,

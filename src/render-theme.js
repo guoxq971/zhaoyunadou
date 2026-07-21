@@ -24,6 +24,13 @@ const PRESENTATION_FALLBACK = Object.freeze({
     invalidReboundSeconds: 0.22,
     targetPulseHz: 1.2,
   }),
+  dragonSkill: Object.freeze({
+    birthSeconds: 0.46,
+    startScale: 0.08,
+    arcLift: 32,
+    originGlowRadius: 24,
+    trailWidth: 4.5,
+  }),
   route: Object.freeze({
     lineWidth: 2.5,
     underlayWidth: 4.5,
@@ -60,6 +67,10 @@ export function presentationTokens(gamePack = null) {
     strokes: Object.freeze({ ...PRESENTATION_FALLBACK.strokes, ...tokens.strokes }),
     shadows: Object.freeze({ ...PRESENTATION_FALLBACK.shadows, ...tokens.shadows }),
     motion: Object.freeze({ ...PRESENTATION_FALLBACK.motion, ...tokens.motion }),
+    dragonSkill: Object.freeze({
+      ...PRESENTATION_FALLBACK.dragonSkill,
+      ...tokens.dragonSkill,
+    }),
     route: Object.freeze({
       ...PRESENTATION_FALLBACK.route,
       ...tokens.route,

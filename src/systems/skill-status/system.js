@@ -91,13 +91,17 @@ export function createSkillStatusSystem({
 
   const handlers = {
     'skill.dragon': (context) => {
-      const { skillState, skill, tick = 0 } = context;
+      const {
+        skillState, skill, hero, cx, cy, tick = 0,
+      } = context;
       const laneIds = [...new Set(context.laneIds ?? [0])];
+      const castId = `${hero.key}:${safeTick(tick)}`;
       for (const lane of laneIds) {
         const dragon = createDragon(skillState, skill, lane);
         skillState.dragons.push(dragon);
         cue('skill.impact_feedback', tick, {
           skillId: 'dragon', effectId: 'effect.dragon', entityId: dragon.id, lane,
+          heroId: hero.key, castId, originX: cx, originY: cy,
         });
       }
     },

@@ -10,6 +10,7 @@ import {
   createSafeAudioAdapter,
   advanceEnemyPresentationFeedback,
   advancePresentationFeedback,
+  dragonBirthPose,
   EFFECT_LIFECYCLE_REGISTRY,
   font,
   presentationFeedbackSnapshot,
@@ -17,6 +18,7 @@ import {
   renderGame,
   setEnemyBobPhase,
   SKIN_PRESENTATION_API_VERSION,
+  updateEffects,
 } from '../src/systems/skin-presentation/index.js';
 
 const state = createGame(0, 0, DEFAULT_GAME_PACK);
@@ -107,6 +109,72 @@ assert.deepEqual(snapshotMergeDefenseCommandState(state), before,
     '关羽命中刀光必须继续消费一次表现随机并保持 random * 6.28');
   assert.equal(randomState.effects.at(-1).y, 60 + Math.sin(1) * 2,
     '技能只传玩法坐标，Skin 必须按 enemyId 叠加同帧 bob 视觉偏移');
+}
+
+{
+  const birthState = createGame(0, 0, DEFAULT_GAME_PACK);
+  birthState.title = false;
+  const birthQueue = createPresentationCueQueue();
+  birthQueue.publish({
+    type: 'skill.cast_feedback', source: 'skill-status', tick: 8,
+    payload: { heroId: 'zhaoyun', skillId: 'dragon', x: 210, y: 380 },
+  });
+  for (const lane of [0, 1]) {
+    birthQueue.publish({
+      type: 'skill.impact_feedback', source: 'skill-status', tick: 8,
+      payload: {
+        heroId: 'zhaoyun', skillId: 'dragon', effectId: 'effect.dragon',
+        entityId: `dragon-${lane}`, castId: 'zhaoyun:8', lane,
+        originX: 210, originY: 380,
+      },
+    });
+  }
+  consumePresentationCues(birthState, birthQueue.drain(), DEFAULT_GAME_PACK);
+  const dragons = birthState.effects.filter(({ kind }) => kind === 'dragon');
+  assert.equal(dragons.length, 2);
+  assert.deepEqual(dragons.map(({ heroId, castId, originX, originY }) => (
+    { heroId, castId, originX, originY }
+  )), [
+    { heroId: 'zhaoyun', castId: 'zhaoyun:8', originX: 210, originY: 380 },
+    { heroId: 'zhaoyun', castId: 'zhaoyun:8', originX: 210, originY: 380 },
+  ], '两条表现火龙必须从同一个赵云火种出生');
+  assert.ok(birthState.effects.some(({ feedbackId, text }) => (
+    feedbackId === 'hero-cast-title' && text === '赵云 · 火龙破阵'
+  )), '赵云施法必须显示带技能名的来源文案');
+
+  const dragonTokens = DEFAULT_GAME_PACK.manifests.theme.presentation.dragonSkill;
+  const startTop = dragonBirthPose(dragons[0], {
+    x: 120, y: 120, angle: 0,
+  }, dragonTokens);
+  const startBottom = dragonBirthPose(dragons[1], {
+    x: 300, y: 560, angle: 0,
+  }, dragonTokens);
+  assert.deepEqual([startTop.x, startTop.y, startBottom.x, startBottom.y], [210, 380, 210, 380],
+    '出生首帧双龙必须重合在赵云身上');
+  assert.equal(startTop.scale, dragonTokens.startScale);
+  assert.equal(startTop.bodyProgress, 0);
+
+  updateEffects(birthState, dragonTokens.birthSeconds / 2);
+  const middleTop = dragonBirthPose(dragons[0], {
+    x: 120, y: 120, angle: 0,
+  }, dragonTokens);
+  const middleBottom = dragonBirthPose(dragons[1], {
+    x: 300, y: 560, angle: 0,
+  }, dragonTokens);
+  assert.ok(middleTop.scale > startTop.scale && middleTop.scale < 1,
+    '幼龙离开赵云时必须从小到大成长');
+  assert.ok(middleTop.bodyProgress > 0 && middleTop.bodyProgress < 1);
+  assert.notEqual(middleTop.y, middleBottom.y, '双路幼龙必须从同一火种向上下路线分开');
+
+  updateEffects(birthState, dragonTokens.birthSeconds / 2);
+  const fullTop = dragonBirthPose(dragons[0], {
+    x: 120, y: 120, angle: 0.4,
+  }, dragonTokens);
+  assert.deepEqual(
+    { x: fullTop.x, y: fullTop.y, scale: fullTop.scale, bodyProgress: fullTop.bodyProgress },
+    { x: 120, y: 120, scale: 1, bodyProgress: 1 },
+    '出生结束后必须无缝接回真实路线位置和完整龙身',
+  );
 }
 
 const skinSources = await Promise.all([

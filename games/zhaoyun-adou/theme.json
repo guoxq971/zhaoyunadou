@@ -160,6 +160,13 @@
       "invalidReboundSeconds": 0.22,
       "targetPulseHz": 1.2
     },
+    "dragonSkill": {
+      "birthSeconds": 0.46,
+      "startScale": 0.08,
+      "arcLift": 32,
+      "originGlowRadius": 24,
+      "trailWidth": 4.5
+    },
     "route": {
       "lineWidth": 2.4,
       "underlayWidth": 4.4,

@@ -1,0 +1,28 @@
+{
+  "runId": "chrome-npm-node-server-final-20260721",
+  "baseUrl": "http://127.0.0.1:8464/?e2e=npm-node-server-final-20260721",
+  "storageScopes": [
+    "zyad-e2e-npm-node-server-final-20260721",
+    "zyad-e2e-npm-node-partial-20260721",
+    "zyad-e2e-npm-node-merge-20260721",
+    "zyad-e2e-npm-node-defeat-20260721"
+  ],
+  "sourceFingerprint": "9522f51a1c8a514e49b19413ab9dca00bbe774e2980abcdaf579b3ff6edb857c",
+  "captureCount": 22,
+  "operations": [
+    "由 npm run dev 启动的 Node 静态服务器返回 200、ES Module 和 Cache-Control: no-store",
+    "标题页、双路线与玩家交互区",
+    "批量征兵补满唯一空位、营满零扣费、资源不足部分成功",
+    "普通铲铲地、毛笔改字、赵云拼字与原子交换",
+    "赵云火龙从同一英雄原点点亮、幼龙成长和上下双路分裂",
+    "关羽、张飞、黄忠、刘备技能表现",
+    "第一至第五关逐关胜利、第五关 Boss 满血入场与五星标题页",
+    "同字合成二级、合成后继续移动、路线格非法落点完整回滚",
+    "战局暂停、零部署战败与 replay 结算",
+    "Chrome 控制台 error/warning 均为 0"
+  ],
+  "timeAcceleration": "游戏由 npm run dev -- --port 8464 启动的 Node 服务加载。在 Chrome 中先调用 createGameApp 公开的 pause() 冻结 Host 逻辑循环，再通过生产调试句柄 __step(0.025) 逐帧推进；每一步仍调用正式 MatchMode、规则系统、DomainEvent、PresentationCue 和 Canvas2D 渲染链路。标题、键盘、征兵、道具、拖拽、部署、拼将、开波、暂停和结算均通过实际页面输入或 LocalPlayerController 完成。",
+  "fixturePreparation": "第一关赵云由自然批量征兵、普通铲、毛笔和实际拖拽拼出。第二至第五关为缩短纯视觉回归时间，只在各自隔离 e2e 存档中用 Piece 公共身份接口准备五级英雄字牌和兵牌；拼字解锁、部署、技能、伤害、波次和结算仍走正式 GameCommand/规则链。合成截图同样只补入一个重复枪兵前置，合成、移动和非法回滚均为真实页面拖拽。夹具未写入源码、数值、普通 localStorage 或玩家存档。",
+  "consoleIssues": [],
+  "result": "pass"
+}

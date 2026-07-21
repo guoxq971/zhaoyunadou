@@ -122,6 +122,17 @@ assert.throws(
   assert.ok(harness.cues.some(({ type, payload }) => (
     type === 'skill.cast_feedback' && payload.skillId === 'dragon'
   )));
+  const dragonBirthCues = harness.cues.filter(({ payload }) => payload.effectId === 'effect.dragon');
+  assert.deepEqual(dragonBirthCues.map(({ payload }) => ({
+    lane: payload.lane,
+    heroId: payload.heroId,
+    originX: payload.originX,
+    originY: payload.originY,
+    castId: payload.castId,
+  })), [
+    { lane: 0, heroId: 'zhaoyun', originX: 60, originY: 40, castId: 'zhaoyun:7' },
+    { lane: 1, heroId: 'zhaoyun', originX: 60, originY: 40, castId: 'zhaoyun:7' },
+  ], '双路火龙必须共享赵云中心出生点和同一施法批次');
   const basicSlash = harness.cues.find(({ payload }) => payload.skillId === 'basic-attack');
   assert.equal(basicSlash.payload.angle, Math.atan2(40, 20),
     '英雄平 A 刀光必须保留候选基座的目标方向');

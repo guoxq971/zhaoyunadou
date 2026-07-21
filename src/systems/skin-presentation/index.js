@@ -123,11 +123,23 @@ function presentSkillCue(state, cue, gamePack) {
   if (cue.type === 'skill.cast_feedback') {
     const feedback = gamePack.manifests.theme.feedback?.hero_cast;
     const hero = gamePack.config.heroes[payload.heroId];
+    const genericLabel = copyText(
+      gamePack,
+      'battle.hero.cast',
+      { heroName: hero?.name },
+      `【${hero?.name ?? payload.heroId}】`,
+    );
+    const skillLabel = copyText(
+      gamePack,
+      `battle.hero.skill.${payload.skillId}`,
+      { heroName: hero?.name },
+      genericLabel,
+    );
     addConfiguredFeedback(state, feedback, {
       x: payload.x, y: payload.y, maxR: 72, life: 0.56, feedbackId: 'hero-cast-onset',
     });
     addText(state, payload.x, payload.y - 30,
-      copyText(gamePack, 'battle.hero.cast', { heroName: hero?.name }, `【${hero?.name ?? payload.heroId}】`),
+      skillLabel,
       feedback?.color ?? '#d8a61f', 1.55,
       { life: 0.72, feedbackId: 'hero-cast-title' });
     return true;
@@ -141,6 +153,10 @@ function presentSkillCue(state, cue, gamePack) {
     const skill = gamePack.config.ults.dragon;
     addDragon(state, payload.lane, {
       entityId: payload.entityId,
+      heroId: payload.heroId,
+      castId: payload.castId,
+      originX: payload.originX,
+      originY: payload.originY,
       speed: skill.effectSpeed,
       life: skill.effectLife,
       hitDistance: skill.hitDistance,
@@ -183,6 +199,7 @@ export {
   presentationFeedbackSnapshot,
   setEnemyBobPhase,
 } from './feedback-state.js';
+export { dragonBirthPose } from '../../presentation-pack/dragon-birth.js';
 
 // 表现系统的唯一公开入口；根目录文件在物理搬迁前仍是同一系统的实现文件。
 export { createGameViewModel } from '../ui-interaction/index.js';

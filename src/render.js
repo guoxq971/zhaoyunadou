@@ -14,6 +14,7 @@ import {
 } from './presentation-pack/presentation-registry.js';
 import { drawRouteOverlay } from './presentation-pack/route-overlay.js';
 import { drawBoardInteractionOverlay } from './presentation-pack/board-interaction-overlay.js';
+import { dragonBirthPose } from './presentation-pack/dragon-birth.js';
 import { layoutForGamePack } from './systems/ui-interaction/index.js';
 import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
 
@@ -274,26 +275,32 @@ function drawBoard(ctx, state, drag, gamePack) {
 
 // ---------- 特效 ----------
 // 火龙由火焰身段、分岔火尾和简化龙首组成，不用文字代替形象。
-function drawFlameDragon(ctx, x, y, angle, phase, alpha) {
+function drawFlameDragon(ctx, x, y, angle, phase, alpha, scale = 1, bodyProgress = 1) {
   const sway = Math.sin(phase * 17) * 4;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
+  ctx.scale(scale, scale);
   ctx.globalAlpha = alpha;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.shadowColor = 'rgba(239,88,18,0.82)';
   ctx.shadowBlur = 9;
   const body = new Path2D();
-  body.moveTo(-43, sway);
-  body.bezierCurveTo(-30, -13 - sway, -12, 12 + sway, 8, 0);
+  body.moveTo(-43 * bodyProgress, sway * bodyProgress);
+  body.bezierCurveTo(-30 * bodyProgress, (-13 - sway) * bodyProgress,
+    -12 * bodyProgress, (12 + sway) * bodyProgress, 8, 0);
   ctx.strokeStyle = '#b92f12'; ctx.lineWidth = 13; ctx.stroke(body);
   ctx.strokeStyle = '#f06a1c'; ctx.lineWidth = 8; ctx.stroke(body);
   ctx.strokeStyle = '#ffd45d'; ctx.lineWidth = 3; ctx.stroke(body);
   ctx.strokeStyle = '#ef5b18'; ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.moveTo(-24, -5); ctx.quadraticCurveTo(-38, -18 - sway, -50, -10);
-  ctx.moveTo(-27, 5); ctx.quadraticCurveTo(-40, 17 + sway, -51, 9);
+  ctx.moveTo(-24 * bodyProgress, -5 * bodyProgress);
+  ctx.quadraticCurveTo(-38 * bodyProgress, (-18 - sway) * bodyProgress,
+    -50 * bodyProgress, -10 * bodyProgress);
+  ctx.moveTo(-27 * bodyProgress, 5 * bodyProgress);
+  ctx.quadraticCurveTo(-40 * bodyProgress, (17 + sway) * bodyProgress,
+    -51 * bodyProgress, 9 * bodyProgress);
   ctx.stroke();
   ctx.fillStyle = '#ed641b';
   ctx.beginPath();
@@ -303,6 +310,38 @@ function drawFlameDragon(ctx, x, y, angle, phase, alpha) {
   ctx.strokeStyle = '#ffbd3f'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(8, -7); ctx.lineTo(12, -14); ctx.moveTo(14, -7); ctx.lineTo(19, -12); ctx.stroke();
   ctx.fillStyle = '#2c190f'; ctx.beginPath(); ctx.arc(17, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+function drawDragonBirthTrail(ctx, effect, pose, tokens, colors, drawOrigin) {
+  if (pose.birthProgress >= 1 || !Number.isFinite(effect.originX) || !Number.isFinite(effect.originY)) return;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = Math.max(0, 1 - pose.birthProgress) * 0.82;
+  ctx.strokeStyle = colors.goldReward;
+  ctx.lineWidth = tokens.trailWidth * Math.max(0.25, 1 - pose.birthProgress * 0.7);
+  ctx.shadowColor = colors.cinnabarAction;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.moveTo(effect.originX, effect.originY);
+  ctx.quadraticCurveTo(pose.controlX, pose.controlY, pose.x, pose.y);
+  ctx.stroke();
+  if (drawOrigin) {
+    const radius = tokens.originGlowRadius * (0.55 + pose.birthProgress * 0.45);
+    const glow = ctx.createRadialGradient(
+      effect.originX, effect.originY, 1,
+      effect.originX, effect.originY, radius,
+    );
+    glow.addColorStop(0, colors.paperLight);
+    glow.addColorStop(0.28, colors.goldReward);
+    glow.addColorStop(0.65, colors.cinnabarAction);
+    glow.addColorStop(1, 'rgba(201,74,54,0)');
+    ctx.globalAlpha = pose.originAlpha;
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(effect.originX, effect.originY, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -355,7 +394,7 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
       ctx.beginPath(); ctx.arc(f.x, f.y, f.maxR * (1 - k), 0, 6.29); ctx.stroke();
       ctx.globalAlpha = 1;
   },
-  'effect.flame-dragon': ({ ctx, f, k, state, layout }) => {
+  'effect.flame-dragon': ({ ctx, f, k, state, layout, gamePack, drawBirthOrigin }) => {
       const { cellXY } = layout;
       const path = state.paths?.[f.lane ?? 0] ?? state.path;
       const i = Math.min(Math.floor(f.p), path.length - 2);
@@ -363,8 +402,18 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
         const fr = Math.min(f.p - i, 1);
         const a = cellXY(path[i].r, path[i].c);
         const b = cellXY(path[i + 1].r, path[i + 1].c);
-        const x = a.x + (b.x - a.x) * fr, y = a.y + (b.y - a.y) * fr;
-        drawFlameDragon(ctx, x, y, Math.atan2(b.y - a.y, b.x - a.x), f.t, k);
+        const routePose = {
+          x: a.x + (b.x - a.x) * fr,
+          y: a.y + (b.y - a.y) * fr,
+          angle: Math.atan2(b.y - a.y, b.x - a.x),
+        };
+        const tokens = presentationTokens(gamePack).dragonSkill;
+        const pose = dragonBirthPose(f, routePose, tokens);
+        drawDragonBirthTrail(ctx, f, pose, tokens, themeColors(gamePack), drawBirthOrigin);
+        drawFlameDragon(
+          ctx, pose.x, pose.y, pose.angle, f.t,
+          k * pose.dragonAlpha, pose.scale, pose.bodyProgress,
+        );
       }
   },
   'effect.arrow-rain': ({ ctx, f, k, layout }) => {
@@ -380,12 +429,17 @@ const EFFECT_RENDERERS = createEffectRendererRegistry({
 function drawEffects(ctx, state, gamePack) {
   const bindings = gamePack.manifests.theme.renderers.effects;
   const layout = layoutForGamePack(gamePack);
+  const renderedBirthOrigins = new Set();
   for (const f of state.effects) {
     if (f.t < 0) continue;
     const k = 1 - f.t / f.life;
     const effectId = f.effectId ?? `effect.${f.kind}`;
     const rendererId = bindings[effectId];
-    EFFECT_RENDERERS.get(rendererId)({ ctx, f, k, state, layout, gamePack });
+    const drawBirthOrigin = f.castId ? !renderedBirthOrigins.has(f.castId) : true;
+    if (f.castId) renderedBirthOrigins.add(f.castId);
+    EFFECT_RENDERERS.get(rendererId)({
+      ctx, f, k, state, layout, gamePack, drawBirthOrigin,
+    });
   }
   // 弓箭弹道
   for (const p of state.projectiles) {
