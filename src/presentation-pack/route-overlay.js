@@ -48,6 +48,8 @@ export function drawRouteOverlay(ctx, state, gamePack) {
   const paths = Array.isArray(state.paths) && state.paths.length ? state.paths : [state.path];
   const colors = themeColors(gamePack);
   const route = presentationTokens(gamePack).route;
+  const inlaidStoneRoute = gamePack.manifests.theme.activeTheme?.boardRendererId
+    === 'board.cloud-arena-2-5d';
   const lineColor = colors.routeLine ?? '#8f3b30';
   const arrowColor = colors.routeArrow ?? '#722b24';
   ctx.save();
@@ -59,16 +61,16 @@ export function drawRouteOverlay(ctx, state, gamePack) {
     const points = path.map(({ r, c }) => cellXY(r, c));
     const laneAlpha = laneIndex % 2 === 0 ? route.primaryAlpha : route.secondaryAlpha;
     ctx.globalAlpha = laneAlpha * 0.48;
-    ctx.strokeStyle = colors.paperRaised;
-    ctx.lineWidth = route.underlayWidth;
+    ctx.strokeStyle = inlaidStoneRoute ? colors.pathCell : colors.paperRaised;
+    ctx.lineWidth = inlaidStoneRoute ? route.underlayWidth + 1.2 : route.underlayWidth;
     ctx.setLineDash([]);
     ctx.beginPath();
     points.forEach((point, index) => (index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
     ctx.stroke();
     ctx.globalAlpha = laneAlpha;
     ctx.strokeStyle = lineColor;
-    ctx.lineWidth = route.lineWidth;
-    ctx.setLineDash(route.dash);
+    ctx.lineWidth = inlaidStoneRoute ? route.lineWidth - 0.25 : route.lineWidth;
+    ctx.setLineDash(inlaidStoneRoute ? [] : route.dash);
     ctx.beginPath();
     points.forEach((point, index) => (index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
     ctx.stroke();

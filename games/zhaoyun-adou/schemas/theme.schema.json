@@ -3,13 +3,14 @@
   "$id": "https://zhaoyun-adou.local/schemas/theme.schema.json",
   "title": "Theme manifest",
   "type": "object",
-  "required": ["schemaVersion", "version", "id", "fontFamily", "assetRefs", "assetBindings", "colors", "layout", "heroVisuals", "renderers", "toolAtlas", "feedback", "presentation"],
+  "required": ["schemaVersion", "version", "id", "themeCatalog", "fontFamily", "assetRefs", "assetBindings", "colors", "layout", "heroVisuals", "renderers", "toolAtlas", "feedback", "presentation"],
   "additionalProperties": false,
   "properties": {
     "$schema": { "type": "string", "minLength": 1 },
     "schemaVersion": { "$ref": "#/$defs/version" },
     "version": { "$ref": "#/$defs/version" },
     "id": { "$ref": "#/$defs/id" },
+    "themeCatalog": { "$ref": "#/$defs/themeCatalog" },
     "fontFamily": { "type": "string", "minLength": 1 },
     "assetRefs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
     "assetBindings": {
@@ -87,6 +88,84 @@
   "$defs": {
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$" },
     "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "themeCatalog": {
+      "type": "object",
+      "required": ["defaultThemeId", "storageKey", "options"],
+      "additionalProperties": false,
+      "properties": {
+        "defaultThemeId": { "$ref": "#/$defs/id" },
+        "storageKey": { "type": "string", "minLength": 1 },
+        "options": {
+          "type": "object",
+          "minProperties": 2,
+          "patternProperties": {
+            "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$": { "$ref": "#/$defs/themeOption" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "themeOption": {
+      "type": "object",
+      "required": ["labelCopyId", "boardRendererId", "pieceRendererId", "enemyRendererId"],
+      "additionalProperties": false,
+      "properties": {
+        "labelCopyId": { "$ref": "#/$defs/id" },
+        "boardRendererId": { "enum": ["board.ink-flat", "board.cloud-arena-2-5d"] },
+        "pieceRendererId": { "enum": ["piece.paper-card", "piece.calligraphy-only"] },
+        "enemyRendererId": { "enum": ["enemy.ink-glyph", "enemy.calligraphy-only"] },
+        "colorOverrides": {
+          "type": "object",
+          "minProperties": 1,
+          "patternProperties": { "^[a-z][A-Za-z0-9]*$": { "type": "string", "minLength": 1 } },
+          "additionalProperties": false
+        },
+        "boardStyle": { "$ref": "#/$defs/boardStyle" },
+        "pieceStyle": { "$ref": "#/$defs/pieceStyle" }
+      }
+    },
+    "boardStyle": {
+      "type": "object",
+      "required": ["tileInset", "tileDepth", "platformDepth", "cornerRadius", "highlightAlpha", "projection"],
+      "additionalProperties": false,
+      "properties": {
+        "tileInset": { "type": "number", "minimum": 0, "maximum": 6 },
+        "tileDepth": { "type": "number", "minimum": 0, "maximum": 12 },
+        "platformDepth": { "type": "number", "minimum": 0, "maximum": 20 },
+        "cornerRadius": { "type": "number", "minimum": 0, "maximum": 10 },
+        "highlightAlpha": { "type": "number", "minimum": 0, "maximum": 1 },
+        "stoneGrainAlpha": { "type": "number", "minimum": 0, "maximum": 0.4 },
+        "stoneVariationAlpha": { "type": "number", "minimum": 0, "maximum": 0.2 },
+        "routeSurfaceAlpha": { "type": "number", "minimum": 0.5, "maximum": 1 },
+        "wallBlockCount": { "type": "integer", "minimum": 4, "maximum": 16 },
+        "projection": { "$ref": "#/$defs/boardProjection" }
+      }
+    },
+    "boardProjection": {
+      "type": "object",
+      "required": ["mode", "topScale", "bottomScale", "verticalScale"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "const": "shallow-perspective" },
+        "topScale": { "type": "number", "minimum": 0.75, "maximum": 1 },
+        "bottomScale": { "type": "number", "minimum": 0.85, "maximum": 1.1 },
+        "verticalScale": { "type": "number", "minimum": 0.75, "maximum": 1 }
+      }
+    },
+    "pieceStyle": {
+      "type": "object",
+      "required": ["troopScale", "heroScale", "enemyScale", "shadowBlur", "shadowOffsetY", "echoOffset", "levelScale"],
+      "additionalProperties": false,
+      "properties": {
+        "troopScale": { "type": "number", "minimum": 0.5, "maximum": 1.2 },
+        "heroScale": { "type": "number", "minimum": 0.5, "maximum": 1.2 },
+        "enemyScale": { "type": "number", "minimum": 0.5, "maximum": 1.4 },
+        "shadowBlur": { "type": "number", "minimum": 0, "maximum": 16 },
+        "shadowOffsetY": { "type": "number", "minimum": 0, "maximum": 10 },
+        "echoOffset": { "type": "number", "minimum": 0, "maximum": 4 },
+        "levelScale": { "type": "number", "minimum": 0.12, "maximum": 0.4 }
+      }
+    },
     "rect": {
       "type": "object",
       "required": ["x", "y", "w", "h"],

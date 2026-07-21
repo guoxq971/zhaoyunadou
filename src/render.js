@@ -15,6 +15,13 @@ import {
 import { drawRouteOverlay } from './presentation-pack/route-overlay.js';
 import { drawBoardInteractionOverlay } from './presentation-pack/board-interaction-overlay.js';
 import { dragonBirthPose } from './presentation-pack/dragon-birth.js';
+import {
+  drawCloudArenaCell,
+  drawCloudArenaDecoration,
+  drawCloudArenaFrame,
+  drawCloudArenaPlatform,
+  traceProjectedCell,
+} from './presentation-pack/cloud-arena-board.js';
 import { layoutForGamePack } from './systems/ui-interaction/index.js';
 import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
 
@@ -72,6 +79,46 @@ function drawCard(ctx, x, y, size, { char, level, style, shake = 0, height = siz
   ctx.restore();
 }
 
+// 云台主题中汉字本身就是弈子：不画纸牌、石座或边框，只保留墨色、层级与轻微落影。
+function drawCalligraphyPiece(ctx, x, y, size, {
+  char, level, style, shake = 0, palette,
+}, gamePack) {
+  const colors = themeColors(gamePack);
+  const pieceStyle = gamePack.manifests.theme.activeTheme?.pieceStyle ?? {};
+  const scale = style === 'hero' ? (pieceStyle.heroScale ?? 0.82) : (pieceStyle.troopScale ?? 0.76);
+  const fontSize = size * scale;
+  const echo = pieceStyle.echoOffset ?? 1.4;
+  const shakeOffset = shake > 0 ? Math.sin(x * 0.37 + y * 0.19 + shake * 113) * 2 : 0;
+  const ink = style === 'hero' ? (palette?.ink ?? '#234f69') : colors.inkStrong;
+  ctx.save();
+  ctx.translate(x + shakeOffset, y);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = font(fontSize, true, gamePack);
+  ctx.shadowColor = 'rgba(27,31,28,0.32)';
+  ctx.shadowBlur = pieceStyle.shadowBlur ?? 5;
+  ctx.shadowOffsetY = pieceStyle.shadowOffsetY ?? 3;
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = style === 'hero' ? (palette?.accent ?? colors.goldReward) : colors.inkMuted;
+  ctx.fillText(char, echo, 2 + echo);
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = ink;
+  ctx.fillText(char, 0, 1);
+  if (level > 1) {
+    ctx.fillStyle = style === 'hero' ? colors.goldReward : colors.cinnabarPrimary;
+    ctx.font = font(size * (pieceStyle.levelScale ?? 0.22), true, gamePack);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(String(level), fontSize * 0.28, -fontSize * 0.23);
+  }
+  ctx.restore();
+}
+
+function usesCalligraphyPieces(gamePack) {
+  return gamePack.manifests.theme.activeTheme?.pieceRendererId === 'piece.calligraphy-only';
+}
+
 // 小武器只做英雄身份提示，避免把以汉字为核心的棋盘变成角色立绘。
 function drawHeroWeapon(ctx, rendererId, x, y) {
   ctx.save();
@@ -127,26 +174,37 @@ function drawHeroWeapon(ctx, rendererId, x, y) {
 // ---------- 棋盘 ----------
 function drawBoard(ctx, state, drag, gamePack) {
   const config = gamePack.config;
-  const { board: B, boardHeight, boardWidth, cellXY } = layoutForGamePack(gamePack);
+  const layout = layoutForGamePack(gamePack);
+  const { board: B, boardHeight, boardWidth, cellXY } = layout;
   const colors = themeColors(gamePack);
   const tokens = presentationTokens(gamePack);
   const heroVisuals = gamePack.manifests.theme.heroVisuals ?? {};
   const defaultHeroPresentations = createHeroPresentationRegistry(gamePack.manifests.theme);
-  ctx.save();
-  ctx.shadowColor = 'rgba(31,27,20,0.34)';
-  ctx.shadowBlur = tokens.shadows.boardBlur;
-  ctx.shadowOffsetY = 3;
-  ctx.fillStyle = colors.boardSurface;
-  roundRect(ctx, B.ox - 9, B.oy - 9, boardWidth + 18, boardHeight + 18, 4);
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.restore();
+  const activeTheme = gamePack.manifests.theme.activeTheme;
+  const cloudArena = activeTheme?.boardRendererId === 'board.cloud-arena-2-5d';
+  const cloudStyle = activeTheme?.boardStyle ?? {};
+  if (cloudArena) drawCloudArenaPlatform(ctx, layout, colors, cloudStyle);
+  else {
+    ctx.save();
+    ctx.shadowColor = 'rgba(31,27,20,0.34)';
+    ctx.shadowBlur = tokens.shadows.boardBlur;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = colors.boardSurface;
+    roundRect(ctx, B.ox - 9, B.oy - 9, boardWidth + 18, boardHeight + 18, 4);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.restore();
+  }
   for (let r = 0; r < B.rows; r++) {
     for (let c = 0; c < B.cols; c++) {
       const cell = state.grid[r][c];
       const x = B.ox + c * B.cellW;
       const y = B.oy + r * B.cellH;
-      if (cell.type === 'path' || cell.type === 'spawn') {
+      if (cloudArena) {
+        drawCloudArenaCell(
+          ctx, cell, r, c, layout, colors, cloudStyle, gamePack,
+        );
+      } else if (cell.type === 'path' || cell.type === 'spawn') {
         ctx.fillStyle = colors.pathCell ?? 'rgba(200,174,164,0.92)';
         ctx.fillRect(x, y, B.cellW, B.cellH);
         ctx.strokeStyle = 'rgba(83,61,50,0.18)'; ctx.lineWidth = tokens.strokes.hairline;
@@ -194,7 +252,9 @@ function drawBoard(ctx, state, drag, gamePack) {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(copyText(gamePack, 'battle.gate'), x + B.cellW / 2, y + B.cellH / 2 + 5);
       }
-      if (cell.type === 'spawn' || cell.decoration === 'bramble') {
+      if (cloudArena) {
+        drawCloudArenaDecoration(ctx, cell, r, c, layout, colors);
+      } else if (cell.type === 'spawn' || cell.decoration === 'bramble') {
         // 两路曹军入口使用参考图的黑墨荆棘，不用角色立绘占据格面。
         ctx.save();
         ctx.translate(x + B.cellW / 2, y + B.cellH / 2 + 4);
@@ -209,15 +269,20 @@ function drawBoard(ctx, state, drag, gamePack) {
         ctx.beginPath(); ctx.moveTo(-12, 11); ctx.lineTo(-3, -3); ctx.moveTo(2, 11); ctx.lineTo(10, -4); ctx.stroke();
         ctx.restore();
       }
-      ctx.strokeStyle = colors.cellLine;
-      ctx.lineWidth = tokens.strokes.hairline;
-      ctx.strokeRect(x + 0.4, y + 0.4, B.cellW - 0.8, B.cellH - 0.8);
+      if (!cloudArena) {
+        ctx.strokeStyle = colors.cellLine;
+        ctx.lineWidth = tokens.strokes.hairline;
+        ctx.strokeRect(x + 0.4, y + 0.4, B.cellW - 0.8, B.cellH - 0.8);
+      }
     }
   }
   drawRouteOverlay(ctx, state, gamePack);
   // 棋盘外框
-  ctx.strokeStyle = colors.boardFrame; ctx.lineWidth = tokens.strokes.strong;
-  ctx.strokeRect(B.ox - 2, B.oy - 2, boardWidth + 4, boardHeight + 4);
+  if (cloudArena) drawCloudArenaFrame(ctx, layout, colors, cloudStyle);
+  else {
+    ctx.strokeStyle = colors.boardFrame; ctx.lineWidth = tokens.strokes.strong;
+    ctx.strokeRect(B.ox - 2, B.oy - 2, boardWidth + 4, boardHeight + 4);
+  }
 
   drawBoardInteractionOverlay(ctx, state, drag, gamePack);
 
@@ -235,17 +300,23 @@ function drawBoard(ctx, state, drag, gamePack) {
         ctx.setLineDash([4, 3]);
         ctx.strokeStyle = colors.swapTarget ?? '#287eaa';
         ctx.lineWidth = 2;
-        ctx.strokeRect(x - B.cellW / 2 + 4, y - B.cellH / 2 + 4, B.cellW - 8, B.cellH - 8);
+        if (cloudArena) {
+          traceProjectedCell(ctx, layout, r, c, 4);
+          ctx.stroke();
+        } else {
+          ctx.strokeRect(x - B.cellW / 2 + 4, y - B.cellH / 2 + 4, B.cellW - 8, B.cellH - 8);
+        }
         ctx.setLineDash([]);
       }
-      if (u.kind === 'troop') drawCard(ctx, x, y, B.cellW - 5, {
+      const drawPiece = usesCalligraphyPieces(gamePack) ? drawCalligraphyPiece : drawCard;
+      if (u.kind === 'troop') drawPiece(ctx, x, y, B.cellW - 5, {
         char: config.troops[u.type].char,
         level: u.level,
         style: 'troop',
         shake: state.pieceHitFlashes?.[u.pieceId] ?? 0,
         height: B.cellH - 5,
       }, gamePack);
-      else if (u.kind === 'frag') drawCard(ctx, x, y, B.cellW - 5, { char: u.char, level: u.level ?? 1, style: 'frag', height: B.cellH - 5 }, gamePack);
+      else if (u.kind === 'frag') drawPiece(ctx, x, y, B.cellW - 5, { char: u.char, level: u.level ?? 1, style: 'frag', height: B.cellH - 5 }, gamePack);
       if (sourceGhost) ctx.restore();
     }
   }
@@ -255,8 +326,20 @@ function drawBoard(ctx, state, drag, gamePack) {
     const a = cellXY(h.r, h.c);
     const presentation = registryFor(state, 'heroPresentations', defaultHeroPresentations).get(cfg.renderId);
     const visual = heroVisuals[cfg.renderId];
-    const centerX = a.x + B.cellW / 2;
+    const second = cellXY(h.r, h.c + 1);
+    const centerX = (a.x + second.x) / 2;
     ctx.save();
+    if (usesCalligraphyPieces(gamePack)) {
+      const heroFlash = state.pieceHitFlashes?.[`hero-${h.key}-basic`] ?? 0;
+      drawCalligraphyPiece(ctx, a.x, a.y, B.cellW, {
+        char: cfg.chars[0], level: h.level ?? 1, style: 'hero', shake: heroFlash, palette: visual,
+      }, gamePack);
+      drawCalligraphyPiece(ctx, second.x, second.y, B.cellW, {
+        char: cfg.chars[1], level: h.level ?? 1, style: 'hero', shake: heroFlash, palette: visual,
+      }, gamePack);
+      ctx.restore();
+      continue;
+    }
     const halo = ctx.createRadialGradient(centerX, a.y, 3, centerX, a.y, 48);
     halo.addColorStop(0, visual.glow);
     halo.addColorStop(0.62, visual.glow);
@@ -536,8 +619,9 @@ export function render(
 
   // 拖拽跟随
   if (drag?.item) {
-    if (drag.item.kind === 'troop') drawCard(ctx, drag.x, drag.y, 46, { char: config.troops[drag.item.type].char, level: drag.item.level, style: 'troop' }, gamePack);
-    else if (drag.item.kind === 'frag') drawCard(ctx, drag.x, drag.y, 46, { char: drag.item.char, level: drag.item.level ?? 1, style: 'frag' }, gamePack);
+    const drawDraggedPiece = usesCalligraphyPieces(gamePack) ? drawCalligraphyPiece : drawCard;
+    if (drag.item.kind === 'troop') drawDraggedPiece(ctx, drag.x, drag.y - (usesCalligraphyPieces(gamePack) ? 4 : 0), 46, { char: config.troops[drag.item.type].char, level: drag.item.level, style: 'troop' }, gamePack);
+    else if (drag.item.kind === 'frag') drawDraggedPiece(ctx, drag.x, drag.y - (usesCalligraphyPieces(gamePack) ? 4 : 0), 46, { char: drag.item.char, level: drag.item.level ?? 1, style: 'frag' }, gamePack);
     else drawToolAtlasIcon(ctx, 'item.shovel', drag.x - 24, drag.y - 24, 48, 48, gamePack, host);
   }
 

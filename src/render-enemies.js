@@ -2,6 +2,22 @@
 import { font } from './render-theme.js';
 import { copyText } from './engine-core/public.js';
 import { resolveLegacyPresentationGamePack } from './systems/skin-presentation/legacy-game-pack.js';
+import { layoutForGamePack } from './systems/ui-interaction/index.js';
+
+function projectedEnemyPosition(state, enemy, layout) {
+  if (layout.projection.mode !== 'shallow-perspective') return enemy.position;
+  const path = state.paths?.[enemy.lane ?? 0] ?? state.path;
+  if (!Array.isArray(path) || path.length === 0) return enemy.position;
+  if (path.length === 1) return layout.cellXY(path[0].r, path[0].c);
+  const index = Math.min(Math.max(0, Math.floor(enemy.p)), path.length - 2);
+  const progress = Math.max(0, Math.min(1, enemy.p - index));
+  const from = layout.cellXY(path[index].r, path[index].c);
+  const to = layout.cellXY(path[index + 1].r, path[index + 1].c);
+  return {
+    x: from.x + (to.x - from.x) * progress,
+    y: from.y + (to.y - from.y) * progress,
+  };
+}
 
 function drawSpeedAccent(ctx, size) {
   ctx.strokeStyle = '#647648';
@@ -58,6 +74,21 @@ function drawEliteAccent(ctx, size, boss) {
 function drawEnemyGlyph(ctx, enemy, type, gamePack) {
   const boss = enemy.type === 'boss';
   const size = (boss ? 22 : 17) * type.size;
+  const activeTheme = gamePack.manifests.theme.activeTheme;
+  if (activeTheme?.enemyRendererId === 'enemy.calligraphy-only') {
+    const scale = activeTheme.pieceStyle?.enemyScale ?? 1;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = font((boss ? 42 : Math.round(31 * type.size)) * scale, true, gamePack);
+    ctx.shadowColor = 'rgba(74,25,19,0.34)';
+    ctx.shadowBlur = activeTheme.pieceStyle?.shadowBlur ?? 5;
+    ctx.shadowOffsetY = activeTheme.pieceStyle?.shadowOffsetY ?? 3;
+    ctx.fillStyle = boss ? '#7b211c' : '#a73a30';
+    ctx.fillText(type.char, 0, 2);
+    ctx.restore();
+    return;
+  }
   if (enemy.type === 'fast') drawSpeedAccent(ctx, size);
   if (enemy.type === 'tank') drawTankAccent(ctx, size);
   if (enemy.type === 'elite' || boss) drawEliteAccent(ctx, size, boss);
@@ -99,10 +130,12 @@ function drawEnemyHealth(ctx, enemy, type, x, y, gamePack) {
 export function drawEnemies(ctx, state, gamePack = null) {
   gamePack = resolveLegacyPresentationGamePack(state, gamePack);
   const config = gamePack.config;
+  const layout = layoutForGamePack(gamePack);
   for (const enemy of state.enemyViews ?? []) {
     const type = config.enemy.types[enemy.type];
-    const x = enemy.position.x;
-    const y = enemy.position.y + Math.sin(enemy.bob ?? 0) * 2;
+    const position = projectedEnemyPosition(state, enemy, layout);
+    const x = position.x;
+    const y = position.y + Math.sin(enemy.bob ?? 0) * 2;
     const boss = enemy.type === 'boss';
     const radius = (boss ? 27 : 16) * type.size;
 

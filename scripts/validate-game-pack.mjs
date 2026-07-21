@@ -346,6 +346,17 @@ export function validateGamePackDocuments(documents, schemas) {
   Object.entries(theme.feedback ?? {}).forEach(([id, feedback]) => addReferenceError(
     errors, `theme.feedback.${id}.effectId`, feedback.effectId, theme.renderers?.effects ?? {}, '效果渲染器',
   ));
+  const themeOptions = theme.themeCatalog?.options ?? {};
+  addReferenceError(
+    errors,
+    'theme.themeCatalog.defaultThemeId',
+    theme.themeCatalog?.defaultThemeId,
+    themeOptions,
+    '默认主题',
+  );
+  Object.entries(themeOptions).forEach(([id, option]) => {
+    addReferenceError(errors, `theme.themeCatalog.options.${id}.labelCopyId`, option.labelCopyId, copy.strings, '文案');
+  });
 
   const eventById = Object.fromEntries((events.events ?? []).map((event) => [event.id, event]));
   ensureUnique(errors, events.events?.map((event) => event.id) ?? [], 'events.events', '事件 ID');

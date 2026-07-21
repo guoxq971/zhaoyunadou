@@ -26,6 +26,33 @@ assert.ok(Object.isFrozen(layout.ui));
 assert.equal(layoutForGamePack(DEFAULT_GAME_PACK), layoutForGamePack(DEFAULT_GAME_PACK),
   '同一 Game Pack 必须复用语义布局，避免每帧重复分配');
 
+const perspectiveLayout = createSemanticLayout(DEFAULT_GAME_PACK.config, {
+  projection: {
+    mode: 'shallow-perspective',
+    topScale: 0.9,
+    bottomScale: 1,
+    verticalScale: 0.9,
+  },
+});
+const topLeft = perspectiveLayout.cellPolygon(0, 0)[0];
+const topRight = perspectiveLayout.cellPolygon(0, perspectiveLayout.board.cols - 1)[1];
+const bottomLeft = perspectiveLayout.cellPolygon(perspectiveLayout.board.rows - 1, 0)[3];
+const bottomRight = perspectiveLayout.cellPolygon(
+  perspectiveLayout.board.rows - 1,
+  perspectiveLayout.board.cols - 1,
+)[2];
+assert.ok(topRight.x - topLeft.x < bottomRight.x - bottomLeft.x,
+  '浅透视棋盘顶部必须比底部稍窄');
+assert.ok(perspectiveLayout.cellXY(9, 0).y < layout.cellXY(9, 0).y,
+  '浅俯视必须压缩棋盘纵向高度');
+for (const [row, column] of [[0, 0], [4, 3], [9, 7]]) {
+  const center = perspectiveLayout.cellXY(row, column);
+  assert.deepEqual(perspectiveLayout.boardCell(center.x, center.y), { r: row, c: column },
+    '透视显示与点击命中必须使用同一套逆映射');
+}
+assert.equal(perspectiveLayout.boardCell(topLeft.x - 8, topLeft.y), null,
+  '棋盘外的梯形留白不得误命中逻辑格');
+
 const interaction = createInteractionState({ mode: 'brush' });
 assert.equal(interaction.mode, 'brush');
 recordCommandResult(interaction, {
@@ -158,6 +185,7 @@ const inputSource = {
   },
 };
 const submitted = [];
+const presentationActions = [];
 const mutableView = { ...viewModel, title: true, screen: 'title', stageIndex: 0 };
 const binding = createLocalInputBinding({
   inputSource,
@@ -175,6 +203,10 @@ const binding = createLocalInputBinding({
     if (type === 'interaction.drag_cancel' || type === 'unit.drop') resetInteractionState(interaction);
     return { ok: true, reason: 'none' };
   },
+  onPresentationAction(type, payload) {
+    presentationActions.push({ type, payload });
+    return { ok: true };
+  },
   queries: {
     findBrushTarget: () => ({ zone: 'grid', r: 0, c: 0 }),
     findDropTarget: () => ({ zone: 'grid', r: 0, c: 0 }),
@@ -183,6 +215,19 @@ const binding = createLocalInputBinding({
 
 assert.equal(binding.start(), true);
 assert.equal(binding.start(), false, '输入绑定不得重复订阅');
+assert.equal(listener({
+  type: 'pointer-down', pointerId: 9, primary: true, button: 0,
+  x: layout.ui.themeSwitch.x + 2, y: layout.ui.themeSwitch.y + 2,
+}), true);
+assert.equal(listener({
+  type: 'pointer-up', pointerId: 9, primary: true, button: 0,
+  x: layout.ui.themeSwitch.x + 2, y: layout.ui.themeSwitch.y + 2,
+}), false);
+assert.deepEqual(presentationActions.at(-1), { type: 'presentation.theme.next', payload: {} });
+assert.equal(submitted.length, 0, '表现主题切换不得伪装成 GameCommand');
+assert.equal(listener({ type: 'key-down', code: 'KeyT' }), true);
+assert.deepEqual(presentationActions.at(-1), { type: 'presentation.theme.next', payload: {} });
+assert.equal(submitted.length, 0, '主题快捷键不得写入玩法命令日志');
 const stageRect = layout.titleStageRect(1);
 assert.equal(listener({
   type: 'pointer-down', pointerId: 1, primary: true, button: 0,

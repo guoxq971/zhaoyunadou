@@ -745,6 +745,9 @@ export const manifests = {
       "title.board.heroName": "赵 云",
       "title.avatar.glyph": "云",
       "title.coin.glyph": "刀",
+      "title.theme.ink": "水墨",
+      "title.theme.cloud": "云台",
+      "title.theme.hint": "主题·{theme}",
       "battle.camp": "营",
       "battle.gate": "营",
       "battle.status.stunned": "晕",
@@ -803,6 +806,64 @@ export const manifests = {
     "schemaVersion": "1.0.0",
     "version": "1.0.0",
     "id": "ink-warm",
+    "themeCatalog": {
+      "defaultThemeId": "theme.ink-board-default",
+      "storageKey": "zyad_presentation_theme",
+      "options": {
+        "theme.ink-board-default": {
+          "labelCopyId": "title.theme.ink",
+          "boardRendererId": "board.ink-flat",
+          "pieceRendererId": "piece.paper-card",
+          "enemyRendererId": "enemy.ink-glyph"
+        },
+        "theme.cloud-arena-2-5d": {
+          "labelCopyId": "title.theme.cloud",
+          "boardRendererId": "board.cloud-arena-2-5d",
+          "pieceRendererId": "piece.calligraphy-only",
+          "enemyRendererId": "enemy.calligraphy-only",
+          "colorOverrides": {
+            "paper": "#eee7d7",
+            "paperLight": "#faf6ea",
+            "paperRaised": "#fffdf5",
+            "boardSurface": "#d9d1bd",
+            "boardFrame": "#252c2b",
+            "openCell": "rgba(188,211,195,0.98)",
+            "lockedCell": "rgba(91,106,101,0.96)",
+            "pathCell": "rgba(199,190,164,0.98)",
+            "cellLine": "rgba(42,48,43,0.22)",
+            "routeLine": "#a94c3d",
+            "routeArrow": "#bd3f31",
+            "qingPlayableWash": "rgba(188,211,195,0.98)"
+          },
+          "boardStyle": {
+            "tileInset": 0.35,
+            "tileDepth": 3.8,
+            "platformDepth": 18,
+            "cornerRadius": 2,
+            "highlightAlpha": 0.42,
+            "stoneGrainAlpha": 0.13,
+            "stoneVariationAlpha": 0.065,
+            "routeSurfaceAlpha": 0.88,
+            "wallBlockCount": 8,
+            "projection": {
+              "mode": "shallow-perspective",
+              "topScale": 0.9,
+              "bottomScale": 1,
+              "verticalScale": 0.9
+            }
+          },
+          "pieceStyle": {
+            "troopScale": 0.76,
+            "heroScale": 0.82,
+            "enemyScale": 1,
+            "shadowBlur": 5,
+            "shadowOffsetY": 3,
+            "echoOffset": 1.4,
+            "levelScale": 0.22
+          }
+        }
+      }
+    },
     "fontFamily": "\"Kaiti SC\",\"STKaiti\",KaiTi,\"KaiTi SC\",serif",
     "assetRefs": [
       "battlefield.ink",
@@ -921,6 +982,12 @@ export const manifests = {
         "y": 690,
         "w": 136,
         "h": 44
+      },
+      "themeSwitch": {
+        "x": 32,
+        "y": 67,
+        "w": 48,
+        "h": 48
       }
     },
     "heroVisuals": {
