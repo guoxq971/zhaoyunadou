@@ -35,6 +35,8 @@ export function createLocalGameControl({
   inputQueries,
   presentCommand,
   onCommandError,
+  onPresentationAction,
+  getLayout,
 } = {}) {
   resetInteractionState(drag);
   const activeCommandLog = commandLog ?? createCommandLog({
@@ -46,7 +48,8 @@ export function createLocalGameControl({
       random: runtimeFor(game.state)?.random?.snapshot?.() ?? null,
     },
   });
-  const layout = createSemanticLayout(gamePack.config);
+  const staticLayout = createSemanticLayout(gamePack.config);
+  const resolveLayout = typeof getLayout === 'function' ? getLayout : () => staticLayout;
   const handlers = createMergeDefenseCommandHandlers({ game, drag, gamePack });
   const dispatcher = createCommandDispatcher({
     handlers,
@@ -81,7 +84,7 @@ export function createLocalGameControl({
   const binding = createLocalInputBinding({
     inputSource,
     surface,
-    layout,
+    layout: resolveLayout,
     interaction: drag,
     getViewModel: () => createGameViewModel(game.state, drag, {
       stageCount: gamePack.config.campaign.stages.length,
@@ -91,6 +94,7 @@ export function createLocalGameControl({
     submit: controller.submit,
     queries: inputQueries ?? createMergeDefenseInputQueries({ getState: () => game.state, gamePack }),
     onGesture: () => { void audioEngine.init?.(); },
+    onPresentationAction,
   });
   let started = false;
   let destroyed = false;

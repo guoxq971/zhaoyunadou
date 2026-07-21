@@ -17,14 +17,17 @@ export function createLocalInputMapper({
   submit,
   queries = {},
   onGesture = () => {},
+  onPresentationAction = () => ({ ok: false }),
 } = {}) {
-  if (!layout || typeof layout.boardCell !== 'function') throw new TypeError('[ui-input] layout is required');
+  const resolveLayout = typeof layout === 'function' ? layout : () => layout;
+  if (typeof resolveLayout()?.boardCell !== 'function') throw new TypeError('[ui-input] layout is required');
   if (!interaction || typeof interaction !== 'object') throw new TypeError('[ui-input] interaction is required');
   if (typeof getViewModel !== 'function') throw new TypeError('[ui-input] getViewModel is required');
   if (typeof submit !== 'function') throw new TypeError('[ui-input] submit is required');
   let activePointerId = null;
 
   const submitOk = (type, payload = {}) => Boolean(submit(type, payload)?.ok);
+  const presentOk = (type, payload = {}) => Boolean(onPresentationAction(type, payload)?.ok);
 
   function beginDrag(source, x, y) {
     const ok = submitOk('interaction.drag_begin', { source });
@@ -33,46 +36,50 @@ export function createLocalInputMapper({
   }
 
   function handleDown(intent) {
+    const activeLayout = resolveLayout();
     const view = getViewModel();
     const { x, y } = intent;
     surface?.focus?.();
     if (view.title) {
+      if (activeLayout.inRect(x, y, activeLayout.ui.themeSwitch)) {
+        return presentOk('presentation.theme.next');
+      }
       for (let index = 0; index < view.stageCount; index++) {
-        if (layout.inRect(x, y, layout.titleStageRect(index))) {
+        if (activeLayout.inRect(x, y, activeLayout.titleStageRect(index))) {
           return submitOk('campaign.select_stage', { stageIndex: index });
         }
       }
-      if (layout.inRect(x, y, layout.ui.resetProgress)) {
+      if (activeLayout.inRect(x, y, activeLayout.ui.resetProgress)) {
         return submitOk('campaign.reset_progress', { action: 'request' });
       }
-      if (layout.inRect(x, y, layout.ui.start)) {
+      if (activeLayout.inRect(x, y, activeLayout.ui.start)) {
         return submitOk('campaign.start_stage', { stageIndex: view.stageIndex });
       }
       return false;
     }
     if (view.over) {
-      if (!layout.inRect(x, y, layout.ui.restart)) return false;
+      if (!activeLayout.inRect(x, y, activeLayout.ui.restart)) return false;
       return submitOk(view.win ? 'result.resolve' : 'battle.retry');
     }
-    if (layout.inRect(x, y, layout.ui.pause)) {
+    if (activeLayout.inRect(x, y, activeLayout.ui.pause)) {
       return submitOk('battle.set_paused', { paused: view.speed !== 0 });
     }
-    if (view.phase === 'break' && layout.inRect(x, y, layout.ui.callWave)) {
+    if (view.phase === 'break' && activeLayout.inRect(x, y, activeLayout.ui.callWave)) {
       return submitOk('battle.start_wave');
     }
-    if (layout.inRect(x, y, layout.ui.speed)) {
+    if (activeLayout.inRect(x, y, activeLayout.ui.speed)) {
       const speed = view.speed === 1 ? 2 : view.speed === 2 ? 0 : 1;
       return submitOk('battle.set_speed', { speed });
     }
-    if (layout.inRect(x, y, layout.ui.shovel)) {
+    if (activeLayout.inRect(x, y, activeLayout.ui.shovel)) {
       return submitOk('item.select_mode', { itemId: 'brush' });
     }
-    if (layout.inRect(x, y, layout.ui.recruit)) {
+    if (activeLayout.inRect(x, y, activeLayout.ui.recruit)) {
       setInteractionMode(interaction, null);
       return submitOk('battle.batch_recruit');
     }
 
-    const location = pointerLocation(layout, x, y, view.benchSize);
+    const location = pointerLocation(activeLayout, x, y, view.benchSize);
     if (interaction.mode === 'brush') return submitOk('item.use', { itemId: 'brush', target: location });
     if (interaction.mode === 'shovel') return submitOk('item.use', { itemId: 'shovel', target: location });
     if (location.zone === 'bench' || location.zone === 'grid') return beginDrag(location, x, y);
@@ -83,7 +90,7 @@ export function createLocalInputMapper({
     if (!interaction.item) return false;
     const source = interaction.source;
     const expectedSource = interaction.expectedSource;
-    const target = pointerLocation(layout, intent.x, intent.y, getViewModel().benchSize);
+    const target = pointerLocation(resolveLayout(), intent.x, intent.y, getViewModel().benchSize);
     if (interaction.item.kind === 'shovel') {
       if (target.zone === 'grid') {
         return submitOk('item.use', { itemId: 'shovel', source, target, expectedSource });
@@ -128,6 +135,7 @@ export function createLocalInputMapper({
     if (/^Digit[1-5]$/.test(code) && view.title) {
       return submitOk('campaign.select_stage', { stageIndex: Number(code.slice(-1)) - 1 });
     }
+    if (code === 'KeyT' && view.title) return presentOk('presentation.theme.next');
     if (code === 'KeyR' && view.title) return submitOk('campaign.reset_progress', { action: 'request' });
     if (code === 'Escape' && view.title) return submitOk('campaign.reset_progress', { action: 'cancel' });
     if (code === 'KeyP' && inBattle) {
@@ -144,7 +152,7 @@ export function createLocalInputMapper({
     if (code === 'Escape' && inBattle) return submitOk('session.quit', { reason: 'keyboard-escape' });
     if (/^Digit[1-5]$/.test(code) && inBattle && !interaction.item) {
       const index = Number(code.slice(-1)) - 1;
-      const rect = layout.benchRect(index);
+      const rect = resolveLayout().benchRect(index);
       return beginDrag({ zone: 'bench', index }, rect.x + rect.w / 2, rect.y + rect.h / 2);
     }
     return false;
@@ -163,7 +171,7 @@ export function createLocalInputMapper({
       setPointerFeedback(interaction, {
         x: intent.x,
         y: intent.y,
-        hover: pointerLocation(layout, intent.x, intent.y, getViewModel().benchSize),
+        hover: pointerLocation(resolveLayout(), intent.x, intent.y, getViewModel().benchSize),
       });
       return true;
     }

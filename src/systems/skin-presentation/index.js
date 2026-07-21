@@ -24,6 +24,11 @@ function skillVisualPoint(state, payload) {
 
 export const SKIN_PRESENTATION_API_VERSION = '1.0.0';
 
+export {
+  PRESENTATION_THEME_API_VERSION,
+  createPresentationThemeController,
+} from './presentation-theme.js';
+
 export { configureLegacyPresentationGamePack } from './legacy-game-pack.js';
 
 export const PRESENTATION_CUE_TYPES = Object.freeze({

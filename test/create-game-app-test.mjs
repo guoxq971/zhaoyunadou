@@ -152,6 +152,21 @@ for (let cycle = 0; cycle < 3; cycle++) {
     { input: 1, lifecycle: 1, logic: 1, render: 1 },
   );
   if (cycle === 0) {
+    assert.equal(app.getPresentationSnapshot().activeThemeId, 'theme.ink-board-default');
+    const themeCommandCount = app.getCommandLogSnapshot().length;
+    const themePoint = {
+      x: UI.themeSwitch.x + UI.themeSwitch.w / 2,
+      y: UI.themeSwitch.y + UI.themeSwitch.h / 2,
+      button: 0,
+    };
+    host.__test.emitInput({ type: 'pointer-down', ...themePoint, pointerId: 8, primary: true });
+    host.__test.emitInput({ type: 'pointer-up', ...themePoint, pointerId: 8, primary: true });
+    assert.equal(app.getPresentationSnapshot().activeThemeId, 'theme.cloud-arena-2-5d');
+    assert.equal(app.getCommandLogSnapshot().length, themeCommandCount,
+      '主题切换不得进入玩法命令日志');
+    assert.equal('presentationTheme' in app.getStateSnapshot(), false,
+      '表现偏好不得进入 MatchSnapshot 或旧存档 ABI');
+    assert.equal(app.selectPresentationTheme('theme.ink-board-default').ok, true);
     const point = { x: UI.start.x + UI.start.w / 2, y: UI.start.y + UI.start.h / 2, button: 0 };
     host.__test.emitInput({ type: 'pointer-down', ...point, pointerId: 2, primary: false });
     host.__test.emitInput({ type: 'pointer-up', ...point, pointerId: 2, primary: false });

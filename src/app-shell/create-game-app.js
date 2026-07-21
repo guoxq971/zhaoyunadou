@@ -20,12 +20,14 @@ import {
 } from '../systems/progress-save/index.js';
 import {
   createSafeAudioAdapter,
+  createPresentationThemeController,
   releasePresentationResources,
   renderGame,
 } from '../systems/skin-presentation/index.js';
 import {
   createInteractionState,
   createSemanticLayout,
+  layoutForGamePack,
   resetInteractionState,
 } from '../systems/ui-interaction/index.js';
 import { createMergeDefenseViewModel } from '../rulesets/merge-defense/view-model.js';
@@ -63,6 +65,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
   let syncStatus = null;
   let localControl = null;
   let progressSave = null;
+  let presentationThemes = null;
   let commandLog = null;
   let logicTick = 0;
   let started = false;
@@ -93,6 +96,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     syncStatus = null;
     localControl = null;
     progressSave = null;
+    presentationThemes = null;
     commandLog = null;
     logicTick = 0;
     appPaused = false;
@@ -136,7 +140,17 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
       const viewModel = createMergeDefenseViewModel(game.state, drag, gamePack, {
         highestUnlockedStageIndex: game.highestUnlockedStageIndex,
       });
-      renderGame(host.surface.getContext(), viewModel, viewModel.interaction, gamePack, host);
+      const renderView = Object.freeze({
+        ...viewModel,
+        presentationTheme: presentationThemes.getSnapshot(),
+      });
+      renderGame(
+        host.surface.getContext(),
+        renderView,
+        renderView.interaction,
+        presentationThemes.getGamePack(),
+        host,
+      );
     }
     catch (error) { reportAdapterError(error, 'render'); }
   }
@@ -171,6 +185,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     try {
       const primary = createSafeStorage(host.storage);
       storage = createScopedStorage(primary, host.storage.scope ?? '');
+      presentationThemes = createPresentationThemeController({ gamePack, storage });
       const manifest = gamePack.manifests.game;
       progressSave = createProgressSave({
         storage,
@@ -215,6 +230,12 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
         audioEngine: safeAudio,
         getTick: () => logicTick,
         onCommandError: (error) => reportAdapterError(error, 'command.dispatch'),
+        onPresentationAction(type) {
+          if (type !== 'presentation.theme.next') return { ok: false };
+          return presentationThemes.selectNext();
+        },
+        // 主题可改变棋盘投影，输入始终从当前表现 Pack 取同一份几何。
+        getLayout: () => layoutForGamePack(presentationThemes.getGamePack()),
       });
       commandLog = localControl.commandLog;
       syncStatus = createGameStatusSynchronizer({ game, gamePack, drag, storage, host, commandLog });
@@ -236,6 +257,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
         __events: eventCollector,
         __commands: commandLog,
         __controller: localControl.controller,
+        __presentationThemes: presentationThemes,
       });
       runtime.events.emit('session_start', game.state, { result: 'started', reason: 'app-load' });
       return true;
@@ -286,6 +308,15 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     return commandLog ? commandLog.getEntries() : Object.freeze([]);
   }
 
+  function getPresentationSnapshot() {
+    return presentationThemes?.getSnapshot() ?? null;
+  }
+
+  function selectPresentationTheme(themeId) {
+    if (!presentationThemes) return Object.freeze({ ok: false, reason: 'app-not-started' });
+    return presentationThemes.select(themeId);
+  }
+
   return Object.freeze({
     start,
     pause,
@@ -294,5 +325,7 @@ export function createGameApp({ gamePack, host, services = {} } = {}) {
     whenDestroyed,
     getStateSnapshot,
     getCommandLogSnapshot,
+    getPresentationSnapshot,
+    selectPresentationTheme,
   });
 }

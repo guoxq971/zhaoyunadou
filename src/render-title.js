@@ -386,6 +386,17 @@ export function drawTitle(ctx, state, gamePack = null, host = null) {
   drawAvatar(ctx, 35, 23, gamePack);
   drawCoinPill(ctx, 84, 27, Math.max(0, state.clearedStars || 0), gamePack);
   drawGear(ctx, 56, 91);
+  const activeTheme = state.presentationTheme?.options?.find((option) => (
+    option.id === state.presentationTheme.activeThemeId
+  ));
+  if (activeTheme) {
+    const label = copyText(gamePack, activeTheme.labelCopyId, {}, activeTheme.id);
+    ctx.fillStyle = colors.inkMuted;
+    ctx.font = font(11, true, gamePack);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(copyText(gamePack, 'title.theme.hint', { theme: label }, `主题·${label}`), 56, 122);
+  }
   drawEnergy(ctx, 88, 74, Math.min(25, Math.max(0, state.mantou ?? 25)), 30, gamePack);
 
   ctx.fillStyle = colors.inkStrong; ctx.strokeStyle = 'rgba(255,250,239,0.72)'; ctx.lineWidth = 3;

@@ -10,6 +10,7 @@ const DEFAULT_UI_RECTS = Object.freeze({
   callWave: Object.freeze({ x: 138, y: 58, w: 144, h: 34 }),
   stageSelect: Object.freeze({ x: 44, y: 244, w: 60, h: 48, gap: 6 }),
   resetProgress: Object.freeze({ x: 142, y: 690, w: 136, h: 44 }),
+  themeSwitch: Object.freeze({ x: 32, y: 67, w: 48, h: 48 }),
 });
 
 const copyRect = (rect) => Object.freeze({ ...rect });
@@ -24,7 +25,10 @@ function assertBoard(board) {
 }
 
 // 语义热区归 UI 系统；Theme 中的同值字段仅作为旧 Game Pack 兼容数据保留。
-export function createSemanticLayout(config, { rects = DEFAULT_UI_RECTS } = {}) {
+export function createSemanticLayout(config, {
+  rects = DEFAULT_UI_RECTS,
+  projection = null,
+} = {}) {
   const board = config?.board ?? config;
   assertBoard(board);
   const frozenBoard = Object.freeze({ ...board });
@@ -33,10 +37,55 @@ export function createSemanticLayout(config, { rects = DEFAULT_UI_RECTS } = {}) 
   ));
   const boardWidth = frozenBoard.cols * frozenBoard.cellW;
   const boardHeight = frozenBoard.rows * frozenBoard.cellH;
-  const cellXY = (row, column) => Object.freeze({
-    x: frozenBoard.ox + (column + 0.5) * frozenBoard.cellW,
-    y: frozenBoard.oy + (row + 0.5) * frozenBoard.cellH,
+  const perspective = projection?.mode === 'shallow-perspective';
+  const projectionSpec = Object.freeze(perspective ? {
+    mode: 'shallow-perspective',
+    topScale: Number(projection.topScale) || 0.92,
+    bottomScale: Number(projection.bottomScale) || 1,
+    verticalScale: Number(projection.verticalScale) || 0.9,
+  } : { mode: 'orthogonal', topScale: 1, bottomScale: 1, verticalScale: 1 });
+  const centerX = frozenBoard.ox + boardWidth / 2;
+  const scaleAt = (logicalY) => {
+    const progress = (logicalY - frozenBoard.oy) / boardHeight;
+    return projectionSpec.topScale
+      + (projectionSpec.bottomScale - projectionSpec.topScale) * progress;
+  };
+  // UI 命中与 Renderer 共用可逆的浅透视映射，避免视觉格与点击格错位。
+  const projectPoint = (x, y) => Object.freeze({
+    x: centerX + (x - centerX) * scaleAt(y),
+    y: frozenBoard.oy + (y - frozenBoard.oy) * projectionSpec.verticalScale,
   });
+  const unprojectPoint = (x, y) => {
+    const logicalY = frozenBoard.oy
+      + (y - frozenBoard.oy) / projectionSpec.verticalScale;
+    const scale = scaleAt(logicalY);
+    return Object.freeze({
+      x: centerX + (x - centerX) / scale,
+      y: logicalY,
+    });
+  };
+  const cellXY = (row, column) => projectPoint(
+    frozenBoard.ox + (column + 0.5) * frozenBoard.cellW,
+    frozenBoard.oy + (row + 0.5) * frozenBoard.cellH,
+  );
+  const cellPolygon = (row, column) => Object.freeze([
+    projectPoint(
+      frozenBoard.ox + column * frozenBoard.cellW,
+      frozenBoard.oy + row * frozenBoard.cellH,
+    ),
+    projectPoint(
+      frozenBoard.ox + (column + 1) * frozenBoard.cellW,
+      frozenBoard.oy + row * frozenBoard.cellH,
+    ),
+    projectPoint(
+      frozenBoard.ox + (column + 1) * frozenBoard.cellW,
+      frozenBoard.oy + (row + 1) * frozenBoard.cellH,
+    ),
+    projectPoint(
+      frozenBoard.ox + column * frozenBoard.cellW,
+      frozenBoard.oy + (row + 1) * frozenBoard.cellH,
+    ),
+  ]);
   const benchRect = (index) => Object.freeze({
     x: ui.bench.x + index * (ui.bench.w + ui.bench.gap),
     y: ui.bench.y,
@@ -56,8 +105,9 @@ export function createSemanticLayout(config, { rects = DEFAULT_UI_RECTS } = {}) 
     h: ui.stageSelect.h,
   });
   const boardCell = (x, y) => {
-    const column = Math.floor((x - frozenBoard.ox) / frozenBoard.cellW);
-    const row = Math.floor((y - frozenBoard.oy) / frozenBoard.cellH);
+    const logical = unprojectPoint(x, y);
+    const column = Math.floor((logical.x - frozenBoard.ox) / frozenBoard.cellW);
+    const row = Math.floor((logical.y - frozenBoard.oy) / frozenBoard.cellH);
     return row >= 0 && row < frozenBoard.rows && column >= 0 && column < frozenBoard.cols
       ? Object.freeze({ r: row, c: column })
       : null;
@@ -69,8 +119,12 @@ export function createSemanticLayout(config, { rects = DEFAULT_UI_RECTS } = {}) 
     board: frozenBoard,
     boardWidth,
     boardHeight,
+    projection: projectionSpec,
     ui,
+    projectPoint,
+    unprojectPoint,
     cellXY,
+    cellPolygon,
     benchRect,
     toolRect,
     titleStageRect,
@@ -87,7 +141,8 @@ export function layoutForGamePack(gamePack) {
     throw new TypeError('[ui-layout] gamePack is required');
   }
   if (!gamePackLayouts.has(gamePack)) {
-    gamePackLayouts.set(gamePack, createSemanticLayout(gamePack.config));
+    const projection = gamePack.manifests?.theme?.activeTheme?.boardStyle?.projection ?? null;
+    gamePackLayouts.set(gamePack, createSemanticLayout(gamePack.config, { projection }));
   }
   return gamePackLayouts.get(gamePack);
 }

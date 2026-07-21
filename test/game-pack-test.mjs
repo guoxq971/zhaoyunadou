@@ -126,6 +126,28 @@ for (const role of [
 
 {
   const broken = structuredClone(loaded.documents);
+  broken.theme.themeCatalog.defaultThemeId = 'theme.not-registered';
+  assert.ok(
+    validateGamePackDocuments(broken, loaded.schemas).some((error) => (
+      error.includes('theme.themeCatalog.defaultThemeId') && error.includes('theme.not-registered')
+    )),
+    '默认主题必须引用主题目录中的稳定 ID',
+  );
+}
+
+{
+  const broken = structuredClone(loaded.documents);
+  broken.theme.themeCatalog.options['theme.cloud-arena-2-5d'].labelCopyId = 'title.theme.missing';
+  assert.ok(
+    validateGamePackDocuments(broken, loaded.schemas).some((error) => (
+      error.includes('labelCopyId') && error.includes('title.theme.missing')
+    )),
+    '主题名称必须引用内容包中的真实文案 ID',
+  );
+}
+
+{
+  const broken = structuredClone(loaded.documents);
   broken.levels.stages[0].featuredHero = 'unknown-hero';
   assert.ok(
     validateGamePackDocuments(broken, loaded.schemas).some((error) => (
